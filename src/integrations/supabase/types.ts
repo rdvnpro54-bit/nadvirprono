@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cache_metadata: {
+        Row: {
+          id: string
+          last_fetched_at: string | null
+          last_reset_date: string
+          request_count_today: number
+        }
+        Insert: {
+          id?: string
+          last_fetched_at?: string | null
+          last_reset_date?: string
+          request_count_today?: number
+        }
+        Update: {
+          id?: string
+          last_fetched_at?: string | null
+          last_reset_date?: string
+          request_count_today?: number
+        }
+        Relationships: []
+      }
+      cached_matches: {
+        Row: {
+          away_logo: string | null
+          away_score: number | null
+          away_team: string
+          created_at: string
+          fetched_at: string
+          fixture_id: number
+          home_logo: string | null
+          home_score: number | null
+          home_team: string
+          id: string
+          is_free: boolean
+          kickoff: string
+          league_country: string | null
+          league_name: string
+          pred_analysis: string | null
+          pred_away_win: number
+          pred_btts_prob: number
+          pred_confidence: string
+          pred_draw: number
+          pred_home_win: number
+          pred_over_prob: number
+          pred_over_under: number
+          pred_score_away: number
+          pred_score_home: number
+          pred_value_bet: boolean
+          sport: string
+          status: string
+        }
+        Insert: {
+          away_logo?: string | null
+          away_score?: number | null
+          away_team: string
+          created_at?: string
+          fetched_at?: string
+          fixture_id: number
+          home_logo?: string | null
+          home_score?: number | null
+          home_team: string
+          id?: string
+          is_free?: boolean
+          kickoff: string
+          league_country?: string | null
+          league_name: string
+          pred_analysis?: string | null
+          pred_away_win?: number
+          pred_btts_prob?: number
+          pred_confidence?: string
+          pred_draw?: number
+          pred_home_win?: number
+          pred_over_prob?: number
+          pred_over_under?: number
+          pred_score_away?: number
+          pred_score_home?: number
+          pred_value_bet?: boolean
+          sport?: string
+          status?: string
+        }
+        Update: {
+          away_logo?: string | null
+          away_score?: number | null
+          away_team?: string
+          created_at?: string
+          fetched_at?: string
+          fixture_id?: number
+          home_logo?: string | null
+          home_score?: number | null
+          home_team?: string
+          id?: string
+          is_free?: boolean
+          kickoff?: string
+          league_country?: string | null
+          league_name?: string
+          pred_analysis?: string | null
+          pred_away_win?: number
+          pred_btts_prob?: number
+          pred_confidence?: string
+          pred_draw?: number
+          pred_home_win?: number
+          pred_over_prob?: number
+          pred_over_under?: number
+          pred_score_away?: number
+          pred_score_home?: number
+          pred_value_bet?: boolean
+          sport?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
