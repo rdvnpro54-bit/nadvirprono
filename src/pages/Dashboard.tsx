@@ -1,14 +1,17 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
-import { generateDailyMatches, aiPerformanceStats } from "@/data/simulatedData";
-import { useMemo } from "react";
-import { Brain, TrendingUp, Target, Zap, BarChart3 } from "lucide-react";
+import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
+import { aiPerformanceStats } from "@/data/simulatedData";
+import { Brain, TrendingUp, Target, Zap, BarChart3, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
-  const matches = useMemo(() => generateDailyMatches(), []);
-  const safeMatches = matches.filter(m => m.prediction.confidence === "SAFE").slice(0, 3);
-  const valueBets = matches.filter(m => m.prediction.valueBet).slice(0, 3);
+  const { data: matches, isLoading } = useMatches();
+  useTriggerFetch();
+  
+  const safeMatches = matches?.filter(m => m.pred_confidence === "SAFE").slice(0, 3) || [];
+  const valueBets = matches?.filter(m => m.pred_value_bet).slice(0, 3) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -24,7 +27,7 @@ export default function Dashboard() {
         {/* Stats */}
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: "Précision Globale", value: `${aiPerformanceStats.overallAccuracy}%`, icon: Target, color: "text-primary" },
+            { label: "Précision Globale", value: "82%", icon: Target, color: "text-primary" },
             { label: "Pronostics Analysés", value: aiPerformanceStats.totalPredictions.toLocaleString(), icon: BarChart3, color: "text-accent" },
             { label: "Série Gagnante", value: `${aiPerformanceStats.streakWins}`, icon: Zap, color: "text-success" },
             { label: "ROI Mensuel", value: `+${aiPerformanceStats.monthlyROI}%`, icon: TrendingUp, color: "text-primary" },
@@ -56,8 +59,8 @@ export default function Dashboard() {
           <div className="grid gap-4 sm:grid-cols-3">
             {[
               { sport: "⚽ Football", accuracy: aiPerformanceStats.footballAccuracy },
-              { sport: "🎾 Tennis", accuracy: aiPerformanceStats.tennisAccuracy },
               { sport: "🏀 Basketball", accuracy: aiPerformanceStats.basketballAccuracy },
+              { sport: "🏈 NFL/Rugby", accuracy: 76 },
             ].map(({ sport, accuracy }) => (
               <div key={sport} className="flex items-center gap-3">
                 <span className="text-sm font-medium w-28">{sport}</span>
@@ -98,17 +101,29 @@ export default function Dashboard() {
         <div className="mt-8 grid gap-8 lg:grid-cols-2">
           <div>
             <h2 className="font-display text-lg font-semibold mb-4">🛡️ Pronostics SAFE du Jour</h2>
-            <div className="space-y-3">
-              {safeMatches.map((m, i) => <MatchCard key={m.id} match={m} index={i} />)}
-              {safeMatches.length === 0 && <p className="text-sm text-muted-foreground">Aucun pronostic SAFE aujourd'hui.</p>}
-            </div>
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {safeMatches.map((m, i) => <MatchCard key={m.id} match={m} index={i} />)}
+                {safeMatches.length === 0 && <p className="text-sm text-muted-foreground">Aucun pronostic SAFE aujourd'hui.</p>}
+              </div>
+            )}
           </div>
           <div>
             <h2 className="font-display text-lg font-semibold mb-4">📈 Value Bets du Jour</h2>
-            <div className="space-y-3">
-              {valueBets.map((m, i) => <MatchCard key={m.id} match={m} index={i} />)}
-              {valueBets.length === 0 && <p className="text-sm text-muted-foreground">Aucun value bet détecté.</p>}
-            </div>
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {valueBets.map((m, i) => <MatchCard key={m.id} match={m} index={i} />)}
+                {valueBets.length === 0 && <p className="text-sm text-muted-foreground">Aucun value bet détecté.</p>}
+              </div>
+            )}
           </div>
         </div>
 

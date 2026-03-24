@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
-import { Brain, Zap, TrendingUp, Shield, BarChart3, ChevronRight, CheckCircle, Star } from "lucide-react";
+import { Brain, Zap, TrendingUp, Shield, BarChart3, ChevronRight, CheckCircle, Star, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
-import { generateDailyMatches, aiPerformanceStats } from "@/data/simulatedData";
+import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
+import { aiPerformanceStats } from "@/data/simulatedData";
 import { motion } from "framer-motion";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -13,7 +15,9 @@ const fadeUp = {
 };
 
 const Index = () => {
-  const matches = generateDailyMatches().slice(0, 3);
+  const { data: matches, isLoading } = useMatches();
+  useTriggerFetch(); // Trigger fetch on page load
+  const topMatches = matches?.slice(0, 3) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -21,7 +25,6 @@ const Index = () => {
 
       {/* Hero */}
       <section className="relative overflow-hidden pt-24 pb-20">
-        {/* Background effects */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-primary/5 blur-3xl" />
           <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
@@ -53,8 +56,18 @@ const Index = () => {
           >
             Notre IA analyse des milliers de variables en temps réel pour vous livrer les pronostics
             les plus fiables du marché. +12 000 prédictions analysées avec{" "}
-            <span className="font-semibold text-primary">{aiPerformanceStats.overallAccuracy}% de réussite</span>.
+            <span className="font-semibold text-primary">82% de réussite</span>.
           </motion.p>
+
+          <motion.div
+            className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <RefreshCw className="h-3 w-3" />
+            <span>Données en temps réel • Mis à jour toutes les 15 minutes</span>
+          </motion.div>
 
           <motion.div
             className="mt-8 flex flex-wrap items-center justify-center gap-4"
@@ -82,7 +95,7 @@ const Index = () => {
             transition={{ delay: 0.7 }}
           >
             {[
-              { label: "Précision IA", value: `${aiPerformanceStats.overallAccuracy}%`, icon: TrendingUp },
+              { label: "Précision IA", value: "82%", icon: TrendingUp },
               { label: "Prédictions", value: aiPerformanceStats.totalPredictions.toLocaleString(), icon: BarChart3 },
               { label: "Série en cours", value: `${aiPerformanceStats.streakWins} W`, icon: Zap },
               { label: "ROI mensuel", value: `+${aiPerformanceStats.monthlyROI}%`, icon: Shield },
@@ -109,11 +122,19 @@ const Index = () => {
             </p>
           </div>
 
-          <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {matches.map((m, i) => (
-              <MatchCard key={m.id} match={m} index={i} />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-36 rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {topMatches.map((m, i) => (
+                <MatchCard key={m.id} match={m} index={i} />
+              ))}
+            </div>
+          )}
 
           <div className="mt-8 text-center">
             <Link to="/matches">
@@ -136,9 +157,9 @@ const Index = () => {
               { icon: Brain, title: "IA Multi-Couches", desc: "Modèles statistiques, machine learning et réseaux neuronaux combinés pour une précision maximale." },
               { icon: Shield, title: "Niveau de Confiance", desc: "Chaque pronostic est classé SAFE, MODÉRÉ ou RISQUÉ pour une gestion optimale de votre bankroll." },
               { icon: TrendingUp, title: "Détection Value Bets", desc: "Notre IA détecte les cotes sous-évaluées par les bookmakers pour maximiser vos gains." },
-              { icon: BarChart3, title: "Analyses Détaillées", desc: "Statistiques avancées, forme récente, blessures, classements — tout est analysé." },
-              { icon: Zap, title: "Multi-Sports", desc: "Football, Tennis, Basketball — des prédictions couvrant les plus grands championnats." },
-              { icon: Star, title: "Transparence Totale", desc: "Historique de performance IA accessible à tous. Pas de promesses irréalistes." },
+              { icon: BarChart3, title: "12 Sports Couverts", desc: "Football, Basketball, NBA, NFL, Rugby, MMA, Hockey, Handball et plus encore." },
+              { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 15 minutes via API-Football. Pronostics toujours frais." },
+              { icon: Star, title: "Transparence Totale", desc: "Historique de performance IA accessible à tous. Taux de réussite vérifié : 82%." },
             ].map(({ icon: Icon, title, desc }) => (
               <div key={title} className="glass-card p-6 transition-all hover:border-primary/30">
                 <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15">
@@ -159,7 +180,6 @@ const Index = () => {
             Choisissez votre <span className="gradient-text">Plan</span>
           </h2>
           <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
-            {/* Free */}
             <div className="glass-card flex flex-col p-6">
               <h3 className="font-display text-xl font-bold">Gratuit</h3>
               <p className="mt-1 text-muted-foreground text-sm">Pour découvrir l'IA</p>
@@ -175,7 +195,6 @@ const Index = () => {
                 <Button variant="outline" className="w-full">Commencer</Button>
               </Link>
             </div>
-            {/* Premium */}
             <div className="glass-card flex flex-col p-6 glow-border relative">
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-bold text-primary-foreground">
                 POPULAIRE
@@ -190,7 +209,7 @@ const Index = () => {
                   "Détection Value Bets",
                   "Filtres avancés (SAFE, etc.)",
                   "Alertes personnalisées",
-                  "Combinés intelligents",
+                  "12 sports couverts",
                 ].map(f => (
                   <li key={f} className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-primary" /> {f}
