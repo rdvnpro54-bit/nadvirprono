@@ -64,10 +64,22 @@
   }
 
   html, body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
     font-family: 'Inter', 'Outfit', system-ui, sans-serif;
     overflow-x: hidden;
     max-width: 100vw;
+    background:
+      radial-gradient(circle at 20% 20%, hsl(195 100% 8% / 0.6), transparent 50%),
+      radial-gradient(circle at 80% 30%, hsl(145 80% 42% / 0.06), transparent 50%),
+      radial-gradient(circle at 50% 80%, hsl(145 80% 42% / 0.04), transparent 50%),
+      hsl(228 25% 4%);
+    background-size: 200% 200%;
+    animation: backgroundMove 14s infinite alternate ease-in-out;
+  }
+
+  @keyframes backgroundMove {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 10% 10%; }
   }
 }
 
