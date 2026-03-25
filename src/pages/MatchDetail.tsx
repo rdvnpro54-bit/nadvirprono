@@ -58,7 +58,18 @@ export default function MatchDetail() {
   const { getMatchCount } = useGlobalActivity();
 
   const isLocked = match?.pred_confidence === "LOCKED" || (!isPremium && match?.pred_home_win === null);
-  const isLive = match && ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
+  // Smart LIVE: based on API status OR kickoff time
+  const apiLive = match && ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
+  const smartLive = useMemo(() => {
+    if (!match) return false;
+    const kickoffTime = new Date(match.kickoff).getTime();
+    const now = Date.now();
+    const sportDurations: Record<string, number> = { football: 120, tennis: 180, basketball: 150 };
+    const maxDuration = (sportDurations[(match.sport || "football").toLowerCase()] || 120) * 60 * 1000;
+    const finished = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED"].includes(match.status.toUpperCase());
+    return !finished && now >= kickoffTime && now <= kickoffTime + maxDuration;
+  }, [match]);
+  const isLive = apiLive || smartLive;
 
   const userCount = useMemo(() => {
     if (!match) return 0;
