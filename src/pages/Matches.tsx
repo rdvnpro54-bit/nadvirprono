@@ -84,6 +84,11 @@ export default function Matches() {
           </div>
         </motion.div>
 
+        {/* Live Update Banner */}
+        <div className="mt-3">
+          <LiveUpdateBanner lastUpdate={dataUpdatedAt} matchCount={matches?.length || 0} />
+        </div>
+
         {/* Search */}
         <div className="mt-4 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
