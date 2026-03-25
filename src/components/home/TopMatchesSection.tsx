@@ -14,7 +14,7 @@ interface TopMatchesSectionProps {
   isLoading: boolean;
 }
 
-const TOP3_KEY = "pronosia_top3";
+const TOP3_KEY = "pronosia_top2";
 
 interface StoredTop3 {
   ids: string[];
