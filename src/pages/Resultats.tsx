@@ -95,13 +95,12 @@ export default function Resultats() {
   const [period, setPeriod] = useState("all");
   const [showAllResults, setShowAllResults] = useState(false);
 
-  // Default: show ELITE + STRONG only
+  // Show ALL results — no filtering by tier
   const displayResults = useMemo(() => {
     if (!results) return [];
     const resolved = results.filter(r => r.result === "win" || r.result === "loss");
-    const base = showAllResults ? resolved : resolved.filter(isEliteOrStrong);
-    return filterResults(base, sport, status, period);
-  }, [results, sport, status, period, showAllResults]);
+    return filterResults(resolved, sport, status, period);
+  }, [results, sport, status, period]);
 
   const grouped = useMemo(() => groupByDay(displayResults), [displayResults]);
   const resolvedResults = useMemo(() => results?.filter(r => r.result === "win" || r.result === "loss") || [], [results]);
