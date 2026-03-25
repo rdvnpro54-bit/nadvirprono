@@ -29,11 +29,11 @@ function formatDate(d: Date): string {
 }
 
 // ─── SPORT DETECTION ─────────────────────────────────────────────────
-type SportType = "football" | "basketball" | "mma" | "hockey" | "baseball"
+type SportType = "football" | "tennis" | "basketball" | "mma" | "hockey" | "baseball"
   | "handball" | "volleyball" | "rugby" | "afl" | "formula1" | "nfl" | "nba";
 
 const ALLOWED_SPORTS: SportType[] = [
-  "football", "basketball", "mma", "hockey", "baseball",
+  "football", "tennis", "basketball", "mma", "hockey", "baseball",
   "handball", "volleyball", "rugby", "afl", "formula1", "nfl", "nba",
 ];
 
@@ -49,6 +49,7 @@ function detectSport(leagueName: string, leagueCountry: string | null): SportTyp
   if (/rugby|six nations|super rugby/i.test(name)) return "rugby";
   if (/ufc|bellator|pfl|mma/i.test(name)) return "mma";
   if (/formula|f1|grand prix/i.test(name)) return "formula1";
+  if (/atp|wta|tennis|roland garros|wimbledon|us open|australian open|itf/i.test(name)) return "tennis";
   if (/basketball|fiba|basket/i.test(name)) return "basketball";
   return "football";
 }
@@ -65,6 +66,11 @@ const SPORT_PROFILES: Record<SportType, FeatureProfile> = {
     features: { form: 0.25, ranking: 0.20, attack: 0.20, defense: 0.15, h2h: 0.10, homeAdv: 0.10 },
     drawPossible: true,
     scoreRange: [0, 4],
+  },
+  tennis: {
+    features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 },
+    drawPossible: false,
+    scoreRange: [0, 3],
   },
   basketball: {
     features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 },
@@ -138,6 +144,11 @@ interface SimulatedFixture {
 }
 
 const MULTI_SPORT_DATA: SimulatedFixture[] = [
+  // Tennis
+  { sport: "tennis", league: "ATP Masters 1000", country: "France", home: { name: "Carlos Alcaraz", logo: null }, away: { name: "Novak Djokovic", logo: null } },
+  { sport: "tennis", league: "ATP 500", country: "Spain", home: { name: "Jannik Sinner", logo: null }, away: { name: "Daniil Medvedev", logo: null } },
+  { sport: "tennis", league: "WTA 1000", country: "USA", home: { name: "Iga Swiatek", logo: null }, away: { name: "Aryna Sabalenka", logo: null } },
+  { sport: "tennis", league: "ATP 250", country: "UK", home: { name: "Alexander Zverev", logo: null }, away: { name: "Stefanos Tsitsipas", logo: null } },
   // NBA
   { sport: "nba", league: "NBA", country: "USA", home: { name: "Los Angeles Lakers", logo: null }, away: { name: "Boston Celtics", logo: null } },
   { sport: "nba", league: "NBA", country: "USA", home: { name: "Golden State Warriors", logo: null }, away: { name: "Miami Heat", logo: null } },
@@ -183,14 +194,12 @@ function generateMultiSportMatches(baseDate: string): any[] {
   
   for (let i = 0; i < MULTI_SPORT_DATA.length; i++) {
     const fixture = MULTI_SPORT_DATA[i];
-    // Spread matches across the day
-    const hour = 10 + Math.floor(seeded(hash(fixture.home.name + baseDate), i) * 14); // 10:00 - 23:59
-    const minute = Math.floor(seeded(hash(fixture.away.name + baseDate), i + 1) * 4) * 15; // 0, 15, 30, 45
+    const hour = 10 + Math.floor(seeded(hash(fixture.home.name + baseDate), i) * 14);
+    const minute = Math.floor(seeded(hash(fixture.away.name + baseDate), i + 1) * 4) * 15;
     
     const kickoff = new Date(day);
     kickoff.setUTCHours(hour, minute, 0, 0);
     
-    // Generate a unique fixture_id based on deterministic hash
     const fixtureId = 9000000 + hash(fixture.home.name + fixture.away.name + baseDate) % 999999;
     
     matches.push({
@@ -351,6 +360,7 @@ function generateHybridPrediction(
 
   const sportFeatureText: Record<string, string> = {
     football: "xG, PPDA, expected goals et pression offensive",
+    tennis: "% service gagnant, break points, retour et forme récente",
     basketball: "points/match, pace, efficacité offensive/défensive",
     nba: "PER, true shooting %, pace et net rating",
     nfl: "QBR, yards/tentative, turnover differential",
@@ -438,7 +448,7 @@ Deno.serve(async (req) => {
     // ─── FETCH FOOTBALL FROM API ────────────────────────────────
     const allFixtures: any[] = [];
     const dates: string[] = [];
-    for (let i = 0; i < 2; i++) { // today + tomorrow (save API calls)
+    for (let i = 0; i < 2; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
       dates.push(formatDate(d));
@@ -503,7 +513,6 @@ Deno.serve(async (req) => {
     });
 
     // ─── ADD MULTI-SPORT SIMULATED MATCHES ──────────────────────
-    // Generate multi-sport matches for today and tomorrow
     for (const dateStr of dates) {
       const simulatedRaw = generateMultiSportMatches(dateStr);
       for (const sim of simulatedRaw) {
@@ -525,49 +534,70 @@ Deno.serve(async (req) => {
 
     console.log(`Total matches (football + multi-sport): ${matches.length}`);
 
-    // ─── PICK 3 FREE MATCHES (DIVERSE SPORTS) ───────────────────
-    const sportPriority: SportType[] = ["football", "nba", "nfl", "hockey", "mma", "baseball", "formula1", "handball", "rugby", "volleyball", "afl", "basketball"];
+    // ─── PICK EXACTLY 3 FREE: 1 Football + 1 Tennis + 1 Basketball ───
     const confVal = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
-    
-    const bySport = new Map<string, typeof matches>();
-    for (const m of matches) {
-      const s = m.sport || "football";
-      if (!bySport.has(s)) bySport.set(s, []);
-      bySport.get(s)!.push(m);
-    }
-    
-    // Best match per sport
-    const bestPerSport = [...bySport.entries()].map(([sport, ms]) => {
-      ms.sort((a: any, b: any) => {
-        const sa = Math.max(a.pred_home_win, a.pred_away_win) + confVal(a.pred_confidence) * 10;
-        const sb = Math.max(b.pred_home_win, b.pred_away_win) + confVal(b.pred_confidence) * 10;
-        return sb - sa;
+    const scoreMatch = (m: any) => Math.max(m.pred_home_win, m.pred_away_win) + confVal(m.pred_confidence) * 10;
+
+    // Filter today's matches only for free selection
+    const todayStr = formatDate(new Date());
+    const todayMatches = matches.filter(m => m.kickoff.startsWith(todayStr));
+
+    // Group by the 3 required sport categories
+    const footballMatches = todayMatches.filter(m => m.sport === "football");
+    const tennisMatches = todayMatches.filter(m => m.sport === "tennis");
+    const basketballMatches = todayMatches.filter(m => m.sport === "nba" || m.sport === "basketball");
+
+    // Sort each group: prioritize LIVE/soon, then by AI score
+    const now = Date.now();
+    const sortByRelevance = (arr: any[]) => {
+      return arr.sort((a, b) => {
+        const aLive = ["1H", "2H", "HT", "ET"].includes(a.status) ? 1 : 0;
+        const bLive = ["1H", "2H", "HT", "ET"].includes(b.status) ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive; // LIVE first
+        
+        const aTime = new Date(a.kickoff).getTime();
+        const bTime = new Date(b.kickoff).getTime();
+        const aSoon = (aTime - now > 0 && aTime - now < 7200000) ? 1 : 0; // < 2h
+        const bSoon = (bTime - now > 0 && bTime - now < 7200000) ? 1 : 0;
+        if (aSoon !== bSoon) return bSoon - aSoon; // Soon first
+        
+        return scoreMatch(b) - scoreMatch(a); // Best AI score
       });
-      return { sport, match: ms[0] };
-    });
-    
-    bestPerSport.sort((a, b) => {
-      const ia = sportPriority.indexOf(a.sport as SportType);
-      const ib = sportPriority.indexOf(b.sport as SportType);
-      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-    });
-    
-    // Mark top 3 (diverse sports) as free
+    };
+
+    sortByRelevance(footballMatches);
+    sortByRelevance(tennisMatches);
+    sortByRelevance(basketballMatches);
+
     const freeIds = new Set<number>();
-    for (const { match } of bestPerSport) {
-      if (freeIds.size >= 3) break;
-      freeIds.add(match.fixture_id);
+    
+    // Pick exactly 1 from each category
+    if (footballMatches.length > 0) freeIds.add(footballMatches[0].fixture_id);
+    if (tennisMatches.length > 0) freeIds.add(tennisMatches[0].fixture_id);
+    if (basketballMatches.length > 0) freeIds.add(basketballMatches[0].fixture_id);
+
+    // If any category is empty, DO NOT fill with another sport — keep strict 3-sport rule
+    // But if absolutely needed (no data at all), fill from remaining
+    if (freeIds.size < 3 && footballMatches.length === 0) {
+      // Try to get a second basketball or tennis
+      const fallback = [...tennisMatches, ...basketballMatches].filter(m => !freeIds.has(m.fixture_id));
+      if (fallback.length > 0) freeIds.add(fallback[0].fixture_id);
     }
-    // Fallback if < 3 sports
-    if (freeIds.size < 3) {
-      for (const m of matches) {
-        if (freeIds.size >= 3) break;
-        if (!freeIds.has(m.fixture_id)) freeIds.add(m.fixture_id);
-      }
+    if (freeIds.size < 3 && tennisMatches.length === 0) {
+      const remaining = todayMatches.filter(m => !freeIds.has(m.fixture_id));
+      if (remaining.length > 0) freeIds.add(remaining[0].fixture_id);
     }
+    if (freeIds.size < 3 && basketballMatches.length === 0) {
+      const remaining = todayMatches.filter(m => !freeIds.has(m.fixture_id));
+      if (remaining.length > 0) freeIds.add(remaining[0].fixture_id);
+    }
+
+    // Mark free matches
     for (const m of matches) {
-      if (freeIds.has(m.fixture_id)) m.is_free = true;
+      m.is_free = freeIds.has(m.fixture_id);
     }
+
+    console.log(`Free match IDs: ${[...freeIds].join(", ")} (${freeIds.size} total)`);
 
     // ─── SAVE TO DATABASE ───────────────────────────────────────
     if (matches.length > 0) {
@@ -593,7 +623,7 @@ Deno.serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ success: true, matches_count: matches.length, requests_today: requestCount }),
+      JSON.stringify({ success: true, matches_count: matches.length, requests_today: requestCount, free_sports: [...freeIds] }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
