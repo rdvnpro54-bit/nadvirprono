@@ -149,6 +149,7 @@ export default function Resultats() {
             </TabsContent>
 
             <TabsContent value="overview" className="mt-4 space-y-6">
+              {results && <ProfitChart results={results} />}
               {monthStats && monthStats.total > 0 && (
                 <StatsGrid stats={monthStats} title="Ce mois-ci" icon={BarChart3} />
               )}
