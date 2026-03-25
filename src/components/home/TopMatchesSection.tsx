@@ -119,8 +119,8 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
           </div>
 
           {isLoading ? (
-            <div className="mx-auto grid max-w-4xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, i) => (
+            <div className="mx-auto grid max-w-2xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+              {Array.from({ length: 2 }).map((_, i) => (
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
             </div>
