@@ -18,6 +18,7 @@ import Login from "./pages/Login";
 import Suivis from "./pages/Suivis";
 import Compte from "./pages/Compte";
 import Admin from "./pages/Admin";
+import Resultats from "./pages/Resultats";
 import Success from "./pages/Success";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ function AnimatedRoutes() {
         <Route path="/compte" element={<PageWrapper><Compte /></PageWrapper>} />
         <Route path="/success" element={<PageWrapper><Success /></PageWrapper>} />
         <Route path="/admin" element={<PageWrapper><Admin /></PageWrapper>} />
+        <Route path="/resultats" element={<PageWrapper><Resultats /></PageWrapper>} />
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
     </AnimatePresence>
