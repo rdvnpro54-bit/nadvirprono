@@ -50,8 +50,8 @@ Deno.serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${origin}/compte?checkout=success`,
-      cancel_url: `${origin}/pricing?checkout=cancel`,
+      success_url: `${origin}/success`,
+      cancel_url: `${origin}/pricing`,
     });
 
     logStep("Checkout session created", { sessionId: session.id });
