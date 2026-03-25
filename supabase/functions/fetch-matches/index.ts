@@ -28,6 +28,31 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
+const LIVE_STATUSES = new Set(["LIVE", "1H", "2H", "HT", "ET", "BT", "P"]);
+const SCHEDULED_STATUSES = new Set(["NS", "SCHEDULED", "NOT_STARTED", "TBD", "TIME_TO_BE_DEFINED"]);
+const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "FINISHED", "ENDED", "COMPLETED", "CANC", "PST", "SUSP", "ABD", "AWD", "WO"]);
+
+function isDisplayableMatch(match: { kickoff: string; status: string; home_score: number | null; away_score: number | null }, now: Date): boolean {
+  const status = (match.status || "").toUpperCase();
+  const kickoff = new Date(match.kickoff);
+  const today = formatDate(now);
+
+  if (Number.isNaN(kickoff.getTime())) return false;
+  if (formatDate(kickoff) !== today) return false;
+  if (FINISHED_STATUSES.has(status)) return false;
+
+  if (LIVE_STATUSES.has(status)) {
+    return kickoff.getTime() <= now.getTime() + 6 * 60 * 60 * 1000;
+  }
+
+  if (!SCHEDULED_STATUSES.has(status)) return false;
+  if (kickoff.getTime() < now.getTime()) return false;
+
+  if (match.home_score !== null || match.away_score !== null) return false;
+
+  return true;
+}
+
 // ─── SPORT DETECTION ─────────────────────────────────────────────────
 type SportType = "football" | "tennis" | "basketball" | "mma" | "hockey" | "baseball"
   | "handball" | "volleyball" | "rugby" | "afl" | "formula1" | "nfl" | "nba";
