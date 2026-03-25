@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, Loader2, AlertCircle } from "lucide-react";
+import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ const confidenceFilters: { value: Confidence | "all"; label: string }[] = [
 export default function Matches() {
   const { data: matches, isLoading, error, refetch, dataUpdatedAt } = useMatches();
   const { data: triggerData } = useTriggerFetch();
-  const { isPremium } = useAuth();
+  const { isPremium, user } = useAuth();
 
   const [sport, setSport] = useState("all");
   const [confidence, setConfidence] = useState<Confidence | "all">("all");
@@ -69,14 +70,14 @@ export default function Matches() {
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Navbar />
-      <div className="container pt-20 pb-16 overflow-x-hidden">
+      <div className="container pt-20 pb-16 overflow-x-hidden px-3 sm:px-4">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-display text-2xl font-bold">
+              <h1 className="font-display text-xl sm:text-2xl font-bold">
                 Analyse <span className="gradient-text">IA</span>
               </h1>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+              <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
                 {matches?.length || 0} matchs analysés • 3 sports
               </p>
             </div>
@@ -84,31 +85,56 @@ export default function Matches() {
           </div>
         </motion.div>
 
+        {/* Premium banner for non-premium */}
+        {!isPremium && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4 flex items-center gap-3"
+          >
+            <Lock className="h-5 w-5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] sm:text-sm font-semibold text-foreground">
+                🔓 Accès limité — Passe Premium pour débloquer toutes les prédictions
+              </p>
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                💎 3 pronostics gratuits par jour • Reste verrouillé sans Premium
+              </p>
+            </div>
+            <Link to="/pricing">
+              <Button size="sm" className="shrink-0 text-[10px] sm:text-xs gap-1 btn-shimmer">
+                <Zap className="h-3 w-3" /> Premium
+              </Button>
+            </Link>
+          </motion.div>
+        )}
+
         {/* Live Update Banner */}
         <div className="mt-3">
           <LiveUpdateBanner lastUpdate={dataUpdatedAt} matchCount={matches?.length || 0} />
         </div>
 
         {/* Search */}
-        <div className="mt-4 relative">
+        <div className="mt-3 sm:mt-4 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Rechercher équipe, compétition..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9 bg-card border-border/50 h-9 text-sm"
+            className="pl-9 bg-card border-border/50 h-8 sm:h-9 text-xs sm:text-sm"
           />
         </div>
 
         {/* Filters */}
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2">
           <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5 overflow-x-auto max-w-full">
             {sportFilters.map(f => (
               <button
                 key={f.value}
                 onClick={() => setSport(f.value)}
                 className={cn(
-                  "rounded-md px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap",
+                  "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-colors whitespace-nowrap",
                   sport === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -122,7 +148,7 @@ export default function Matches() {
                 key={f.value}
                 onClick={() => setConfidence(f.value)}
                 className={cn(
-                  "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                  "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-colors",
                   confidence === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -134,7 +160,7 @@ export default function Matches() {
             variant={valueBetsOnly ? "default" : "outline"}
             size="sm"
             onClick={() => setValueBetsOnly(!valueBetsOnly)}
-            className="gap-1 text-[11px] h-7"
+            className="gap-1 text-[10px] sm:text-[11px] h-7"
           >
             <TrendingUp className="h-3 w-3" /> Value
           </Button>
@@ -145,9 +171,9 @@ export default function Matches() {
           <div className="mt-6 space-y-3">
             <div className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-xs text-muted-foreground">Analyse IA en cours...</span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground">Analyse IA en cours...</span>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
@@ -159,16 +185,16 @@ export default function Matches() {
         {error && !isLoading && (
           <div className="mt-8 glass-card p-6 text-center">
             <AlertCircle className="mx-auto h-8 w-8 text-destructive mb-2" />
-            <p className="text-sm font-medium">Données temporairement indisponibles</p>
+            <p className="text-xs sm:text-sm font-medium">Données temporairement indisponibles</p>
             <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>Réessayer</Button>
           </div>
         )}
 
         {/* Top 3 free */}
         {!isLoading && !error && freeMatches.length > 0 && !isPremium && (
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-6">
-            <h2 className="font-display text-sm font-semibold mb-3 flex items-center gap-1.5">🔥 Top 3 Gratuits</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-5 sm:mt-6">
+            <h2 className="font-display text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-1.5">🔥 Top 3 Gratuits</h2>
+            <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {freeMatches.map((match, i) => (
                 <MatchCard key={match.id} match={match} index={i} />
               ))}
@@ -178,11 +204,10 @@ export default function Matches() {
 
         {/* Grouped matches */}
         {!isLoading && !error && Object.entries(grouped).map(([date, dateMatches]) => (
-          <div key={date} className="mt-6">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 capitalize">{date}</h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div key={date} className="mt-5 sm:mt-6">
+            <h3 className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 sm:mb-3 capitalize">{date}</h3>
+            <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {dateMatches.map((match, i) => {
-                // Server already strips prediction data for non-premium locked matches
                 const isLocked = !isPremium && !match.is_free && match.pred_confidence === "LOCKED";
                 return (
                   <MatchCard key={match.id} match={match} locked={isLocked} index={i} />
@@ -194,13 +219,13 @@ export default function Matches() {
 
         {/* Empty state */}
         {!isLoading && !error && filtered.length === 0 && (
-          <div className="mt-12 text-center glass-card p-8 max-w-sm mx-auto">
+          <div className="mt-10 sm:mt-12 text-center glass-card p-6 sm:p-8 max-w-sm mx-auto">
             <div className="text-3xl mb-3">⏳</div>
-            <p className="text-sm font-semibold">Analyse en cours…</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-xs sm:text-sm font-semibold">Analyse en cours…</p>
+            <p className="mt-1 text-[10px] sm:text-xs text-muted-foreground">
               Notre IA scanne les prochains matchs du jour. Les pronostics apparaîtront automatiquement.
             </p>
-            <p className="mt-3 text-[10px] text-muted-foreground">
+            <p className="mt-3 text-[9px] sm:text-[10px] text-muted-foreground">
               🟢 Mise à jour automatique toutes les 5 minutes
             </p>
           </div>
