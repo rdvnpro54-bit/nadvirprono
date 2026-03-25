@@ -21,6 +21,9 @@ const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   hockey: { icon: Swords, label: "Hockey" },
   mma: { icon: Dumbbell, label: "MMA" },
   f1: { icon: Car, label: "F1" },
+  baseball: { icon: Star, label: "Baseball" },
+  afl: { icon: Dribbble, label: "AFL" },
+  rugby: { icon: Dribbble, label: "Rugby" },
 };
 
 const TEAM_ALIASES: Record<string, string> = {

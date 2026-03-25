@@ -20,6 +20,12 @@ const sportFilters = [
   { value: "football", label: "Football", emoji: "⚽" },
   { value: "tennis", label: "Tennis", emoji: "🎾" },
   { value: "basketball", label: "Basket", emoji: "🏀" },
+  { value: "hockey", label: "Hockey", emoji: "🏒" },
+  { value: "baseball", label: "Baseball", emoji: "⚾" },
+  { value: "nfl", label: "NFL", emoji: "🏈" },
+  { value: "mma", label: "MMA", emoji: "🥊" },
+  { value: "f1", label: "F1", emoji: "🏎️" },
+  { value: "afl", label: "AFL", emoji: "🏉" },
 ];
 
 const confidenceFilters: { value: Confidence | "all"; label: string }[] = [
