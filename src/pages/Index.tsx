@@ -180,7 +180,7 @@ const Index = () => {
             <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
               {[
                 { label: "Précision IA", value: precision, suffix: "%", icon: TrendingUp },
-                { label: "Matchs analysés", value: precisionData?.total || matchCount || 257, suffix: "", icon: BarChart3 },
+                { label: "Matchs analysés", value: hcData?.total || matchCount || 257, suffix: "", icon: BarChart3 },
                 { label: "Sports couverts", value: 12, suffix: "", icon: Star },
                 { label: "ROI mensuel", value: 14, suffix: "%", icon: Shield, prefix: "+" },
               ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
