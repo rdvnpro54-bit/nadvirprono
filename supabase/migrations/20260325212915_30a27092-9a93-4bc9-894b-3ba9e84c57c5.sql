@@ -1,0 +1,1 @@
+ALTER TABLE public.cached_matches ADD COLUMN IF NOT EXISTS ai_score integer NOT NULL DEFAULT 0;
