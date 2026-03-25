@@ -62,7 +62,7 @@ function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string |
         </div>
       )}
       <p className={cn("text-[13px] sm:text-sm font-semibold truncate max-w-[90px] sm:max-w-[120px]", isFav && "text-primary")}>
-        {name}
+        {display}
       </p>
     </div>
   );
