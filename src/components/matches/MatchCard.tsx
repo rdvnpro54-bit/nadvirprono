@@ -303,5 +303,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
         </div>
       </Link>
     </motion.div>
+    </>
   );
 }
