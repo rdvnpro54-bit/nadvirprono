@@ -5,6 +5,7 @@ import { Lock, TrendingUp, Clock, Wifi, Star, Users, Dribbble, Swords, Car, Bike
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
+import { useGlobalActivity } from "@/components/home/ActivityProvider";
 
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   football: { icon: Dribbble, label: "Football" },
