@@ -7,7 +7,7 @@ import { TopPickSection } from "@/components/home/TopPickSection";
 import { WeeklyStats } from "@/components/home/WeeklyStats";
 import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
-import { useGlobalPrecision } from "@/hooks/useMatchHistory";
+import { useHighConfidencePrecision } from "@/hooks/useMatchHistory";
 import { useMatchDiagnostics } from "@/hooks/useMatchLifecycle";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
