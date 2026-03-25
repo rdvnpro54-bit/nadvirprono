@@ -98,6 +98,17 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const fav = match.pred_home_win >= match.pred_away_win ? "home" : "away";
   const isLive = match.status === "1H" || match.status === "2H" || match.status === "HT" || match.status === "ET";
+  const isFinished = match.status === "FT" || match.status === "AET" || match.status === "PEN";
+
+  // Check prediction result for finished matches
+  const predictionResult = (() => {
+    if (!isFinished || match.home_score === null || match.away_score === null) return null;
+    const predictedHome = match.pred_home_win > match.pred_away_win;
+    const actualHome = match.home_score > match.away_score;
+    const isDraw = match.home_score === match.away_score;
+    if (isDraw) return null; // Draw = inconclusive
+    return predictedHome === actualHome ? "correct" : "incorrect";
+  })();
 
   // Consistent logo display: all logos or all initials
   const bothLogos = !!match.home_logo && !!match.away_logo;
