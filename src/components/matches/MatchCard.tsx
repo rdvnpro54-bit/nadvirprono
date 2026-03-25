@@ -219,7 +219,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
               <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>{match.pred_home_win}%</span>
-                <UserActivity fixtureId={match.fixture_id} />
+                <UserActivity fixtureId={match.fixture_id} sport={match.sport || "football"} />
                 <span>{match.pred_away_win}%</span>
               </div>
             </div>
