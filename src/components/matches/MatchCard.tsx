@@ -120,6 +120,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const { user } = useAuth();
   const { favorites } = useFavorites();
   const toggleFavorite = useToggleFavorite();
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -134,15 +135,24 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
     toggleFavorite.mutate({ matchId: match.id, fixtureId: match.fixture_id });
   };
 
+  const handleLockedClick = (e: React.MouseEvent) => {
+    if (locked) {
+      e.preventDefault();
+      setShowPremiumModal(true);
+    }
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: (index || 0) * 0.03, duration: 0.25 }}
-    >
-      <Link to={locked ? "/pricing" : `/match/${match.id}`} className="block">
-        <div className={cn(
-          "glass-card match-card-hover p-3 sm:p-3.5 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
+    <>
+      <PremiumModal open={showPremiumModal} onOpenChange={setShowPremiumModal} />
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: (index || 0) * 0.03, duration: 0.25 }}
+      >
+        <Link to={locked ? "#" : `/match/${match.id}`} onClick={handleLockedClick} className="block">
+          <div className={cn(
+            "glass-card match-card-hover p-3 sm:p-3.5 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
           locked && "opacity-80"
         )}>
           {/* Top row */}
