@@ -1,0 +1,1 @@
+UPDATE cache_metadata SET last_fetched_at = '2026-03-24T00:00:00+00:00' WHERE id = 'api_football';

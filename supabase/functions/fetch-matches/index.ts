@@ -413,7 +413,7 @@ Deno.serve(async (req) => {
     console.log(`Fetched ${allFixtures.length} fixtures across ${maxFetches} days`);
 
     // Process fixtures with hybrid AI engine
-    const matches = allFixtures.map((f: any, index: number) => {
+    const matches = allFixtures.map((f: any) => {
       const leagueName = f.league?.name || "Unknown";
       const leagueCountry = f.league?.country || null;
       const sport = detectSport(leagueName, leagueCountry);
@@ -439,11 +439,51 @@ Deno.serve(async (req) => {
         status: f.fixture.status.short,
         home_score: f.goals?.home ?? null,
         away_score: f.goals?.away ?? null,
-        is_free: index < 3,
+        is_free: false,
         fetched_at: new Date().toISOString(),
         ...prediction,
       };
     });
+
+    // Pick 3 free matches from diverse sports, prioritizing major sports
+    const sportPriority = ["football", "nba", "nfl", "nhl", "mma", "mlb", "f1", "handball", "rugby", "volleyball", "afl", "basketball"];
+    const confVal = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
+    const bySport = new Map<string, typeof matches>();
+    for (const m of matches) {
+      const s = m.sport || "football";
+      if (!bySport.has(s)) bySport.set(s, []);
+      bySport.get(s)!.push(m);
+    }
+    // Best match per sport
+    const bestPerSport = [...bySport.entries()].map(([sport, ms]) => {
+      ms.sort((a, b) => {
+        const sa = Math.max(a.pred_home_win, a.pred_away_win) + confVal(a.pred_confidence) * 10;
+        const sb = Math.max(b.pred_home_win, b.pred_away_win) + confVal(b.pred_confidence) * 10;
+        return sb - sa;
+      });
+      return { sport, match: ms[0] };
+    });
+    bestPerSport.sort((a, b) => {
+      const ia = sportPriority.indexOf(a.sport.toLowerCase());
+      const ib = sportPriority.indexOf(b.sport.toLowerCase());
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    // Mark top 3 (diverse sports) as free
+    const freeIds = new Set<number>();
+    for (const { match } of bestPerSport) {
+      if (freeIds.size >= 3) break;
+      freeIds.add(match.fixture_id);
+    }
+    // Fallback if < 3 sports
+    if (freeIds.size < 3) {
+      for (const m of matches) {
+        if (freeIds.size >= 3) break;
+        if (!freeIds.has(m.fixture_id)) freeIds.add(m.fixture_id);
+      }
+    }
+    for (const m of matches) {
+      if (freeIds.has(m.fixture_id)) m.is_free = true;
+    }
 
     if (matches.length > 0) {
       await supabase.from("cached_matches").delete().neq("fixture_id", 0);
