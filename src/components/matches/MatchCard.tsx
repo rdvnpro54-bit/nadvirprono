@@ -65,14 +65,26 @@ function Countdown({ kickoff }: { kickoff: string }) {
 }
 
 function UserActivity({ fixtureId }: { fixtureId: number }) {
-  const count = useMemo(() => {
-    const base = (fixtureId % 500) + 120;
-    return base + Math.floor(Math.random() * 50);
-  }, [fixtureId]);
+  const base = useMemo(() => (fixtureId % 500) + 120, [fixtureId]);
+  const [count, setCount] = useState(base);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCount(prev => {
+        const delta = Math.floor(Math.random() * 7) - 3; // -3 to +3
+        return Math.max(base - 30, Math.min(base + 50, prev + delta));
+      });
+    }, 10000 + Math.random() * 10000); // 10-20s
+    return () => clearInterval(interval);
+  }, [base]);
 
   return (
     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-      <Users className="h-3 w-3" /> {count}
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/40" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/60" />
+      </span>
+      {count} analysent
     </span>
   );
 }

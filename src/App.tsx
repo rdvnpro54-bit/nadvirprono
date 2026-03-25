@@ -14,6 +14,7 @@ import Pricing from "./pages/Pricing";
 import Login from "./pages/Login";
 import Suivis from "./pages/Suivis";
 import Compte from "./pages/Compte";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ function AnimatedRoutes() {
         <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
         <Route path="/suivis" element={<PageWrapper><Suivis /></PageWrapper>} />
         <Route path="/compte" element={<PageWrapper><Compte /></PageWrapper>} />
+        <Route path="/admin" element={<PageWrapper><Admin /></PageWrapper>} />
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
     </AnimatePresence>

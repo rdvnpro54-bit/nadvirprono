@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Search, Star, User, Zap } from "lucide-react";
+import { Home, Search, Star, User, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,6 +57,13 @@ export function Navbar() {
                   <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
                     PREMIUM
                   </span>
+                )}
+                {user.email === "rdvnpro54@gmail.com" && (
+                  <Link to="/admin">
+                    <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-primary">
+                      <Shield className="h-3.5 w-3.5" /> Admin
+                    </Button>
+                  </Link>
                 )}
                 <Link to="/compte">
                   <Button variant="ghost" size="sm" className="text-xs gap-1.5">
