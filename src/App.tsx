@@ -62,6 +62,7 @@ const App = () => (
         <AuthProvider>
           <ActivityProvider>
             <AnimatedRoutes />
+            <SmartNotifications />
           </ActivityProvider>
         </AuthProvider>
       </BrowserRouter>
