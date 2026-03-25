@@ -46,7 +46,7 @@ export function WinrateDisplay() {
           📊 Précision IA : <span className="text-primary font-bold"><AnimatedPercent value={precision} inView={inView} /></span>
         </span>
         <span className="text-[9px] text-muted-foreground">
-          ({globalData?.total} matchs)
+          ({hcData?.total} sélections)
         </span>
       </motion.div>
 
