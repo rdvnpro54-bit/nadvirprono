@@ -1,10 +1,25 @@
 import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
-import { Lock, TrendingUp, Clock, Wifi, Star, Users } from "lucide-react";
+import { Lock, TrendingUp, Clock, Wifi, Star, Users, Dribbble, Swords, Car, Bike, Trophy, Dumbbell, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
+
+const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
+  football: { icon: Dribbble, label: "Football" },
+  nba: { icon: Trophy, label: "NBA" },
+  basketball: { icon: Trophy, label: "Basketball" },
+  nfl: { icon: Swords, label: "NFL" },
+  nhl: { icon: Swords, label: "NHL" },
+  mma: { icon: Dumbbell, label: "MMA" },
+  mlb: { icon: Trophy, label: "MLB" },
+  f1: { icon: Car, label: "F1" },
+  handball: { icon: Dribbble, label: "Handball" },
+  rugby: { icon: Dribbble, label: "Rugby" },
+  volleyball: { icon: Dribbble, label: "Volleyball" },
+  afl: { icon: Dribbble, label: "AFL" },
+};
 
 function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string | null; isFav: boolean; side: "home" | "away" }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -91,6 +106,17 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
           {/* Top row: league, badges, fav */}
           <div className="flex items-center justify-between mb-2.5">
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+              {(() => {
+                const sportKey = (match.sport || "football").toLowerCase();
+                const sportInfo = SPORT_ICONS[sportKey] || { icon: Trophy, label: sportKey };
+                const SportIcon = sportInfo.icon;
+                return (
+                  <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-[10px] font-semibold text-primary mr-1 shrink-0">
+                    <SportIcon className="h-2.5 w-2.5" />
+                    {sportInfo.label}
+                  </span>
+                );
+              })()}
               {match.league_country && <span className="font-medium">{match.league_country}</span>}
               <span className="opacity-50">•</span>
               <span className="truncate">{match.league_name}</span>
