@@ -84,8 +84,8 @@ export default function Pricing() {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
               <Lock className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-lg font-bold">🔒 Crée un compte pour accéder aux pronostics IA</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Inscription gratuite • 3 matchs gratuits / jour</p>
+            <h2 className="text-lg font-bold">Accédez à toutes les prédictions IA</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Créez un compte pour accéder aux analyses complètes et prédictions avancées</p>
             <Link to="/login">
               <Button className="mt-4 h-11 px-8 text-sm font-bold gap-2 btn-shimmer">
                 Créer un compte gratuit
