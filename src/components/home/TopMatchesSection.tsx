@@ -103,8 +103,10 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
             </div>
           ) : (
             <div className="mx-auto max-w-2xl rounded-xl border border-border/50 bg-card/60 px-4 py-8 text-center">
-              <p className="text-sm font-medium text-foreground">Aucun match à venir pour aujourd'hui</p>
-              <p className="mt-1 text-xs text-muted-foreground">Les prédictions IA se mettent à jour automatiquement.</p>
+              <div className="text-3xl mb-2">⏳</div>
+              <p className="text-sm font-medium text-foreground">Analyse en cours…</p>
+              <p className="mt-1 text-xs text-muted-foreground">Notre IA scanne les prochains matchs. Les pronostics apparaîtront automatiquement.</p>
+              <p className="mt-2 text-[10px] text-muted-foreground">🟢 Mise à jour automatique toutes les 5 minutes</p>
             </div>
           )}
 
