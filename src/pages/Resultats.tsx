@@ -5,7 +5,7 @@ import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, BarChart3, Flame } from "lucide-react";
+import { Trophy, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
