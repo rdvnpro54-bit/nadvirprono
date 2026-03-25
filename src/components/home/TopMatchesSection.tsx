@@ -39,6 +39,10 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
   const topMatches = matches ? getTop3(matches) : [];
+  const hasStrictTop3 = topMatches.length === 3 &&
+    topMatches.some(m => m.sport?.toLowerCase() === "football") &&
+    topMatches.some(m => m.sport?.toLowerCase() === "tennis") &&
+    topMatches.some(m => ["nba", "basketball"].includes(m.sport?.toLowerCase() || ""));
 
   return (
     <motion.div
