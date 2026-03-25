@@ -57,6 +57,7 @@ const Index = () => {
   const { data: matches, isLoading } = useMatches();
   const { data: precisionData } = useGlobalPrecision();
   useTriggerFetch();
+  useMatchDiagnostics(matches);
 
   const matchCount = matches?.length || 0;
   const precision = precisionData?.precision ?? 82;
