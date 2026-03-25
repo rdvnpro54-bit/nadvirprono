@@ -5,11 +5,12 @@ import { useResultStats } from "@/hooks/useResults";
 import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Flame, Lock, Crown } from "lucide-react";
+import { Flame, Lock, Crown, Sparkles, Zap, Eye, TrendingUp } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 function groupByDay(results: MatchResult[]): { label: string; results: MatchResult[] }[] {
   const now = new Date();
@@ -46,15 +47,17 @@ function groupByDay(results: MatchResult[]): { label: string; results: MatchResu
   return entries.map(([label, results]) => ({ label, results }));
 }
 
+function isEliteOrStrong(r: MatchResult): boolean {
+  const maxProb = Math.max(r.pred_home_win, r.pred_away_win);
+  return r.predicted_confidence === "SAFE" || maxProb >= 65;
+}
+
 function filterResults(results: MatchResult[], sport: string, status: string, period: string): MatchResult[] {
   let filtered = results;
   if (sport !== "all") filtered = filtered.filter(r => r.sport === sport);
   if (status === "win") filtered = filtered.filter(r => r.result === "win");
   else if (status === "loss") filtered = filtered.filter(r => r.result === "loss");
-  else if (status === "high_conf") filtered = filtered.filter(r => {
-    const maxProb = Math.max(r.pred_home_win, r.pred_away_win);
-    return maxProb >= 60 || r.predicted_confidence === "SAFE";
-  });
+  else if (status === "high_conf") filtered = filtered.filter(r => isEliteOrStrong(r));
   if (period !== "all") {
     const now = new Date();
     const today = now.toDateString();
@@ -74,14 +77,6 @@ function filterResults(results: MatchResult[], sport: string, status: string, pe
   return filtered;
 }
 
-function getTopPerformances(results: MatchResult[]): MatchResult[] {
-  return results
-    .filter(r => r.result === "win" && Math.max(r.pred_home_win, r.pred_away_win) >= 60)
-    .sort((a, b) => Math.max(b.pred_home_win, b.pred_away_win) - Math.max(a.pred_home_win, a.pred_away_win))
-    .slice(0, 12);
-}
-
-/** Show recent matches (last 7 days) even if not resolved, for empty state */
 function getRecentPending(results: MatchResult[]): MatchResult[] {
   const weekAgo = new Date(Date.now() - 7 * 86400000);
   return results
@@ -94,44 +89,35 @@ export default function Resultats() {
   const { user, isMonthlyPremium, isAdmin } = useAuth();
   const hasAccess = isMonthlyPremium || isAdmin;
 
-  const { results, isLoading } = useResultStats();
+  const { results, eliteStats, allStats, isLoading } = useResultStats();
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("high_conf");
   const [period, setPeriod] = useState("all");
+  const [showAllResults, setShowAllResults] = useState(false);
 
-  const filteredResults = useMemo(
-    () => (results ? filterResults(results, sport, status, period) : []),
-    [results, sport, status, period]
-  );
-  const grouped = useMemo(() => groupByDay(filteredResults), [filteredResults]);
+  // Default: show ELITE + STRONG only
+  const displayResults = useMemo(() => {
+    if (!results) return [];
+    const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+    const base = showAllResults ? resolved : resolved.filter(isEliteOrStrong);
+    return filterResults(base, sport, status, period);
+  }, [results, sport, status, period, showAllResults]);
 
-  const topPerformances = useMemo(
-    () => (results ? getTopPerformances(results) : []),
-    [results]
-  );
-
-  const highConfStats = useMemo(() => {
-    if (!results) return null;
-    const hc = results.filter(r => Math.max(r.pred_home_win, r.pred_away_win) >= 60 && (r.result === "win" || r.result === "loss"));
-    const wins = hc.filter(r => r.result === "win").length;
-    const total = hc.length;
-    return { wins, total, winrate: total > 0 ? Math.round((wins / total) * 100) : 0 };
-  }, [results]);
-
-  // Check if we have resolved results
+  const grouped = useMemo(() => groupByDay(displayResults), [displayResults]);
   const resolvedResults = useMemo(() => results?.filter(r => r.result === "win" || r.result === "loss") || [], [results]);
   const recentPending = useMemo(() => results ? getRecentPending(results) : [], [results]);
+  const hiddenCount = useMemo(() => {
+    if (!results) return 0;
+    const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+    return resolved.length - resolved.filter(isEliteOrStrong).length;
+  }, [results]);
 
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
         <Navbar />
         <div className="container pt-20 pb-16 px-3 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center max-w-md"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
               <Lock className="h-8 w-8 text-primary" />
             </div>
@@ -152,9 +138,7 @@ export default function Resultats() {
               </Link>
               {!user && (
                 <Link to="/login">
-                  <Button variant="outline" className="w-full text-xs">
-                    Se connecter
-                  </Button>
+                  <Button variant="outline" className="w-full text-xs">Se connecter</Button>
                 </Link>
               )}
             </div>
@@ -173,16 +157,48 @@ export default function Resultats() {
             Résultats <span className="gradient-text">IA</span>
           </h1>
           <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
-            Sélection IA optimisée • Analyse basée sur les meilleures opportunités
+            Performances vérifiables • Sélection ELITE & STRONG par défaut
           </p>
         </motion.div>
+
+        {/* Stats Banner */}
+        {eliteStats && eliteStats.total > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2"
+          >
+            <div className="glass-card p-3 text-center">
+              <Sparkles className="h-4 w-4 text-amber-400 mx-auto mb-1" />
+              <p className="font-display text-lg font-bold">{eliteStats.winrate}%</p>
+              <p className="text-[9px] text-muted-foreground">Winrate ELITE</p>
+            </div>
+            <div className="glass-card p-3 text-center">
+              <TrendingUp className={cn("h-4 w-4 mx-auto mb-1", eliteStats.streak.type === "win" ? "text-success" : "text-destructive")} />
+              <p className="font-display text-lg font-bold">
+                {eliteStats.streak.count} {eliteStats.streak.type === "win" ? "✅" : "❌"}
+              </p>
+              <p className="text-[9px] text-muted-foreground">Série en cours</p>
+            </div>
+            <div className="glass-card p-3 text-center">
+              <Flame className="h-4 w-4 text-primary mx-auto mb-1" />
+              <p className="font-display text-lg font-bold">{eliteStats.last20.winrate}%</p>
+              <p className="text-[9px] text-muted-foreground">20 derniers ELITE</p>
+            </div>
+            <div className="glass-card p-3 text-center">
+              <Zap className="h-4 w-4 text-primary mx-auto mb-1" />
+              <p className="font-display text-lg font-bold">{eliteStats.total}</p>
+              <p className="text-[9px] text-muted-foreground">Pronostics analysés</p>
+            </div>
+          </motion.div>
+        )}
 
         {isLoading ? (
           <div className="mt-6 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
           </div>
         ) : resolvedResults.length === 0 ? (
-          /* Empty state: show recent 7 days matches */
           <div className="mt-6 space-y-4">
             <div className="rounded-xl border border-border/50 bg-card/60 p-4 text-center">
               <div className="text-3xl mb-2">📊</div>
@@ -203,64 +219,49 @@ export default function Resultats() {
             )}
           </div>
         ) : (
-          <div className="mt-4 space-y-6">
-            {/* TOP PERFORMANCES */}
-            {topPerformances.length > 0 && (
-              <motion.section
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1">
-                    <Flame className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-bold text-primary">Top performances IA</span>
-                  </div>
-                  {highConfStats && highConfStats.total > 0 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {highConfStats.winrate}% de réussite sur {highConfStats.total} pronostics haute confiance
-                    </span>
-                  )}
-                </div>
+          <div className="mt-4 space-y-4">
+            {/* Filters */}
+            <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
 
-                <div className="rounded-xl border-2 border-primary/20 bg-gradient-to-b from-primary/5 to-transparent p-3 space-y-2">
-                  {topPerformances.map((r, i) => (
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] text-muted-foreground">
+                {displayResults.length} pronostic{displayResults.length !== 1 ? "s" : ""} affiché{displayResults.length !== 1 ? "s" : ""}
+                {!showAllResults && " (ELITE & STRONG uniquement)"}
+              </p>
+              {!showAllResults && hiddenCount > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setShowAllResults(true)} className="text-[10px] h-7 gap-1">
+                  <Eye className="h-3 w-3" /> Voir tous ({hiddenCount} masqués)
+                </Button>
+              )}
+              {showAllResults && (
+                <Button variant="ghost" size="sm" onClick={() => setShowAllResults(false)} className="text-[10px] h-7 gap-1">
+                  <Sparkles className="h-3 w-3" /> ELITE & STRONG uniquement
+                </Button>
+              )}
+            </div>
+
+            {/* Grouped results */}
+            {grouped.length > 0 ? (
+              grouped.map(group => (
+                <div key={group.label} className="space-y-2">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">
+                    {group.label}
+                  </h3>
+                  {group.results.map((r, i) => (
                     <ResultCard key={r.id} result={r} index={i} />
                   ))}
                 </div>
-              </motion.section>
+              ))
+            ) : (
+              <div className="text-center rounded-xl border bg-card p-8">
+                <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
+              </div>
             )}
 
-            {/* Historique complet */}
-            <div className="space-y-4">
-              <h2 className="text-sm font-bold">📋 Historique complet</h2>
-              <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
-
-              <p className="text-[10px] text-muted-foreground">
-                {filteredResults.length} pronostic{filteredResults.length !== 1 ? "s" : ""} affiché{filteredResults.length !== 1 ? "s" : ""}
-                {filteredResults.length !== (results?.length ?? 0) && ` sur ${results?.length}`}
-                {" "}— gagnés et perdus inclus
-              </p>
-
-              {grouped.length > 0 ? (
-                <>
-                  {grouped.map(group => (
-                    <div key={group.label} className="space-y-2">
-                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">
-                        {group.label}
-                      </h3>
-                      {group.results.map((r, i) => (
-                        <ResultCard key={r.id} result={r} index={i} />
-                      ))}
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <div className="text-center rounded-xl border bg-card p-8">
-                  <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
-                </div>
-              )}
-            </div>
+            {/* Disclaimer */}
+            <p className="text-[9px] text-muted-foreground/60 text-center mt-4">
+              ⚠️ Les prédictions IA sont probabilistes, jamais garanties. Performances passées ≠ résultats futurs.
+            </p>
           </div>
         )}
       </div>

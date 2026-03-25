@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AiScoreBadge } from "@/components/matches/AiScoreBadge";
+import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
 import type { MatchResult } from "@/hooks/useResults";
 
 function estimateOdds(probability: number): number {
@@ -13,18 +15,34 @@ const sportEmojis: Record<string, string> = {
   football: "⚽",
   tennis: "🎾",
   basketball: "🏀",
+  hockey: "🏒",
+  baseball: "⚾",
+  nfl: "🏈",
+  mma: "🥊",
+  f1: "🏎️",
+  afl: "🏉",
 };
+
+function getAiScoreFromConfidence(result: MatchResult): number {
+  const maxProb = Math.max(result.pred_home_win, result.pred_away_win);
+  if (result.predicted_confidence === "SAFE" && maxProb >= 70) return 85;
+  if (result.predicted_confidence === "SAFE") return 78;
+  if (maxProb >= 65) return 72;
+  return 55;
+}
 
 export function ResultCard({ result, index }: { result: MatchResult; index: number }) {
   const date = new Date(result.kickoff).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
   const time = new Date(result.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const isWin = result.result === "win";
+  const isLoss = result.result === "loss";
+  const isPending = !isWin && !isLoss;
   const emoji = sportEmojis[result.sport] || "⚽";
+  const aiScore = getAiScoreFromConfidence(result);
 
   const winProb = result.predicted_winner === result.home_team ? result.pred_home_win : result.pred_away_win;
   const odds = estimateOdds(winProb);
 
-  // Determine real winner from scores
   let realWinner = "—";
   if (result.actual_home_score != null && result.actual_away_score != null) {
     if (result.actual_home_score > result.actual_away_score) realWinner = result.home_team;
@@ -38,8 +56,10 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.5) }}
       className={cn(
-        "rounded-xl border p-3 sm:p-4 space-y-2",
-        isWin ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5"
+        "rounded-xl border p-3 sm:p-4 space-y-2 transition-all",
+        isWin && "border-success/30 bg-success/5",
+        isLoss && "border-destructive/30 bg-destructive/5",
+        isPending && "border-border/50 bg-card/60"
       )}
     >
       {/* Header */}
@@ -47,19 +67,17 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-xs">{emoji}</span>
           <span className="text-[10px] font-semibold uppercase text-muted-foreground truncate">{result.league_name}</span>
-          <span className={cn(
-            "rounded-full px-1.5 py-0.5 text-[9px] font-bold shrink-0",
-            result.predicted_confidence === "SAFE" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
-          )}>
-            {result.predicted_confidence}
-          </span>
+          <ConfidenceBadge confidence={result.predicted_confidence as any} />
+          <AiScoreBadge score={aiScore} />
         </div>
         <span className={cn(
           "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shrink-0",
-          isWin ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+          isWin && "bg-success/15 text-success",
+          isLoss && "bg-destructive/15 text-destructive",
+          isPending && "bg-muted text-muted-foreground"
         )}>
-          {isWin ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-          {isWin ? "GAGNÉ" : "PERDU"}
+          {isWin ? <CheckCircle className="h-3.5 w-3.5" /> : isLoss ? <XCircle className="h-3.5 w-3.5" /> : null}
+          {isWin ? "GAGNÉ ✅" : isLoss ? "PERDU ❌" : "EN ATTENTE"}
         </span>
       </div>
 
@@ -90,13 +108,15 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
       </div>
 
       {/* Odds */}
-      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-        <span>📊 Cote : <strong className="text-foreground">{odds}</strong></span>
-        <span>💰 Mise : <strong className="text-foreground">10€</strong></span>
-        <span className={cn("font-bold", isWin ? "text-success" : "text-destructive")}>
-          {isWin ? `+${Math.round((odds * 10 - 10) * 100) / 100}€` : "-10€"}
-        </span>
-      </div>
+      {!isPending && (
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <span>📊 Cote : <strong className="text-foreground">{odds}</strong></span>
+          <span>💰 Mise : <strong className="text-foreground">10€</strong></span>
+          <span className={cn("font-bold", isWin ? "text-success" : "text-destructive")}>
+            {isWin ? `+${Math.round((odds * 10 - 10) * 100) / 100}€` : "-10€"}
+          </span>
+        </div>
+      )}
     </motion.div>
   );
 }

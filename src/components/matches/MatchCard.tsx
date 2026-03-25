@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { AiScoreBadge } from "./AiScoreBadge";
-import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap, Info } from "lucide-react";
+import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap, Info, Users, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -114,6 +114,25 @@ function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }
   );
 }
 
+function SocialProofBadge({ aiScore, fixtureId }: { aiScore: number; fixtureId: number }) {
+  if (aiScore < 80) return null;
+  // Deterministic "followers" based on fixture_id
+  const followers = 12 + (fixtureId % 38);
+  const isTrending = aiScore >= 85;
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <span className="flex items-center gap-1 text-[9px] text-muted-foreground">
+        <Users className="h-2.5 w-2.5" /> {followers} suivent ce pick
+      </span>
+      {isTrending && (
+        <span className="flex items-center gap-0.5 text-[9px] font-semibold text-amber-400">
+          <Flame className="h-2.5 w-2.5" /> Trending
+        </span>
+      )}
+    </div>
+  );
+}
+
 function getPredictionText(match: CachedMatch): string {
   if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) {
     return "Match nul probable";
@@ -124,8 +143,8 @@ function getPredictionText(match: CachedMatch): string {
 }
 
 function getAiScoreGlow(score: number): string {
-  if (score >= 90) return "ring-1 ring-amber-400/30";
-  if (score >= 80) return "ring-1 ring-emerald-400/20";
+  if (score >= 90) return "ring-2 ring-amber-400/40 shadow-lg shadow-amber-500/20";
+  if (score >= 80) return "ring-1 ring-emerald-400/30 shadow-md shadow-emerald-500/10";
   return "";
 }
 
@@ -189,6 +208,11 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             locked && "opacity-80",
             getAiScoreGlow(aiScore)
           )}>
+            {/* LIVE indicator overlay */}
+            {isLive && (
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive live-bar-pulse" />
+            )}
+
             {/* Top row */}
             <div className="flex items-center justify-between mb-2">
               <span className="flex items-center gap-1 text-[10px] sm:text-[11px] text-muted-foreground truncate">
@@ -234,13 +258,20 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
               <div className="flex flex-col items-center gap-0.5 shrink-0">
                 {isLive ? (
-                  <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold whitespace-nowrap badge-pulse">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive/60" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold whitespace-nowrap">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive/60" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
+                      </span>
+                      <span className="text-destructive">LIVE</span>
                     </span>
-                    <span className="text-destructive">LIVE</span>
-                  </span>
+                    {match.home_score != null && match.away_score != null && (
+                      <span className="text-sm font-bold font-display">
+                        {match.home_score} - {match.away_score}
+                      </span>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center">
                     <span className="flex items-center gap-0.5 text-[10px] sm:text-[11px] text-muted-foreground whitespace-nowrap">
@@ -255,6 +286,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                 <TeamDisplay name={match.away_team} logo={bothLogos ? match.away_logo : null} isFav={!locked && fav === "away"} side="away" />
               </div>
             </div>
+
+            {/* Social proof for ELITE */}
+            {!locked && <SocialProofBadge aiScore={aiScore} fixtureId={match.fixture_id} />}
 
             {/* AI PREDICTION — UNLOCKED */}
             {!locked && (
@@ -303,7 +337,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
             )}
 
-            {/* LOCKED PREDICTION */}
+            {/* LOCKED PREDICTION — Enhanced blur teaser */}
             {locked && (
               <div className="mt-2.5 rounded-lg border border-border bg-muted/30 p-2.5 sm:p-3 space-y-2">
                 <div className="flex items-center justify-between">
@@ -313,13 +347,29 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                       Prédiction verrouillée
                     </span>
                   </div>
-                  <span className="text-[9px] rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">🔒</span>
+                  <span className="text-[9px] rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 font-semibold">
+                    ⚡ Confiance élevée
+                  </span>
                 </div>
+
+                {/* Blurred data teaser */}
+                <div className="relative">
+                  <div className="flex items-center justify-between blur-[6px] select-none pointer-events-none">
+                    <span className="text-xs font-bold">Équipe gagne</span>
+                    <span className="text-xs font-bold">78%</span>
+                  </div>
+                  <div className="flex items-center justify-between blur-[6px] select-none pointer-events-none mt-1">
+                    <span className="text-[10px]">Score prédit</span>
+                    <span className="text-[10px] font-bold">2 - 1</span>
+                  </div>
+                </div>
+
                 <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
                   <div className="bg-primary/20 animate-pulse" style={{ width: "40%" }} />
                   <div className="bg-muted-foreground/10" style={{ width: "20%" }} />
                   <div className="bg-secondary/20 animate-pulse" style={{ width: "40%" }} />
                 </div>
+
                 <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                   🔥 Confiance IA élevée détectée • Analyse complète disponible
                 </p>
