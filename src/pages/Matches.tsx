@@ -64,7 +64,7 @@ export default function Matches() {
     return groups;
   }, [filtered]);
 
-  const freeMatches = filtered.filter(m => m.is_free).slice(0, 3);
+  const freeMatches = filtered.filter(m => m.is_free);
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
