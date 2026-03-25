@@ -116,14 +116,17 @@ Be rigorous and realistic. Do NOT inflate confidence. Use all 11 analysis dimens
 
   try {
     console.log(`[AI] Requesting predictions for ${matches.length} matches...`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000); // 25s timeout
     const response = await fetch(AI_GATEWAY, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
