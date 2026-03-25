@@ -61,6 +61,7 @@ export type Database = {
       }
       cached_matches: {
         Row: {
+          ai_score: number
           away_logo: string | null
           away_score: number | null
           away_team: string
@@ -90,6 +91,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          ai_score?: number
           away_logo?: string | null
           away_score?: number | null
           away_team: string
@@ -119,6 +121,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          ai_score?: number
           away_logo?: string | null
           away_score?: number | null
           away_team?: string
