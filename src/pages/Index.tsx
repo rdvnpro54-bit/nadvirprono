@@ -160,7 +160,7 @@ const Index = () => {
                 { label: "ROI mensuel", value: 14, suffix: "%", icon: Shield, prefix: "+" },
               ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
                 <ScrollSection key={label} delay={i * 0.08}>
-                  <div className="glass-card flex flex-col items-center gap-1.5 p-3 transition-all duration-200 hover:scale-105 hover:border-primary/20">
+                  <div className="glass-card match-card-hover flex flex-col items-center gap-1.5 p-3">
                     <Icon className="h-4 w-4 text-primary" />
                     <span className="font-display text-xl font-bold">
                       {prefix || ""}<AnimatedNumber value={Math.floor(value)} suffix={suffix} />
