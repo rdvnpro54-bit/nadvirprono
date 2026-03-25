@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain, Eye } from "lucide-react";
+import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ const sportFilters = [
   { value: "mma", label: "MMA", emoji: "🥊" },
   { value: "f1", label: "F1", emoji: "🏎️" },
   { value: "afl", label: "AFL", emoji: "🏉" },
+  { value: "rugby", label: "Rugby", emoji: "🏉" },
 ];
 
 const confidenceFilters: { value: Confidence | "all"; label: string }[] = [
@@ -52,7 +53,6 @@ export default function Matches() {
   const [aiTier, setAiTier] = useState<AiTier>("ALL");
   const [valueBetsOnly, setValueBetsOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showAll, setShowAll] = useState(false);
 
   // Count free picks remaining
   const freePicksUsed = useMemo(() => {
@@ -61,6 +61,7 @@ export default function Matches() {
   }, [matches]);
   const freePicksLeft = Math.max(3 - freePicksUsed, 0);
 
+  // NO filtering by aiScore — show ALL matches
   const filtered = useMemo(() => {
     if (!matches) return [];
     return matches.filter(m => {
@@ -73,17 +74,16 @@ export default function Matches() {
           !m.away_team.toLowerCase().includes(q) &&
           !m.league_name.toLowerCase().includes(q)) return false;
       }
-      const score = (m as any).ai_score || 0;
+      const score = m.ai_score || 0;
       if (aiTier === "ELITE" && score < 80) return false;
-      if (aiTier === "STRONG" && score < 65) return false;
-      if (aiTier === "ALL" && !showAll && score > 0 && score < 70) return false;
+      if (aiTier === "STRONG" && (score >= 80 || score < 1)) return false;
       return true;
     });
-  }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier, showAll]);
+  }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier]);
 
   const grouped = useMemo(() => {
     const groups: Record<string, CachedMatch[]> = {};
-    const sortedFiltered = [...filtered].sort((a, b) => ((b as any).ai_score || 0) - ((a as any).ai_score || 0));
+    const sortedFiltered = [...filtered].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
     sortedFiltered.forEach(m => {
       const date = new Date(m.kickoff).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
       if (!groups[date]) groups[date] = [];
@@ -92,14 +92,7 @@ export default function Matches() {
     return groups;
   }, [filtered]);
 
-  const freeMatches = filtered.filter(m => m.is_free).sort((a, b) => ((b as any).ai_score || 0) - ((a as any).ai_score || 0));
-  const hiddenCount = useMemo(() => {
-    if (!matches) return 0;
-    return matches.filter(m => {
-      const score = (m as any).ai_score || 0;
-      return score > 0 && score < 70;
-    }).length;
-  }, [matches]);
+  const freeMatches = filtered.filter(m => m.is_free).sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
@@ -112,7 +105,7 @@ export default function Matches() {
                 Analyse <span className="gradient-text">IA</span>
               </h1>
               <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
-                {matches?.length || 0} matchs analysés • Sélection intelligente
+                {matches?.length || 0} matchs analysés • Tous les sports
               </p>
             </div>
             <CooldownTimer lastUpdate={dataUpdatedAt} intervalMs={3 * 60 * 1000} />
@@ -130,7 +123,7 @@ export default function Matches() {
             <Lock className="h-5 w-5 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[11px] sm:text-sm font-semibold text-foreground">
-                🔓 Accès limité — Passe Premium pour toutes les prédictions ELITE
+                🔓 Accès limité — Passe Premium pour toutes les prédictions
               </p>
               <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
                 ⚡ Seulement {freePicksLeft > 0 ? freePicksLeft : "0"} pronostic{freePicksLeft !== 1 ? "s" : ""} gratuit{freePicksLeft !== 1 ? "s" : ""} restant{freePicksLeft !== 1 ? "s" : ""} aujourd'hui
@@ -159,7 +152,7 @@ export default function Matches() {
           />
         </div>
 
-        {/* AI Tier Filters */}
+        {/* Filters */}
         <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2">
           <div className="flex gap-0.5 rounded-lg border border-primary/20 bg-primary/5 p-0.5">
             {aiTierFilters.map(f => {
@@ -254,16 +247,7 @@ export default function Matches() {
           </motion.div>
         )}
 
-        {/* Opportunités IA section header */}
-        {!isLoading && !error && aiTier !== "ALL" && filtered.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-5 sm:mt-6">
-            <h2 className="font-display text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-1.5">
-              🔥 Opportunités IA — {aiTier}
-            </h2>
-          </motion.div>
-        )}
-
-        {/* Grouped matches */}
+        {/* Grouped matches — ALL visible, no hiding */}
         {!isLoading && !error && Object.entries(grouped).map(([date, dateMatches]) => (
           <div key={date} className="mt-5 sm:mt-6">
             <h3 className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 sm:mb-3 capitalize">{date}</h3>
@@ -277,16 +261,6 @@ export default function Matches() {
             </div>
           </div>
         ))}
-
-        {/* Show hidden matches toggle */}
-        {!isLoading && !error && hiddenCount > 0 && !showAll && aiTier === "ALL" && (
-          <div className="mt-6 text-center">
-            <Button variant="outline" size="sm" onClick={() => setShowAll(true)} className="text-xs gap-1.5">
-              <Eye className="h-3 w-3" /> Voir tous les matchs ({hiddenCount} masqués)
-            </Button>
-            <p className="mt-1 text-[9px] text-muted-foreground">Matchs avec AI Score faible masqués par défaut</p>
-          </div>
-        )}
 
         {/* Empty state */}
         {!isLoading && !error && filtered.length === 0 && (

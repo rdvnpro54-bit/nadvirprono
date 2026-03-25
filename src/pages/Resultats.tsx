@@ -5,7 +5,7 @@ import { useResultStats } from "@/hooks/useResults";
 import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Flame, Lock, Crown, Sparkles, Zap, Eye, TrendingUp } from "lucide-react";
+import { Flame, Lock, Crown, Sparkles, Zap, TrendingUp } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
 import { Button } from "@/components/ui/button";
@@ -93,24 +93,18 @@ export default function Resultats() {
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("high_conf");
   const [period, setPeriod] = useState("all");
-  const [showAllResults, setShowAllResults] = useState(false);
+  
 
-  // Default: show ELITE + STRONG only
+  // Show ALL results — no filtering by tier
   const displayResults = useMemo(() => {
     if (!results) return [];
     const resolved = results.filter(r => r.result === "win" || r.result === "loss");
-    const base = showAllResults ? resolved : resolved.filter(isEliteOrStrong);
-    return filterResults(base, sport, status, period);
-  }, [results, sport, status, period, showAllResults]);
+    return filterResults(resolved, sport, status, period);
+  }, [results, sport, status, period]);
 
   const grouped = useMemo(() => groupByDay(displayResults), [displayResults]);
   const resolvedResults = useMemo(() => results?.filter(r => r.result === "win" || r.result === "loss") || [], [results]);
   const recentPending = useMemo(() => results ? getRecentPending(results) : [], [results]);
-  const hiddenCount = useMemo(() => {
-    if (!results) return 0;
-    const resolved = results.filter(r => r.result === "win" || r.result === "loss");
-    return resolved.length - resolved.filter(isEliteOrStrong).length;
-  }, [results]);
 
   if (!hasAccess) {
     return (
@@ -157,7 +151,7 @@ export default function Resultats() {
             Résultats <span className="gradient-text">IA</span>
           </h1>
           <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
-            Performances vérifiables • Sélection ELITE & STRONG par défaut
+            Performances vérifiables • Tous les résultats
           </p>
         </motion.div>
 
@@ -226,18 +220,7 @@ export default function Resultats() {
             <div className="flex items-center justify-between">
               <p className="text-[10px] text-muted-foreground">
                 {displayResults.length} pronostic{displayResults.length !== 1 ? "s" : ""} affiché{displayResults.length !== 1 ? "s" : ""}
-                {!showAllResults && " (ELITE & STRONG uniquement)"}
               </p>
-              {!showAllResults && hiddenCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => setShowAllResults(true)} className="text-[10px] h-7 gap-1">
-                  <Eye className="h-3 w-3" /> Voir tous ({hiddenCount} masqués)
-                </Button>
-              )}
-              {showAllResults && (
-                <Button variant="ghost" size="sm" onClick={() => setShowAllResults(false)} className="text-[10px] h-7 gap-1">
-                  <Sparkles className="h-3 w-3" /> ELITE & STRONG uniquement
-                </Button>
-              )}
             </div>
 
             {/* Grouped results */}

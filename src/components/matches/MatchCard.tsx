@@ -157,7 +157,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const fav = match.pred_home_win >= match.pred_away_win ? "home" : "away";
-  const aiScore = (match as any).ai_score || 0;
+  const aiScore = match.ai_score || 0;
 
   const [tick, setTick] = useState(0);
   useEffect(() => {

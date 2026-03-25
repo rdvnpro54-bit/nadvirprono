@@ -1,18 +1,16 @@
-import { Sparkles, Zap, TrendingUp } from "lucide-react";
+import { Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Classification = "ELITE" | "STRONG" | "AVERAGE";
+type Classification = "ELITE" | "STRONG";
 
 function classify(score: number): Classification {
   if (score >= 80) return "ELITE";
-  if (score >= 65) return "STRONG";
-  return "AVERAGE";
+  return "STRONG";
 }
 
 const config: Record<Classification, { icon: typeof Sparkles; className: string; label: string }> = {
   ELITE: { icon: Sparkles, className: "bg-amber-500/20 text-amber-400 border border-amber-500/30", label: "ELITE" },
   STRONG: { icon: Zap, className: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30", label: "STRONG" },
-  AVERAGE: { icon: TrendingUp, className: "bg-muted text-muted-foreground border border-border", label: "AVERAGE" },
 };
 
 export function AiScoreBadge({ score, size = "sm" }: { score: number; size?: "sm" | "lg" }) {
