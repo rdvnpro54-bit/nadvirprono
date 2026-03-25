@@ -192,30 +192,41 @@ Deno.serve(async (req) => {
     const predictions = await callAI(apiKey, matches);
     console.log(`[AI-PREDICT] Got ${predictions.length}/${matches.length} AI predictions`);
 
-    // Update each match with AI prediction
+    // Map AI predictions by fixture_id, with fallback mapping by index
+    const predMap = new Map<number, AIPrediction>();
+    for (const p of predictions) predMap.set(p.fixture_id, p);
+
+    // Update each match — try matching by fixture_id first, then by index
     let updated = 0;
-    for (const pred of predictions) {
-      const { error: updateError } = await supabase
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const pred = predMap.get(m.fixture_id) || predictions[i];
+      if (!pred) continue;
+
+      const updateData = {
+        pred_home_win: pred.pred_home_win,
+        pred_draw: pred.pred_draw,
+        pred_away_win: pred.pred_away_win,
+        pred_score_home: pred.pred_score_home,
+        pred_score_away: pred.pred_score_away,
+        pred_over_under: pred.pred_over_under,
+        pred_over_prob: pred.pred_over_prob,
+        pred_btts_prob: pred.pred_btts_prob,
+        pred_confidence: pred.pred_confidence,
+        pred_value_bet: pred.pred_value_bet,
+        pred_analysis: `🤖 ${pred.pred_analysis}`,
+      };
+
+      const { error: updateError, count } = await supabase
         .from("cached_matches")
-        .update({
-          pred_home_win: pred.pred_home_win,
-          pred_draw: pred.pred_draw,
-          pred_away_win: pred.pred_away_win,
-          pred_score_home: pred.pred_score_home,
-          pred_score_away: pred.pred_score_away,
-          pred_over_under: pred.pred_over_under,
-          pred_over_prob: pred.pred_over_prob,
-          pred_btts_prob: pred.pred_btts_prob,
-          pred_confidence: pred.pred_confidence,
-          pred_value_bet: pred.pred_value_bet,
-          pred_analysis: `🤖 ${pred.pred_analysis}`,
-        })
-        .eq("fixture_id", pred.fixture_id);
+        .update(updateData)
+        .eq("fixture_id", m.fixture_id);
 
       if (updateError) {
-        console.error(`[AI-PREDICT] Update error for fixture ${pred.fixture_id}:`, updateError);
+        console.error(`[AI-PREDICT] Update error for fixture ${m.fixture_id}:`, JSON.stringify(updateError));
       } else {
         updated++;
+        if (i === 0) console.log(`[AI-PREDICT] Sample update for ${m.home_team} vs ${m.away_team}: confidence=${pred.pred_confidence}`);
       }
     }
 
