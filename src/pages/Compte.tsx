@@ -1,25 +1,61 @@
 import { Navbar } from "@/components/layout/Navbar";
-import { User, Zap, CreditCard, LogOut, Loader2, CheckCircle } from "lucide-react";
+import { User, Zap, CreditCard, LogOut, Loader2, Shield, BarChart3, Users, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth, STRIPE_PLANS } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+interface DashboardStats {
+  totalUsers: number;
+  premiumCount: number;
+  matchCount: number;
+  apiStatus: { lastFetch: string; requestsToday: number } | null;
+}
 
 export default function Compte() {
-  const { user, isPremium, subscription, signOut, checkSubscription, loading } = useAuth();
+  const { user, isPremium, isAdmin, subscription, signOut, checkSubscription, loading } = useAuth();
   const [portalLoading, setPortalLoading] = useState(false);
   const [searchParams] = useSearchParams();
+  const [adminStats, setAdminStats] = useState<DashboardStats | null>(null);
+  const [adminLoading, setAdminLoading] = useState(false);
 
-  // Check if returning from checkout
   useEffect(() => {
     if (searchParams.get("checkout") === "success") {
       toast.success("Paiement réussi ! Bienvenue Premium 🎉");
       checkSubscription();
     }
   }, [searchParams, checkSubscription]);
+
+  const fetchAdminStats = useCallback(async () => {
+    if (!isAdmin || !user) return;
+    setAdminLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase.functions.invoke("admin-actions", {
+        body: { action: "dashboard" },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error) throw error;
+      setAdminStats({
+        totalUsers: data.totalUsers || 0,
+        premiumCount: data.premiumCount || 0,
+        matchCount: data.matchCount || 0,
+        apiStatus: data.apiStatus || null,
+      });
+    } catch (err: any) {
+      console.error("Admin stats error:", err);
+    } finally {
+      setAdminLoading(false);
+    }
+  }, [isAdmin, user]);
+
+  useEffect(() => {
+    fetchAdminStats();
+  }, [fetchAdminStats]);
 
   const handlePortal = async () => {
     setPortalLoading(true);
@@ -72,10 +108,80 @@ export default function Compte() {
                 </div>
                 <div>
                   <p className="font-display text-sm font-bold">{user.email}</p>
-                  <p className="text-[11px] text-muted-foreground">Membre Pronosia</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-muted-foreground">Membre Pronosia</p>
+                    {isAdmin && (
+                      <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-[9px] font-bold text-destructive">ADMIN</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
+
+            {/* Admin Console */}
+            {isAdmin && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mt-3 glass-card p-5 border border-destructive/30">
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="h-4 w-4 text-destructive" />
+                  <h2 className="font-display text-sm font-bold">Console Admin</h2>
+                </div>
+
+                {adminLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : adminStats ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                        <Users className="h-3.5 w-3.5" />
+                        <span className="text-[10px] font-medium">Utilisateurs</span>
+                      </div>
+                      <p className="font-display text-lg font-bold">{adminStats.totalUsers}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                        <Zap className="h-3.5 w-3.5" />
+                        <span className="text-[10px] font-medium">Premium</span>
+                      </div>
+                      <p className="font-display text-lg font-bold">{adminStats.premiumCount}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                        <BarChart3 className="h-3.5 w-3.5" />
+                        <span className="text-[10px] font-medium">Matchs cachés</span>
+                      </div>
+                      <p className="font-display text-lg font-bold">{adminStats.matchCount}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                        <Activity className="h-3.5 w-3.5" />
+                        <span className="text-[10px] font-medium">API Status</span>
+                      </div>
+                      <p className="font-display text-xs font-bold">
+                        {adminStats.apiStatus
+                          ? new Date(adminStats.apiStatus.lastFetch).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+                          : "N/A"}
+                      </p>
+                      {adminStats.apiStatus && (
+                        <p className="text-[9px] text-muted-foreground">{adminStats.apiStatus.requestsToday} req/jour</p>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-3 flex gap-2">
+                  <Link to="/admin" className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full gap-1.5 text-[11px] border-destructive/30 text-destructive hover:bg-destructive/10">
+                      <Shield className="h-3.5 w-3.5" /> Panneau Admin Complet
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="sm" className="text-[11px]" onClick={fetchAdminStats} disabled={adminLoading}>
+                    {adminLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              </motion.div>
+            )}
 
             {/* Subscription status */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mt-3 glass-card p-5">

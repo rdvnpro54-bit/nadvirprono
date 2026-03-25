@@ -47,8 +47,8 @@ export function useMatches() {
       const deduplicated = deduplicateMatches(data as CachedMatch[]);
       return filterActiveMatches(deduplicated);
     },
-    staleTime: 60_000,         // 1 min stale
-    refetchInterval: 120_000,  // refresh every 2 min
+    staleTime: 30 * 60_000,        // 30 min stale
+    refetchInterval: 60 * 60_000,  // refresh every 1 hour
   });
 }
 
@@ -76,7 +76,7 @@ export function useTriggerFetch() {
       if (error) throw error;
       return data;
     },
-    staleTime: 110_000,        // ~2 min
-    refetchInterval: 120_000,  // re-fetch API every 2 min
+    staleTime: 55 * 60_000,        // ~55 min
+    refetchInterval: 60 * 60_000,  // re-fetch API every 1 hour
   });
 }
