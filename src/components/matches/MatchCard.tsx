@@ -230,16 +230,21 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* AI PREDICTION — UNLOCKED */}
             {!locked && (
-              <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2 sm:p-2.5">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="text-[11px] sm:text-sm font-bold text-primary truncate">
-                    🔥 IA : {getPredictionText(match)}
-                  </span>
+              <div className="mt-2.5 rounded-lg border border-primary/20 bg-primary/5 p-2.5 sm:p-3 space-y-2">
+                {/* Pronostic principal */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-bold text-primary truncate">
+                      🔥 {getPredictionText(match)}
+                    </span>
+                  </div>
+                  <ConfidenceBadge confidence={match.pred_confidence as any} />
                 </div>
-                <div className="mt-1.5 flex items-center gap-1.5">
-                  <span className="text-[9px] sm:text-[11px] text-muted-foreground whitespace-nowrap">Confiance :</span>
-                  <span className="text-[9px] sm:text-[11px] font-bold text-foreground">{confidence}%</span>
+
+                {/* Confiance bar */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground whitespace-nowrap">💎 Confiance</span>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <motion.div
                       className="h-full rounded-full bg-primary prob-bar-shimmer"
@@ -248,10 +253,13 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                       transition={{ duration: 0.8, delay: (index || 0) * 0.1 }}
                     />
                   </div>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-foreground">{confidence}%</span>
                 </div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="text-[10px] sm:text-[11px] text-muted-foreground">🎯 Score prédit :</span>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-foreground">
+
+                {/* Score prédit */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-foreground">
                     {match.pred_score_home} - {match.pred_score_away}
                   </span>
                 </div>
