@@ -2,13 +2,14 @@ import { useState, useMemo } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { TrendingUp, Search, RefreshCw, Loader2, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
+import { CooldownTimer } from "@/components/matches/CooldownTimer";
 
 type Confidence = "SAFE" | "MODÉRÉ" | "RISQUÉ";
 
@@ -27,8 +28,8 @@ const confidenceFilters: { value: Confidence | "all"; label: string }[] = [
 ];
 
 export default function Matches() {
-  const { data: matches, isLoading, error, refetch } = useMatches();
-  const { isLoading: isFetching } = useTriggerFetch();
+  const { data: matches, isLoading, error, refetch, dataUpdatedAt } = useMatches();
+  const { data: triggerData } = useTriggerFetch();
   const { isPremium } = useAuth();
 
   const [sport, setSport] = useState("all");
@@ -64,10 +65,6 @@ export default function Matches() {
 
   const freeMatches = filtered.filter(m => m.is_free).slice(0, 3);
 
-  // For non-premium users: only show free matches unlocked, rest locked
-  // Free counter: 3 matches total
-  let freeShown = 0;
-
   return (
     <div className="min-h-screen bg-background pb-20">
       <Navbar />
@@ -79,17 +76,10 @@ export default function Matches() {
                 Analyse <span className="gradient-text">IA</span>
               </h1>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {matches?.length || 0} matchs analysés • 12 sports
+                {matches?.length || 0} matchs analysés • 3 sports
               </p>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-              {isFetching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              <span className="hidden sm:inline">MAJ toutes les 15 min</span>
-            </div>
-          </div>
-          <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary font-medium">🧠 Taux IA : 82%</span>
-            <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">📊 +250 facteurs</span>
+            <CooldownTimer lastUpdate={dataUpdatedAt} intervalMs={3 * 60 * 1000} />
           </div>
         </motion.div>
 
@@ -181,30 +171,19 @@ export default function Matches() {
         )}
 
         {/* Grouped matches */}
-        {!isLoading && !error && Object.entries(grouped).map(([date, dateMatches]) => {
-          return (
-            <div key={date} className="mt-6">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 capitalize">{date}</h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {dateMatches.map((match, i) => {
-                  // Premium: show all unlocked. Free: first 3 free matches unlocked, rest locked
-                  const isUnlocked = isPremium || match.is_free;
-                  if (!isPremium && !match.is_free) {
-                    freeShown++; // count locked ones
-                  }
-                  return (
-                    <MatchCard
-                      key={match.id}
-                      match={match}
-                      locked={!isUnlocked}
-                      index={i}
-                    />
-                  );
-                })}
-              </div>
+        {!isLoading && !error && Object.entries(grouped).map(([date, dateMatches]) => (
+          <div key={date} className="mt-6">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 capitalize">{date}</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {dateMatches.map((match, i) => {
+                const isUnlocked = isPremium || match.is_free;
+                return (
+                  <MatchCard key={match.id} match={match} locked={!isUnlocked} index={i} />
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
 
         {/* Empty */}
         {!isLoading && !error && filtered.length === 0 && (

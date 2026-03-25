@@ -10,7 +10,11 @@ const corsHeaders = {
 const SPORTSRC_BASE = "https://api.sportsrc.org/v2/";
 const SPORTSRC_KEY = "8d44848359af5c9ea4c13a11aa996811";
 
-// ESPN hidden API (free, no key needed)
+const LIVESCORE_BASE = "https://livescore6.p.rapidapi.com";
+const LIVESCORE_HOST = "livescore6.p.rapidapi.com";
+const LIVESCORE_KEY = "ed7d112361mshf3c802ed9cfa89ep1465e2jsnde5590455f30";
+
+// ESPN as second fallback (free, no key)
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports";
 
 // ─── UTILS ───────────────────────────────────────────────────────────
@@ -25,13 +29,12 @@ function seeded(seed: number, offset = 0): number {
 }
 function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
 
-/** Get today's date in Europe/Paris timezone */
-function getTodayParis(): { iso: string; espn: string } {
+function getTodayParis(): { iso: string; livescore: string } {
   const now = new Date();
   const parisStr = now.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }); // YYYY-MM-DD
   return {
     iso: parisStr,
-    espn: parisStr.replace(/-/g, ""), // YYYYMMDD
+    livescore: parisStr.replace(/-/g, ""), // YYYYMMDD
   };
 }
 
@@ -135,7 +138,7 @@ function generatePrediction(homeTeam: string, awayTeam: string, fixtureId: numbe
   };
 }
 
-// ─── UNIFIED MATCH TYPE ─────────────────────────────────────────────
+// ─── NORMALIZED MATCH TYPE ──────────────────────────────────────────
 interface NormalizedMatch {
   id: string;
   sport: string;
@@ -146,28 +149,32 @@ interface NormalizedMatch {
   homeLogo: string | null;
   awayLogo: string | null;
   timestamp: number;
-  source: "sportsrc" | "espn";
+  source: "sportsrc" | "livescore" | "espn";
 }
 
-// ─── FETCH FROM SPORTSRC (FOOTBALL PRIMARY) ─────────────────────────
+// ─── ANTI-DUPLICATE KEY ─────────────────────────────────────────────
+function matchKey(m: NormalizedMatch): string {
+  return `${m.homeTeam.toLowerCase().trim()}_${m.awayTeam.toLowerCase().trim()}_${m.timestamp}`;
+}
+
+// ─── FETCH SPORTSRC (FOOTBALL) ──────────────────────────────────────
 async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
   const url = `${SPORTSRC_BASE}?type=matches&sport=football&status=upcoming&date=${dateISO}`;
   console.log(`[API: SportSRC] FOOT - ${dateISO} - fetching upcoming`);
   try {
     const res = await fetch(url, { headers: { "X-API-KEY": SPORTSRC_KEY } });
-    if (!res.ok) { console.error(`[SportSRC] football error: ${res.status}`); return []; }
+    if (!res.ok) { console.error(`[SportSRC] error: ${res.status}`); return []; }
     const json = await res.json();
     const leagues = json.data || [];
     const now = Date.now();
-
     const results: NormalizedMatch[] = [];
+
     for (const lg of leagues) {
       for (const m of (lg.matches || [])) {
         if (m.status !== "notstarted") continue;
         const rawTs = m.timestamp || 0;
         const ts = rawTs < 1e12 ? rawTs * 1000 : rawTs;
         if (!ts || ts <= now) continue;
-        if (m.score?.current?.home > 0 || m.score?.current?.away > 0) continue;
         results.push({
           id: `src_${m.id}`,
           sport: "football",
@@ -183,16 +190,91 @@ async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
       }
     }
     results.sort((a, b) => a.timestamp - b.timestamp);
-    console.log(`[API: SportSRC] FOOT - ${dateISO} - ${results.length} upcoming matches`);
+    console.log(`[API: SportSRC] FOOT - ${results.length} upcoming matches`);
     return results;
   } catch (e) {
-    console.error(`[SportSRC] football fetch error:`, e);
+    console.error(`[SportSRC] fetch error:`, e);
     return [];
   }
 }
 
-// ─── FETCH FROM ESPN (FREE, NO KEY) ─────────────────────────────────
-// ESPN sport/league paths
+// ─── FETCH LIVESCORE (TENNIS / BASKETBALL / SOCCER FALLBACK) ────────
+async function fetchLiveScore(category: string, dateLiveScore: string, sport: string): Promise<NormalizedMatch[]> {
+  const url = `${LIVESCORE_BASE}/matches/v2/list-by-date?Category=${category}&Date=${dateLiveScore}&Timezone=1`;
+  console.log(`[API: LiveScore] ${sport.toUpperCase()} - ${dateLiveScore} - fetching`);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "x-rapidapi-host": LIVESCORE_HOST,
+        "x-rapidapi-key": LIVESCORE_KEY,
+      },
+    });
+    if (!res.ok) {
+      console.error(`[LiveScore] ${sport} error: ${res.status}`);
+      return [];
+    }
+    const json = await res.json();
+    const stages = json.Stages || [];
+    const now = Date.now();
+    const results: NormalizedMatch[] = [];
+
+    for (const stage of stages) {
+      const leagueName = stage.Snm || stage.Cnm || "Unknown";
+      const country = stage.Cnm || "";
+      for (const evt of (stage.Events || [])) {
+        // Status: 0 = not started, 1 = in progress, 2+ = finished
+        const epsStatus = evt.Eps;
+        if (epsStatus !== "NS" && epsStatus !== "0" && epsStatus !== "" && epsStatus !== undefined) {
+          // Try to detect "not started" from various LiveScore status codes
+          const statusStr = String(epsStatus).toUpperCase();
+          if (statusStr !== "NS" && statusStr !== "SCH" && statusStr !== "0") continue;
+        }
+
+        // Parse time - LiveScore uses Esd (YYYYMMDDHHMMSS) or separate fields
+        let ts = 0;
+        if (evt.Esd) {
+          const esd = String(evt.Esd);
+          if (esd.length >= 12) {
+            const y = esd.slice(0, 4), mo = esd.slice(4, 6), d = esd.slice(6, 8);
+            const h = esd.slice(8, 10), mi = esd.slice(10, 12);
+            ts = new Date(`${y}-${mo}-${d}T${h}:${mi}:00+01:00`).getTime(); // CET
+          }
+        }
+        if (!ts || ts <= now) continue;
+
+        // Verify it's today (Paris time)
+        const evtDay = new Date(ts).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }).replace(/-/g, "");
+        if (evtDay !== dateLiveScore) continue;
+
+        const homeTeam = evt.T1?.[0]?.Nm || "Team A";
+        const awayTeam = evt.T2?.[0]?.Nm || "Team B";
+        const homeLogo = evt.T1?.[0]?.Img ? `https://lsm-static-prod.livescore.com/medium/${evt.T1[0].Img}` : null;
+        const awayLogo = evt.T2?.[0]?.Img ? `https://lsm-static-prod.livescore.com/medium/${evt.T2[0].Img}` : null;
+
+        results.push({
+          id: `ls_${evt.Eid || hash(homeTeam + awayTeam + ts)}`,
+          sport,
+          league: leagueName,
+          country,
+          homeTeam,
+          awayTeam,
+          homeLogo,
+          awayLogo,
+          timestamp: ts,
+          source: "livescore",
+        });
+      }
+    }
+    results.sort((a, b) => a.timestamp - b.timestamp);
+    console.log(`[API: LiveScore] ${sport.toUpperCase()} - ${results.length} upcoming matches after filter`);
+    return results;
+  } catch (e) {
+    console.error(`[LiveScore] ${sport} fetch error:`, e);
+    return [];
+  }
+}
+
+// ─── ESPN FALLBACK ──────────────────────────────────────────────────
 const ESPN_SPORT_MAP: Record<string, { path: string; label: string }[]> = {
   football: [
     { path: "soccer/eng.1", label: "Premier League" },
@@ -201,7 +283,6 @@ const ESPN_SPORT_MAP: Record<string, { path: string; label: string }[]> = {
     { path: "soccer/ita.1", label: "Serie A" },
     { path: "soccer/fra.1", label: "Ligue 1" },
     { path: "soccer/uefa.champions", label: "Champions League" },
-    { path: "soccer/uefa.europa", label: "Europa League" },
   ],
   tennis: [
     { path: "tennis/atp", label: "ATP" },
@@ -210,49 +291,35 @@ const ESPN_SPORT_MAP: Record<string, { path: string; label: string }[]> = {
   basketball: [
     { path: "basketball/nba", label: "NBA" },
     { path: "basketball/wnba", label: "WNBA" },
-    { path: "basketball/mens-college-basketball", label: "NCAA" },
   ],
 };
 
 async function fetchESPN(sport: string, dateESPN: string): Promise<NormalizedMatch[]> {
   const leagues = ESPN_SPORT_MAP[sport];
   if (!leagues) return [];
-
   const now = Date.now();
   const allResults: NormalizedMatch[] = [];
 
-  // Fetch all leagues in parallel
   const fetches = leagues.map(async (league) => {
     const url = `${ESPN_BASE}/${league.path}/scoreboard?dates=${dateESPN}`;
-    console.log(`[API: ESPN] ${sport.toUpperCase()} - ${league.label} - ${dateESPN} - fetching`);
+    console.log(`[API: ESPN] ${sport.toUpperCase()} - ${league.label} - fetching`);
     try {
       const res = await fetch(url);
-      if (!res.ok) {
-        const body = await res.text();
-        console.error(`[ESPN] ${sport}/${league.label} error: ${res.status} - ${body.slice(0, 200)}`);
-        return [];
-      }
+      if (!res.ok) return [];
       const json = await res.json();
       const events = json.events || [];
       const results: NormalizedMatch[] = [];
 
       for (const evt of events) {
-        // Only "pre" status (not started)
-        const status = evt.status?.type?.state;
-        const statusDetail = evt.status?.type?.name;
-        if (status !== "pre") continue; // skip in-progress and post
-
+        if (evt.status?.type?.state !== "pre") continue;
         const eventDate = evt.date ? new Date(evt.date).getTime() : 0;
         if (!eventDate || eventDate <= now) continue;
-
-        // Verify it's today
         const evtDay = new Date(eventDate).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }).replace(/-/g, "");
         if (evtDay !== dateESPN) continue;
 
         const competitors = evt.competitions?.[0]?.competitors || [];
         const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
         const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
-
         if (!home || !away) continue;
 
         results.push({
@@ -260,30 +327,24 @@ async function fetchESPN(sport: string, dateESPN: string): Promise<NormalizedMat
           sport,
           league: league.label,
           country: "",
-          homeTeam: home.team?.displayName || home.team?.name || "Team A",
-          awayTeam: away.team?.displayName || away.team?.name || "Team B",
+          homeTeam: home.team?.displayName || "Team A",
+          awayTeam: away.team?.displayName || "Team B",
           homeLogo: home.team?.logo || null,
           awayLogo: away.team?.logo || null,
           timestamp: eventDate,
           source: "espn",
         });
-
-        console.log(`[API: ESPN] ${sport.toUpperCase()} - ${new Date(eventDate).toISOString().slice(0, 16)} - ${home.team?.displayName} vs ${away.team?.displayName} - upcoming`);
       }
       return results;
-    } catch (e) {
-      console.error(`[ESPN] ${sport}/${league.label} fetch error:`, e);
+    } catch {
       return [];
     }
   });
 
   const allFetched = await Promise.all(fetches);
-  for (const results of allFetched) {
-    allResults.push(...results);
-  }
-
+  for (const r of allFetched) allResults.push(...r);
   allResults.sort((a, b) => a.timestamp - b.timestamp);
-  console.log(`[API: ESPN] ${sport.toUpperCase()} - ${dateESPN} - ${allResults.length} total upcoming`);
+  console.log(`[API: ESPN] ${sport.toUpperCase()} - ${allResults.length} upcoming`);
   return allResults;
 }
 
@@ -312,6 +373,13 @@ function convertNormalizedToRow(m: NormalizedMatch, isFree: boolean) {
   };
 }
 
+// ─── ROTATION LOGIC ─────────────────────────────────────────────────
+// Cycle 0: FOOT (SportSRC)
+// Cycle 1: TENNIS (LiveScore)
+// Cycle 2: BASKET (LiveScore)
+// Cycle 3: CACHE ONLY (no API call)
+const SPORT_CYCLE = ["football", "tennis", "basketball", "cache"] as const;
+
 // ─── MAIN HANDLER ────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -323,107 +391,197 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { iso, espn: dateESPN } = getTodayParis();
-    console.log(`[FETCH] Date Paris: ${iso} / ${dateESPN}`);
+    const { iso, livescore: dateLiveScore } = getTodayParis();
+    const dateESPN = dateLiveScore; // same format YYYYMMDD
+    console.log(`[FETCH] Date Paris: ${iso} / ${dateLiveScore}`);
 
-    // ─── FETCH ALL SPORTS IN PARALLEL ────────────────────────────
-    // Football: SportSRC primary, ESPN fallback
-    // Tennis: ESPN (free, no key)
-    // Basketball: ESPN (free, no key)
-    const [footballSRC, tennisESPN, basketESPN] = await Promise.all([
-      fetchSportsRC(iso),
-      fetchESPN("tennis", dateESPN),
-      fetchESPN("basketball", dateESPN),
-    ]);
+    // ─── Determine current cycle from request_count_today ────
+    const { data: meta } = await supabase
+      .from("cache_metadata")
+      .select("*")
+      .eq("id", "api_football")
+      .single();
 
-    // Football: use SportSRC, fallback to ESPN
-    let footballMatches = footballSRC;
-    if (footballMatches.length === 0) {
-      console.log(`[FALLBACK] SportSRC returned 0 football, trying ESPN...`);
-      footballMatches = await fetchESPN("football", dateESPN);
+    let cycleIndex = 0;
+    let requestCount = meta?.request_count_today || 0;
+
+    // Reset counter if new day
+    if (meta?.last_reset_date !== iso) {
+      requestCount = 0;
+      console.log(`[CYCLE] New day detected, resetting counter`);
     }
 
-    const sportPools: { sport: string; data: NormalizedMatch[] }[] = [
-      { sport: "football", data: footballMatches },
-      { sport: "tennis", data: tennisESPN },
-      { sport: "basketball", data: basketESPN },
-    ].filter(p => p.data.length > 0);
+    cycleIndex = requestCount % 4;
+    const currentCycle = SPORT_CYCLE[cycleIndex];
+    console.log(`[CYCLE] #${requestCount} → ${currentCycle} (cycle ${cycleIndex}/3)`);
 
-    console.log(`Available sports: ${sportPools.map(p => `${p.sport}(${p.data.length})`).join(", ") || "NONE"}`);
+    // ─── Check 6-min cache per sport ─────────────────────────
+    const lastFetchTime = meta?.last_fetched_at ? new Date(meta.last_fetched_at).getTime() : 0;
+    const sixMinAgo = Date.now() - 6 * 60 * 1000;
 
-    // ─── SELECT TOP 3 FREE: 1 FOOT + 1 TENNIS + 1 BASKET ───────
-    const freeRows: ReturnType<typeof convertNormalizedToRow>[] = [];
-    const usedIds = new Set<string>();
+    if (currentCycle === "cache" || (lastFetchTime > sixMinAgo && requestCount > 0)) {
+      console.log(`[CACHE] Using cached data (cycle=${currentCycle}, last=${new Date(lastFetchTime).toISOString()})`);
+      // Just increment counter, don't call APIs
+      await supabase.from("cache_metadata").upsert({
+        id: "api_football",
+        last_fetched_at: meta?.last_fetched_at || new Date().toISOString(),
+        request_count_today: requestCount + 1,
+        last_reset_date: iso,
+      });
 
-    const priorityOrder = ["football", "tennis", "basketball"];
-    for (const sportName of priorityOrder) {
-      if (freeRows.length >= 3) break;
-      const pool = sportPools.find(p => p.sport === sportName);
-      if (!pool || pool.data.length === 0) continue;
-      const item = pool.data[0];
-      freeRows.push(convertNormalizedToRow(item, true));
-      usedIds.add(item.id);
-      console.log(`[FREE] ${sportName} - ${item.homeTeam} vs ${item.awayTeam} (${item.source})`);
+      return new Response(JSON.stringify({ 
+        success: true, cached: true, cycle: currentCycle, cycleIndex,
+        message: "Using cached data" 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Fallback: fill to 3 if a sport is missing
-    if (freeRows.length < 3) {
-      for (const pool of sportPools) {
-        for (const item of pool.data) {
-          if (freeRows.length >= 3) break;
-          if (usedIds.has(item.id)) continue;
-          freeRows.push(convertNormalizedToRow(item, true));
-          usedIds.add(item.id);
-          console.log(`[FREE FILL] ${pool.sport} - ${item.homeTeam} vs ${item.awayTeam}`);
+    // ─── Fetch the sport for this cycle ─────────────────────
+    let newMatches: NormalizedMatch[] = [];
+
+    if (currentCycle === "football") {
+      newMatches = await fetchSportsRC(iso);
+      if (newMatches.length === 0) {
+        console.log(`[FALLBACK] SportSRC returned 0, trying LiveScore soccer...`);
+        newMatches = await fetchLiveScore("soccer", dateLiveScore, "football");
+      }
+      if (newMatches.length === 0) {
+        console.log(`[FALLBACK] LiveScore soccer returned 0, trying ESPN...`);
+        newMatches = await fetchESPN("football", dateESPN);
+      }
+    } else if (currentCycle === "tennis") {
+      newMatches = await fetchLiveScore("tennis", dateLiveScore, "tennis");
+      if (newMatches.length === 0) {
+        console.log(`[FALLBACK] LiveScore tennis returned 0, trying ESPN...`);
+        newMatches = await fetchESPN("tennis", dateESPN);
+      }
+    } else if (currentCycle === "basketball") {
+      newMatches = await fetchLiveScore("basketball", dateLiveScore, "basketball");
+      if (newMatches.length === 0) {
+        console.log(`[FALLBACK] LiveScore basketball returned 0, trying ESPN...`);
+        newMatches = await fetchESPN("basketball", dateESPN);
+      }
+    }
+
+    console.log(`[FETCH] ${currentCycle} returned ${newMatches.length} raw matches`);
+
+    // ─── Anti-duplicates ─────────────────────────────────────
+    const seenKeys = new Set<string>();
+    const dedupedMatches: NormalizedMatch[] = [];
+    for (const m of newMatches) {
+      const key = matchKey(m);
+      if (seenKeys.has(key)) {
+        console.log(`[DEDUP] Removed duplicate: ${m.homeTeam} vs ${m.awayTeam}`);
+        continue;
+      }
+      seenKeys.add(key);
+      dedupedMatches.push(m);
+    }
+    console.log(`[DEDUP] ${newMatches.length} → ${dedupedMatches.length} after dedup`);
+
+    // ─── Load existing cached matches for other sports ──────
+    const { data: existingMatches } = await supabase
+      .from("cached_matches")
+      .select("*")
+      .gt("kickoff", new Date().toISOString());
+
+    // Build complete picture: keep other sports from cache, replace current sport
+    const otherSportRows = (existingMatches || []).filter(
+      (m: any) => m.sport !== currentCycle
+    );
+
+    // Convert new matches to rows
+    const newRows = dedupedMatches.map(m => convertNormalizedToRow(m, false));
+
+    // ─── Determine TOP 3 FREE: 1 per sport ──────────────────
+    const allAvailable = [
+      ...otherSportRows.map((r: any) => ({ ...r, _isExisting: true })),
+      ...newRows.map(r => ({ ...r, _isExisting: false })),
+    ];
+
+    // Reset is_free for all
+    for (const r of allAvailable) r.is_free = false;
+
+    // Pick 1 per sport for free
+    const freeFixtureIds = new Set<number>();
+    for (const sportName of ["football", "tennis", "basketball"]) {
+      const sportMatches = allAvailable
+        .filter((r: any) => r.sport === sportName)
+        .sort((a: any, b: any) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
+      if (sportMatches.length > 0) {
+        sportMatches[0].is_free = true;
+        freeFixtureIds.add(sportMatches[0].fixture_id);
+      }
+    }
+    // Fill to 3 if needed
+    if (freeFixtureIds.size < 3) {
+      for (const r of allAvailable) {
+        if (freeFixtureIds.size >= 3) break;
+        if (!freeFixtureIds.has(r.fixture_id)) {
+          r.is_free = true;
+          freeFixtureIds.add(r.fixture_id);
         }
-        if (freeRows.length >= 3) break;
       }
     }
 
-    // ─── PREMIUM MATCHES ─────────────────────────────────────────
-    const allRows = [...freeRows];
-    for (const pool of sportPools) {
-      for (const item of pool.data) {
-        if (usedIds.has(item.id)) continue;
-        allRows.push(convertNormalizedToRow(item, false));
-        usedIds.add(item.id);
+    // ─── Upsert new matches to DB ───────────────────────────
+    if (newRows.length > 0) {
+      // Set is_free based on our picks
+      for (const r of newRows) {
+        r.is_free = freeFixtureIds.has(r.fixture_id);
       }
-    }
-
-    console.log(`Total: ${allRows.length} matches (${freeRows.length} free)`);
-
-    // ─── PURGE OLD + SAVE ────────────────────────────────────────
-    const now = new Date();
-    await supabase.from("cached_matches").delete().lt("kickoff", now.toISOString());
-
-    if (allRows.length > 0) {
-      for (let i = 0; i < allRows.length; i += 50) {
-        const batch = allRows.slice(i, i + 50);
+      for (let i = 0; i < newRows.length; i += 50) {
+        const batch = newRows.slice(i, i + 50);
         const { error } = await supabase.from("cached_matches").upsert(batch, { onConflict: "fixture_id" });
         if (error) console.error(`Upsert error batch ${i}:`, error);
       }
     }
 
+    // Update free flags for existing matches too
+    for (const r of otherSportRows) {
+      const shouldBeFree = freeFixtureIds.has(r.fixture_id);
+      if (r.is_free !== shouldBeFree) {
+        await supabase.from("cached_matches")
+          .update({ is_free: shouldBeFree })
+          .eq("fixture_id", r.fixture_id);
+      }
+    }
+
+    // ─── Purge old matches ───────────────────────────────────
+    await supabase.from("cached_matches").delete().lt("kickoff", new Date().toISOString());
+
+    // ─── Update metadata ─────────────────────────────────────
     await supabase.from("cache_metadata").upsert({
       id: "api_football",
-      last_fetched_at: now.toISOString(),
-      request_count_today: 1,
+      last_fetched_at: new Date().toISOString(),
+      request_count_today: requestCount + 1,
       last_reset_date: iso,
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        matches_count: allRows.length,
-        free_count: freeRows.length,
-        sports: Object.fromEntries(sportPools.map(p => [p.sport, p.data.length])),
-        sources: Object.fromEntries(sportPools.map(p => [p.sport, p.data[0]?.source || "none"])),
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    const sportCounts = {
+      football: allAvailable.filter((r: any) => r.sport === "football").length,
+      tennis: allAvailable.filter((r: any) => r.sport === "tennis").length,
+      basketball: allAvailable.filter((r: any) => r.sport === "basketball").length,
+    };
+
+    console.log(`[DONE] Cycle ${currentCycle} complete. Counts: ${JSON.stringify(sportCounts)}. Free: ${freeFixtureIds.size}. Requests today: ${requestCount + 1}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      cycle: currentCycle,
+      cycleIndex,
+      matches_fetched: newRows.length,
+      free_count: freeFixtureIds.size,
+      sport_counts: sportCounts,
+      requests_today: requestCount + 1,
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
