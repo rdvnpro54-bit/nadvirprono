@@ -188,9 +188,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   🔥 IA : {getPredictionText(match)}
                 </span>
               </div>
-              <div className="mt-1.5 flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">Confiance IA :</span>
-                <span className="text-[11px] font-bold text-foreground">{confidence}%</span>
+              <div className="mt-1.5 flex items-center gap-1.5 sm:gap-2">
+                <span className="text-[10px] sm:text-[11px] text-muted-foreground whitespace-nowrap">Confiance :</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-foreground">{confidence}%</span>
                 <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-primary"
