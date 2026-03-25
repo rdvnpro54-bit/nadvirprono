@@ -161,7 +161,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
             <div className="flex flex-col items-center gap-0.5 shrink-0">
               {isLive ? (
-                <span className="flex items-center gap-1 text-[11px] text-success font-bold whitespace-nowrap">
+                <span className="flex items-center gap-1 text-[11px] text-success font-bold whitespace-nowrap badge-pulse">
                   <Wifi className="h-3 w-3 animate-pulse" /> LIVE
                 </span>
               ) : (
