@@ -432,50 +432,45 @@ Deno.serve(async (req) => {
       const matchesNeedingScores = pendingMatches.filter(m => m.home_score == null || m.away_score == null);
       const matchesWithScores = pendingMatches.filter(m => m.home_score != null && m.away_score != null);
 
-      // Fetch real finished scores from ESPN for football
+      // Fetch real finished scores from ESPN — check TODAY + YESTERDAY + 2 days ago
       const finishedScores = new Map<string, { homeScore: number; awayScore: number }>();
+      const datesToCheck = [compact, tomorrowCompact];
+      // Add yesterday
+      const yesterday = new Date(Date.now() - 24 * 3600 * 1000);
+      datesToCheck.push(yesterday.toISOString().slice(0, 10).replace(/-/g, ""));
+      // Add 2 days ago
+      const twoDaysBack = new Date(Date.now() - 48 * 3600 * 1000);
+      datesToCheck.push(twoDaysBack.toISOString().slice(0, 10).replace(/-/g, ""));
 
-      // Fetch finished football scores
-      try {
-        for (const lg of ESPN_LEAGUES.football) {
-          const url = `${ESPN_BASE}/${lg.path}/scoreboard?dates=${compact}`;
-          const res = await fetch(url);
-          if (!res.ok) continue;
-          const json = await res.json();
-          for (const evt of (json.events || [])) {
-            if (evt.status?.type?.state !== "post") continue;
-            const competitors = evt.competitions?.[0]?.competitors || [];
-            const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
-            const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
-            if (!home || !away) continue;
-            const homeScore = parseInt(home.score || "0");
-            const awayScore = parseInt(away.score || "0");
-            const key = `${(home.team?.displayName || "").toLowerCase().trim()}_${(away.team?.displayName || "").toLowerCase().trim()}`;
-            finishedScores.set(key, { homeScore, awayScore });
+      const uniqueDates = [...new Set(datesToCheck)];
+
+      async function fetchFinishedScoresForDate(dateStr: string) {
+        for (const sport of ["football", "basketball"] as const) {
+          const leagues = ESPN_LEAGUES[sport];
+          if (!leagues) continue;
+          for (const lg of leagues) {
+            try {
+              const url = `${ESPN_BASE}/${lg.path}/scoreboard?dates=${dateStr}`;
+              const res = await fetch(url);
+              if (!res.ok) continue;
+              const json = await res.json();
+              for (const evt of (json.events || [])) {
+                if (evt.status?.type?.state !== "post") continue;
+                const competitors = evt.competitions?.[0]?.competitors || [];
+                const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
+                const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
+                if (!home || !away) continue;
+                const homeScore = parseInt(home.score || "0");
+                const awayScore = parseInt(away.score || "0");
+                const key = `${(home.team?.displayName || "").toLowerCase().trim()}_${(away.team?.displayName || "").toLowerCase().trim()}`;
+                finishedScores.set(key, { homeScore, awayScore });
+              }
+            } catch { /* skip */ }
           }
         }
-      } catch (e) { console.error("[SCORES] ESPN football error:", e); }
+      }
 
-      // Fetch finished basketball scores
-      try {
-        for (const lg of ESPN_LEAGUES.basketball) {
-          const url = `${ESPN_BASE}/${lg.path}/scoreboard?dates=${compact}`;
-          const res = await fetch(url);
-          if (!res.ok) continue;
-          const json = await res.json();
-          for (const evt of (json.events || [])) {
-            if (evt.status?.type?.state !== "post") continue;
-            const competitors = evt.competitions?.[0]?.competitors || [];
-            const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
-            const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
-            if (!home || !away) continue;
-            const homeScore = parseInt(home.score || "0");
-            const awayScore = parseInt(away.score || "0");
-            const key = `${(home.team?.displayName || "").toLowerCase().trim()}_${(away.team?.displayName || "").toLowerCase().trim()}`;
-            finishedScores.set(key, { homeScore, awayScore });
-          }
-        }
-      } catch (e) { console.error("[SCORES] ESPN basketball error:", e); }
+      await Promise.all(uniqueDates.map(d => fetchFinishedScoresForDate(d)));
 
       console.log(`[SCORES] Found ${finishedScores.size} real finished scores from ESPN`);
 
