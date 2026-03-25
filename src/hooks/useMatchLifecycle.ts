@@ -58,14 +58,13 @@ function selectBestMatch(matches: CachedMatch[]): CachedMatch | null {
   });
   if (eligible.length === 0) return null;
 
+  // Prefer RISQUÉ matches for the Top Pick (more exciting, drives conversions)
   return eligible.reduce((best, m) => {
-    const confM = Math.max(Number(m.pred_home_win), Number(m.pred_away_win));
-    const confB = Math.max(Number(best.pred_home_win), Number(best.pred_away_win));
-    // Prefer SAFE > MODÉRÉ > RISQUÉ, then highest confidence
-    const rankM = m.pred_confidence === "SAFE" ? 3 : m.pred_confidence === "MODÉRÉ" ? 2 : 1;
-    const rankB = best.pred_confidence === "SAFE" ? 3 : best.pred_confidence === "MODÉRÉ" ? 2 : 1;
+    const rankM = m.pred_confidence === "RISK" ? 3 : m.pred_confidence === "MODÉRÉ" ? 2 : 1;
+    const rankB = best.pred_confidence === "RISK" ? 3 : best.pred_confidence === "MODÉRÉ" ? 2 : 1;
     if (rankM !== rankB) return rankM > rankB ? m : best;
-    return confM > confB ? m : best;
+    // Among same risk level, pick highest ai_score
+    return (m.ai_score || 0) > (best.ai_score || 0) ? m : best;
   });
 }
 

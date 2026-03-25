@@ -14,7 +14,7 @@ interface TopMatchesSectionProps {
   isLoading: boolean;
 }
 
-const TOP3_KEY = "pronosia_top3";
+const TOP3_KEY = "pronosia_top2";
 
 interface StoredTop3 {
   ids: string[];
@@ -53,32 +53,20 @@ function useFixedTop3(matches: CachedMatch[] | undefined): CachedMatch[] {
     const freeMatches = matches.filter(m => m.is_free);
     if (freeMatches.length === 0) return [];
 
-    const sorted = [...freeMatches].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+    // Sort by confidence (highest pred_home_win or pred_away_win) then ai_score
+    const sorted = [...freeMatches].sort((a, b) => {
+      const confA = Math.max(Number(a.pred_home_win) || 0, Number(a.pred_away_win) || 0);
+      const confB = Math.max(Number(b.pred_home_win) || 0, Number(b.pred_away_win) || 0);
+      // Prefer SAFE confidence first
+      const rankA = a.pred_confidence === "SAFE" ? 3 : a.pred_confidence === "MODÉRÉ" ? 2 : 1;
+      const rankB = b.pred_confidence === "SAFE" ? 3 : b.pred_confidence === "MODÉRÉ" ? 2 : 1;
+      if (rankA !== rankB) return rankB - rankA;
+      if (confA !== confB) return confB - confA;
+      return (b.ai_score || 0) - (a.ai_score || 0);
+    });
 
-    // Priority: 1 football, 1 tennis, 1 basketball
-    const sportOrder = ["football", "tennis", "basketball"];
-    const picked: CachedMatch[] = [];
-    const usedIds = new Set<string>();
-
-    for (const sport of sportOrder) {
-      const match = sorted.find(m => m.sport?.toLowerCase() === sport && !usedIds.has(m.id));
-      if (match) {
-        picked.push(match);
-        usedIds.add(match.id);
-      }
-    }
-
-    // Fill remaining slots from best available (any sport)
-    if (picked.length < 3) {
-      for (const m of sorted) {
-        if (picked.length >= 3) break;
-        if (usedIds.has(m.id)) continue;
-        picked.push(m);
-        usedIds.add(m.id);
-      }
-    }
-
-    const top3 = picked.slice(0, 3);
+    // Pick top 2 highest confidence matches
+    const top3 = sorted.slice(0, 2);
 
     if (top3.length > 0) {
       try {
@@ -116,12 +104,12 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
               <Tooltip>
                 <TooltipTrigger asChild>
                   <h2 className="font-display text-xl sm:text-2xl font-bold inline-flex items-center gap-2 cursor-help">
-                    <Sparkles className="h-5 w-5 text-amber-400" />
-                    Top 3 du Jour <span className="gradient-text">IA</span>
+    <Sparkles className="h-5 w-5 text-amber-400" />
+                    Top 2 du Jour <span className="gradient-text">IA</span>
                   </h2>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-[200px]">Sélection fixe du jour basée sur le AI Score. Réinitialisée à minuit.</p>
+                  <p className="text-xs max-w-[200px]">Les 2 matchs les plus sûrs du jour. Réinitialisés à minuit.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -131,13 +119,13 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
           </div>
 
           {isLoading ? (
-            <div className="mx-auto grid max-w-4xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, i) => (
+            <div className="mx-auto grid max-w-2xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+              {Array.from({ length: 2 }).map((_, i) => (
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
             </div>
           ) : topMatches.length > 0 ? (
-            <div className="mx-auto grid max-w-4xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-2xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
               {topMatches.map((m, i) => {
                 const aiScore = m.ai_score || 0;
                 return (
