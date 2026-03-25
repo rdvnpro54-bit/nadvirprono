@@ -659,12 +659,12 @@ Deno.serve(async (req) => {
         kickoff: new Date(m.timestamp).toISOString(),
       }));
 
-      // Process in batches of 8 to avoid timeouts
-      for (let i = 0; i < matchesForAI.length; i += 8) {
-        const batch = matchesForAI.slice(i, i + 8);
-        const batchPredictions = await generateAIPredictions(batch);
+      // Process only first 20 matches with AI to stay within timeout
+      const aiSlice = matchesForAI.slice(0, 20);
+      if (aiSlice.length > 0) {
+        const batchPredictions = await generateAIPredictions(aiSlice);
         for (const [k, v] of batchPredictions) aiPredictions.set(k, v);
-        console.log(`[AI] Batch ${Math.floor(i / 15) + 1}: ${batchPredictions.size}/${batch.length} predictions`);
+        console.log(`[AI] Got ${batchPredictions.size}/${aiSlice.length} AI predictions (${matchesForAI.length - aiSlice.length} will use fallback)`);
       }
     }
 
