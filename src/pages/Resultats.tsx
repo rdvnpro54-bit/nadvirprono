@@ -83,6 +83,9 @@ function getTopPerformances(results: MatchResult[]): MatchResult[] {
 }
 
 export default function Resultats() {
+  const { user, isMonthlyPremium, isAdmin } = useAuth();
+  const hasAccess = isMonthlyPremium || isAdmin;
+
   const { results, isLoading } = useResultStats();
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("high_conf");
@@ -116,6 +119,48 @@ export default function Resultats() {
     console.log(`[PRONOSIA] Total résultats: ${results.length} | Gagnés: ${wins} | Perdus: ${losses}`);
     console.log(`[PRONOSIA] Winrate: ${results.length > 0 ? Math.round((wins / results.length) * 100) : 0}%`);
   }, [results]);
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
+        <Navbar />
+        <div className="container pt-20 pb-16 px-3 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center max-w-md"
+          >
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+              <Lock className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="font-display text-xl sm:text-2xl font-bold mb-2">
+              Résultats <span className="gradient-text">Premium</span>
+            </h1>
+            <p className="text-sm text-muted-foreground mb-1">
+              L'accès aux résultats et statistiques IA est réservé aux abonnés <strong>Premium Mensuel</strong>.
+            </p>
+            <p className="text-[10px] text-muted-foreground/70 mb-6">
+              Protège nos analyses et données exclusives.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Link to="/pricing">
+                <Button className="w-full gap-2 btn-glow">
+                  <Crown className="h-4 w-4" /> Passer au Premium Mensuel — 29,90€/mois
+                </Button>
+              </Link>
+              {!user && (
+                <Link to="/login">
+                  <Button variant="outline" className="w-full text-xs">
+                    Se connecter
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
