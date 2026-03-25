@@ -26,11 +26,12 @@ export function ResultFilters({ sport, setSport, status, setStatus, period, setP
         </SelectContent>
       </Select>
       <Select value={status} onValueChange={setStatus}>
-        <SelectTrigger className="h-8 w-[100px] text-xs">
+        <SelectTrigger className="h-8 w-[130px] text-xs">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Tous</SelectItem>
+          <SelectItem value="high_conf">💎 Haute confiance</SelectItem>
           <SelectItem value="win">✅ Gagnés</SelectItem>
           <SelectItem value="loss">❌ Perdus</SelectItem>
         </SelectContent>
