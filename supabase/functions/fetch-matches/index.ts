@@ -637,17 +637,22 @@ Deno.serve(async (req) => {
     const existingFixtureIds = new Set<number>();
     const { data: existingMatches } = await supabase
       .from("cached_matches")
-      .select("fixture_id")
+      .select("fixture_id, pred_analysis")
       .in("fixture_id", deduped.map(m => hash(m.id)));
     if (existingMatches) {
-      for (const em of existingMatches) existingFixtureIds.add(em.fixture_id);
+      for (const em of existingMatches) {
+        // Only skip if the match already has a real AI analysis (not fallback)
+        if (em.pred_analysis && !em.pred_analysis.startsWith("Analyse basée sur le modèle statistique")) {
+          existingFixtureIds.add(em.fixture_id);
+        }
+      }
     }
 
-    // Only request AI predictions for NEW matches not already cached
+    // Only request AI predictions for matches without AI analysis
     const newMatches = deduped.filter(m => !existingFixtureIds.has(hash(m.id)));
-    console.log(`[AI] ${newMatches.length} new matches need predictions (${existingFixtureIds.size} already cached)`);
+    console.log(`[AI] ${newMatches.length} matches need AI predictions (${existingFixtureIds.size} already have AI)`);
 
-    // ─── Generate AI predictions for new matches ─────────────
+    // ─── Generate AI predictions ─────────────────────────────
     let aiPredictions = new Map<number, AIPrediction>();
     if (newMatches.length > 0) {
       const matchesForAI = newMatches.map(m => ({
