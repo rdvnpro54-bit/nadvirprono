@@ -24,12 +24,12 @@ function AnimatedPercent({ value, inView }: { value: number; inView: boolean }) 
 }
 
 export function WinrateDisplay() {
-  const { data: globalData } = useGlobalPrecision();
+  const { data: hcData } = useHighConfidencePrecision();
   const { data: todayData } = useTodayWinrate();
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true });
 
-  const precision = globalData?.precision ?? null;
+  const precision = hcData?.precision ?? null;
 
   if (precision === null) return null;
 
