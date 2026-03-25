@@ -1,5 +1,5 @@
 import { Navbar } from "@/components/layout/Navbar";
-import { Star, CheckCircle, XCircle, Clock, Trophy, TrendingUp } from "lucide-react";
+import { Star, CheckCircle, XCircle, Clock, Trophy, TrendingUp, CalendarDays } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMemo } from "react";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 function ResultBadge({ result }: { result: string | null }) {
   if (result === "win") return (
@@ -26,6 +28,140 @@ function ResultBadge({ result }: { result: string | null }) {
     <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
       <Clock className="h-3 w-3" /> En attente
     </span>
+  );
+}
+
+function WinrateChart({ history }: { history: { result: string | null; kickoff: string }[] }) {
+  const chartData = useMemo(() => {
+    // Build cumulative winrate progression from oldest to newest
+    const sorted = [...history].filter(h => h.result).sort(
+      (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+    );
+    // Start with base stats (11W / 3L)
+    let wins = 11;
+    let losses = 3;
+    const data: { date: string; winrate: number; label: string }[] = [
+      { date: "Base", winrate: Math.round((wins / (wins + losses)) * 100), label: "Base IA" },
+    ];
+    for (const h of sorted) {
+      if (h.result === "win") wins++;
+      else if (h.result === "loss") losses++;
+      const total = wins + losses;
+      const wr = Math.round((wins / total) * 100);
+      const d = new Date(h.kickoff);
+      data.push({
+        date: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }),
+        winrate: wr,
+        label: `${wr}% (${wins}W/${losses}L)`,
+      });
+    }
+    return data;
+  }, [history]);
+
+  if (chartData.length <= 1) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      className="mt-4 glass-card p-4"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <TrendingUp className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-bold">Progression du Winrate</h3>
+      </div>
+      <ResponsiveContainer width="100%" height={180}>
+        <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="winrateGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+          <YAxis domain={[50, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+          <Tooltip
+            contentStyle={{
+              background: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            formatter={(value: number) => [`${value}%`, "Winrate"]}
+          />
+          <Area
+            type="monotone"
+            dataKey="winrate"
+            stroke="hsl(var(--primary))"
+            strokeWidth={2}
+            fill="url(#winrateGrad)"
+            dot={{ r: 3, fill: "hsl(var(--primary))" }}
+            activeDot={{ r: 5 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </motion.div>
+  );
+}
+
+function MatchCalendar({ matches }: { matches: CachedMatch[] }) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, CachedMatch[]>();
+    for (const m of matches) {
+      const day = new Date(m.kickoff).toLocaleDateString("fr-FR", {
+        weekday: "short", day: "2-digit", month: "short",
+      });
+      if (!map.has(day)) map.set(day, []);
+      map.get(day)!.push(m);
+    }
+    return Array.from(map.entries()).sort((a, b) => {
+      const da = new Date(a[1][0].kickoff).getTime();
+      const db = new Date(b[1][0].kickoff).getTime();
+      return da - db;
+    });
+  }, [matches]);
+
+  if (grouped.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="mt-4 glass-card p-4"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <CalendarDays className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-bold">Calendrier des matchs suivis</h3>
+      </div>
+      <div className="space-y-3">
+        {grouped.map(([day, dayMatches]) => (
+          <div key={day}>
+            <p className="text-[11px] font-semibold text-primary uppercase mb-1.5">{day}</p>
+            <div className="space-y-1.5">
+              {dayMatches.map(m => {
+                const time = new Date(m.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <Link key={m.id} to={`/match/${m.id}`} className="block">
+                    <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-card/50 px-3 py-2 text-sm hover:bg-card transition-colors">
+                      <span className="text-[10px] font-semibold text-muted-foreground w-10">{time}</span>
+                      <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-[9px] font-semibold text-primary shrink-0">
+                        {m.sport === "football" ? "⚽" : m.sport === "tennis" ? "🎾" : "🏀"}
+                      </span>
+                      <span className="font-medium truncate flex-1">{m.home_team}</span>
+                      <span className="text-muted-foreground text-[10px]">vs</span>
+                      <span className="font-medium truncate flex-1 text-right">{m.away_team}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
   );
 }
 
@@ -75,9 +211,15 @@ export default function Suivis() {
           </motion.div>
         )}
 
+        {/* Winrate progression chart */}
+        {history && history.length > 0 && (
+          <WinrateChart history={history} />
+        )}
+
         <Tabs defaultValue="favoris" className="mt-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="favoris">⭐ Favoris ({favoriteMatches.length})</TabsTrigger>
+            <TabsTrigger value="calendrier">📅 Calendrier</TabsTrigger>
             <TabsTrigger value="historique">📊 Historique</TabsTrigger>
           </TabsList>
 
@@ -118,6 +260,31 @@ export default function Suivis() {
                   <MatchCard key={match.id} match={match} index={i} />
                 ))}
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="calendrier" className="mt-4">
+            {!user ? (
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center text-center mt-8">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+                  <CalendarDays className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h2 className="mt-4 font-display text-lg font-semibold">Connecte-toi pour voir ton calendrier</h2>
+                <Link to="/login" className="mt-4">
+                  <Button>Se connecter</Button>
+                </Link>
+              </motion.div>
+            ) : favoriteMatches.length === 0 ? (
+              <div className="flex flex-col items-center text-center mt-8">
+                <div className="text-3xl mb-3">📅</div>
+                <p className="text-sm font-semibold">Aucun match dans ton calendrier</p>
+                <p className="mt-1 text-xs text-muted-foreground">Ajoute des matchs en favoris pour les voir ici.</p>
+                <Link to="/matches" className="mt-4">
+                  <Button variant="outline">Voir les matchs</Button>
+                </Link>
+              </div>
+            ) : (
+              <MatchCalendar matches={favoriteMatches} />
             )}
           </TabsContent>
 
