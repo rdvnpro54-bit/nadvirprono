@@ -8,6 +8,7 @@ import { WeeklyStats } from "@/components/home/WeeklyStats";
 import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { useGlobalPrecision } from "@/hooks/useMatchHistory";
+import { useMatchDiagnostics } from "@/hooks/useMatchLifecycle";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 
@@ -56,6 +57,7 @@ const Index = () => {
   const { data: matches, isLoading } = useMatches();
   const { data: precisionData } = useGlobalPrecision();
   useTriggerFetch();
+  useMatchDiagnostics(matches);
 
   const matchCount = matches?.length || 0;
   const precision = precisionData?.precision ?? 82;
