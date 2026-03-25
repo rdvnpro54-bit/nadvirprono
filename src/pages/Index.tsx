@@ -157,6 +157,18 @@ const Index = () => {
         </div>
       </section>
 
+      {/* TOP PICK DU JOUR */}
+      <TopPickSection matches={matches} />
+
+      {/* Weekly Stats */}
+      <ScrollSection>
+        <section className="border-t border-border/30 py-6 sm:py-8">
+          <div className="container px-3 sm:px-4">
+            <WeeklyStats />
+          </div>
+        </section>
+      </ScrollSection>
+
       {/* Top 3 */}
       <TopMatchesSection matches={matches} isLoading={isLoading} />
 
