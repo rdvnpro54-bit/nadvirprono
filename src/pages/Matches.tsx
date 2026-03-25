@@ -191,10 +191,17 @@ export default function Matches() {
           </div>
         ))}
 
-        {/* Empty */}
+        {/* Empty state */}
         {!isLoading && !error && filtered.length === 0 && (
-          <div className="mt-12 text-center">
-            <p className="text-sm text-muted-foreground">Aucun match disponible avec ces filtres.</p>
+          <div className="mt-12 text-center glass-card p-8 max-w-sm mx-auto">
+            <div className="text-3xl mb-3">⏳</div>
+            <p className="text-sm font-semibold">Analyse en cours…</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Notre IA scanne les prochains matchs du jour. Les pronostics apparaîtront automatiquement.
+            </p>
+            <p className="mt-3 text-[10px] text-muted-foreground">
+              🟢 Mise à jour automatique toutes les 5 minutes
+            </p>
           </div>
         )}
       </div>
