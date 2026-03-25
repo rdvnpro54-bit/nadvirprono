@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { AiScoreBadge } from "./AiScoreBadge";
-import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap } from "lucide-react";
+import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -12,6 +12,7 @@ import { useFavorites, useToggleFavorite } from "@/hooks/useFavorites";
 import { Button } from "@/components/ui/button";
 import { PremiumModal } from "@/components/PremiumModal";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   football: { icon: Dribbble, label: "Football" },
@@ -122,6 +123,12 @@ function getPredictionText(match: CachedMatch): string {
   return `${displayName} gagne`;
 }
 
+function getAiScoreGlow(score: number): string {
+  if (score >= 90) return "ring-1 ring-amber-400/30";
+  if (score >= 80) return "ring-1 ring-emerald-400/20";
+  return "";
+}
+
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
   const { user } = useAuth();
   const { favorites } = useFavorites();
@@ -131,15 +138,14 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const fav = match.pred_home_win >= match.pred_away_win ? "home" : "away";
+  const aiScore = (match as any).ai_score || 0;
 
-  // Re-render every 30s so LIVE badge appears/disappears on time
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 30_000);
     return () => clearInterval(timer);
   }, []);
 
-  // Smart LIVE: based on API status OR kickoff time (time-based, never depends only on API)
   const apiLive = ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
   const kickoffTime = new Date(match.kickoff).getTime();
   const now = Date.now();
@@ -180,7 +186,8 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
         <Link to={locked ? "#" : `/match/${match.id}`} onClick={handleLockedClick} className="block">
           <div className={cn(
             "glass-card match-card-hover p-2.5 sm:p-3.5 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
-            locked && "opacity-80"
+            locked && "opacity-80",
+            getAiScoreGlow(aiScore)
           )}>
             {/* Top row */}
             <div className="flex items-center justify-between mb-2">
@@ -210,7 +217,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   </span>
                 )}
                 {!locked && <ConfidenceBadge confidence={match.pred_confidence as any} />}
-                {!locked && (match as any).ai_score > 0 && <AiScoreBadge score={(match as any).ai_score} />}
+                {!locked && aiScore > 0 && <AiScoreBadge score={aiScore} />}
                 <button onClick={handleFav} className="ml-0.5" title={user ? "Ajouter aux favoris" : "Connecte-toi"}>
                   <Star className={cn(
                     "h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors",
@@ -252,7 +259,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             {/* AI PREDICTION — UNLOCKED */}
             {!locked && (
               <div className="mt-2.5 rounded-lg border border-primary/20 bg-primary/5 p-2.5 sm:p-3 space-y-2">
-                {/* Pronostic principal */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -260,10 +266,21 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                       🔥 {getPredictionText(match)}
                     </span>
                   </div>
-                  <ConfidenceBadge confidence={match.pred_confidence as any} />
+                  <div className="flex items-center gap-1">
+                    <ConfidenceBadge confidence={match.pred_confidence as any} />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground/50 cursor-help shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[220px]">
+                          <p className="text-[10px]">Basé sur 11 facteurs : forme, stats avancées, blessures, H2H, contexte, fatigue, marché...</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
 
-                {/* Confiance bar */}
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] sm:text-[10px] text-muted-foreground whitespace-nowrap">💎 Confiance</span>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
@@ -277,7 +294,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   <span className="text-[10px] sm:text-[11px] font-bold text-foreground">{confidence}%</span>
                 </div>
 
-                {/* Score prédit */}
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
                   <span className="text-[11px] sm:text-xs font-bold text-foreground">
@@ -287,7 +303,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
             )}
 
-            {/* LOCKED PREDICTION — PREMIUM TEASE */}
+            {/* LOCKED PREDICTION */}
             {locked && (
               <div className="mt-2.5 rounded-lg border border-border bg-muted/30 p-2.5 sm:p-3 space-y-2">
                 <div className="flex items-center justify-between">
@@ -322,7 +338,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
             )}
 
-            {/* Probability bar + activity — only unlocked */}
+            {/* Probability bar + activity */}
             {!locked && (
               <div className="mt-2">
                 <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">

@@ -74,12 +74,20 @@ function filterResults(results: MatchResult[], sport: string, status: string, pe
   return filtered;
 }
 
-/** Get top performances: high confidence wins sorted by probability */
 function getTopPerformances(results: MatchResult[]): MatchResult[] {
   return results
     .filter(r => r.result === "win" && Math.max(r.pred_home_win, r.pred_away_win) >= 60)
     .sort((a, b) => Math.max(b.pred_home_win, b.pred_away_win) - Math.max(a.pred_home_win, a.pred_away_win))
     .slice(0, 12);
+}
+
+/** Show recent matches (last 7 days) even if not resolved, for empty state */
+function getRecentPending(results: MatchResult[]): MatchResult[] {
+  const weekAgo = new Date(Date.now() - 7 * 86400000);
+  return results
+    .filter(r => new Date(r.kickoff) >= weekAgo)
+    .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime())
+    .slice(0, 20);
 }
 
 export default function Resultats() {
@@ -110,15 +118,9 @@ export default function Resultats() {
     return { wins, total, winrate: total > 0 ? Math.round((wins / total) * 100) : 0 };
   }, [results]);
 
-  // Console diagnostics
-  useMemo(() => {
-    if (!results) return;
-    const wins = results.filter(r => r.result === "win").length;
-    const losses = results.filter(r => r.result === "loss").length;
-    console.log(`[PRONOSIA] ━━━ Résultats ━━━`);
-    console.log(`[PRONOSIA] Total résultats: ${results.length} | Gagnés: ${wins} | Perdus: ${losses}`);
-    console.log(`[PRONOSIA] Winrate: ${results.length > 0 ? Math.round((wins / results.length) * 100) : 0}%`);
-  }, [results]);
+  // Check if we have resolved results
+  const resolvedResults = useMemo(() => results?.filter(r => r.result === "win" || r.result === "loss") || [], [results]);
+  const recentPending = useMemo(() => results ? getRecentPending(results) : [], [results]);
 
   if (!hasAccess) {
     return (
@@ -179,15 +181,30 @@ export default function Resultats() {
           <div className="mt-6 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
           </div>
-        ) : !results || results.length === 0 ? (
-          <div className="mt-10 text-center rounded-xl border bg-card p-8">
-            <div className="text-3xl mb-3">📊</div>
-            <p className="text-sm font-semibold">Aucun résultat disponible</p>
-            <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront automatiquement après chaque match terminé avec des scores réels.</p>
+        ) : resolvedResults.length === 0 ? (
+          /* Empty state: show recent 7 days matches */
+          <div className="mt-6 space-y-4">
+            <div className="rounded-xl border border-border/50 bg-card/60 p-4 text-center">
+              <div className="text-3xl mb-2">📊</div>
+              <p className="text-sm font-semibold">Aucun résultat finalisé pour le moment</p>
+              <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront après chaque match terminé avec des scores réels.</p>
+            </div>
+            {recentPending.length > 0 && (
+              <div>
+                <h2 className="text-xs font-bold mb-2 flex items-center gap-1.5">
+                  📅 Matchs des 7 derniers jours — En attente de résultats
+                </h2>
+                <div className="space-y-2">
+                  {recentPending.map((r, i) => (
+                    <ResultCard key={r.id} result={r} index={i} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mt-4 space-y-6">
-            {/* TOP PERFORMANCES SECTION */}
+            {/* TOP PERFORMANCES */}
             {topPerformances.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
