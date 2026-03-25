@@ -20,13 +20,11 @@ export interface MatchResult {
   created_at: string;
 }
 
-const FIXED_STAKE = 10; // 10€ per bet
+const FIXED_STAKE = 10;
 
-/** Estimate odds from prediction probability */
 function estimateOdds(probability: number): number {
   if (probability <= 0) return 2.0;
   const raw = 100 / probability;
-  // Bookmaker margin ~8%
   return Math.round(Math.max(raw * 0.92, 1.1) * 100) / 100;
 }
 
@@ -39,6 +37,31 @@ export interface ResultStats {
   totalReturns: number;
   profit: number;
   roi: number;
+  streak: { type: "win" | "loss"; count: number };
+  last10: { wins: number; total: number; winrate: number };
+  last20: { wins: number; total: number; winrate: number };
+}
+
+function computeStreak(results: MatchResult[]): { type: "win" | "loss"; count: number } {
+  if (results.length === 0) return { type: "win", count: 0 };
+  const sorted = [...results].sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime());
+  const firstResult = sorted[0].result as "win" | "loss";
+  let count = 0;
+  for (const r of sorted) {
+    if (r.result === firstResult) count++;
+    else break;
+  }
+  return { type: firstResult, count };
+}
+
+function computeLastN(results: MatchResult[], n: number) {
+  const sorted = [...results]
+    .filter(r => r.result === "win" || r.result === "loss")
+    .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime())
+    .slice(0, n);
+  const wins = sorted.filter(r => r.result === "win").length;
+  const total = sorted.length;
+  return { wins, total, winrate: total > 0 ? Math.round((wins / total) * 100) : 0 };
 }
 
 function computeStats(results: MatchResult[]): ResultStats {
@@ -62,8 +85,11 @@ function computeStats(results: MatchResult[]): ResultStats {
 
   const profit = Math.round((totalReturns - totalStaked) * 100) / 100;
   const roi = totalStaked > 0 ? Math.round((profit / totalStaked) * 100) : 0;
+  const streak = computeStreak(resolved);
+  const last10 = computeLastN(results, 10);
+  const last20 = computeLastN(results, 20);
 
-  return { wins, losses, total, winrate, totalStaked, totalReturns: Math.round(totalReturns * 100) / 100, profit, roi };
+  return { wins, losses, total, winrate, totalStaked, totalReturns: Math.round(totalReturns * 100) / 100, profit, roi, streak, last10, last20 };
 }
 
 /** All results */
@@ -88,6 +114,9 @@ export function useResultStats() {
   const { data: results, ...rest } = useAllResults();
 
   const allStats = results ? computeStats(results) : null;
+  const eliteStats = results
+    ? computeStats(results.filter(r => r.predicted_confidence === "SAFE" || Math.max(r.pred_home_win, r.pred_away_win) >= 70))
+    : null;
   const topPickStats = results
     ? computeStats(results.filter(r => r.predicted_confidence === "SAFE"))
     : null;
@@ -100,7 +129,7 @@ export function useResultStats() {
     : null;
   const monthStats = monthResults ? computeStats(monthResults) : null;
 
-  return { allStats, topPickStats, monthStats, results, ...rest };
+  return { allStats, eliteStats, topPickStats, monthStats, results, ...rest };
 }
 
 /** Weekly stats for homepage */
@@ -121,6 +150,31 @@ export function useWeeklyResultStats() {
 
       const results = data as MatchResult[];
       return computeStats(results);
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** ELITE-only stats for homepage display */
+export function useEliteWinrate() {
+  return useQuery({
+    queryKey: ["elite-winrate"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("match_results")
+        .select("*")
+        .not("result", "is", null)
+        .order("kickoff", { ascending: false });
+      if (error) throw error;
+
+      const results = data as MatchResult[];
+      // Simulate ELITE: high confidence predictions
+      const elite = results.filter(r =>
+        r.predicted_confidence === "SAFE" || Math.max(r.pred_home_win, r.pred_away_win) >= 70
+      );
+      const last20 = computeLastN(elite, 20);
+      const streak = computeStreak(elite.filter(r => r.result === "win" || r.result === "loss"));
+      return { ...last20, streak, totalElite: elite.length };
     },
     staleTime: 5 * 60_000,
   });

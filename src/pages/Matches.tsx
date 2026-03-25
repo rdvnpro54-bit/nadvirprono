@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain } from "lucide-react";
+import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -54,6 +54,13 @@ export default function Matches() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
 
+  // Count free picks remaining
+  const freePicksUsed = useMemo(() => {
+    if (!matches) return 0;
+    return matches.filter(m => m.is_free).length;
+  }, [matches]);
+  const freePicksLeft = Math.max(3 - freePicksUsed, 0);
+
   const filtered = useMemo(() => {
     if (!matches) return [];
     return matches.filter(m => {
@@ -66,11 +73,9 @@ export default function Matches() {
           !m.away_team.toLowerCase().includes(q) &&
           !m.league_name.toLowerCase().includes(q)) return false;
       }
-      // AI tier filter
       const score = (m as any).ai_score || 0;
       if (aiTier === "ELITE" && score < 80) return false;
       if (aiTier === "STRONG" && score < 65) return false;
-      // Default: hide weak matches (< 70) unless showAll or explicit filter
       if (aiTier === "ALL" && !showAll && score > 0 && score < 70) return false;
       return true;
     });
@@ -78,7 +83,6 @@ export default function Matches() {
 
   const grouped = useMemo(() => {
     const groups: Record<string, CachedMatch[]> = {};
-    // Sort by aiScore DESC within each group
     const sortedFiltered = [...filtered].sort((a, b) => ((b as any).ai_score || 0) - ((a as any).ai_score || 0));
     sortedFiltered.forEach(m => {
       const date = new Date(m.kickoff).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -115,7 +119,7 @@ export default function Matches() {
           </div>
         </motion.div>
 
-        {/* Premium banner */}
+        {/* Premium banner with urgency */}
         {!isPremium && !isLoading && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -129,7 +133,7 @@ export default function Matches() {
                 🔓 Accès limité — Passe Premium pour toutes les prédictions ELITE
               </p>
               <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
-                3 pronostics gratuits / jour • Accès prioritaire aux matchs ELITE uniquement
+                ⚡ Seulement {freePicksLeft > 0 ? freePicksLeft : "0"} pronostic{freePicksLeft !== 1 ? "s" : ""} gratuit{freePicksLeft !== 1 ? "s" : ""} restant{freePicksLeft !== 1 ? "s" : ""} aujourd'hui
               </p>
             </div>
             <Link to="/pricing">
@@ -250,7 +254,7 @@ export default function Matches() {
           </motion.div>
         )}
 
-        {/* Opportunités IA section */}
+        {/* Opportunités IA section header */}
         {!isLoading && !error && aiTier !== "ALL" && filtered.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-5 sm:mt-6">
             <h2 className="font-display text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-1.5">
@@ -278,7 +282,7 @@ export default function Matches() {
         {!isLoading && !error && hiddenCount > 0 && !showAll && aiTier === "ALL" && (
           <div className="mt-6 text-center">
             <Button variant="outline" size="sm" onClick={() => setShowAll(true)} className="text-xs gap-1.5">
-              Voir tous les matchs ({hiddenCount} masqués)
+              <Eye className="h-3 w-3" /> Voir tous les matchs ({hiddenCount} masqués)
             </Button>
             <p className="mt-1 text-[9px] text-muted-foreground">Matchs avec AI Score faible masqués par défaut</p>
           </div>
@@ -297,6 +301,11 @@ export default function Matches() {
             </p>
           </div>
         )}
+
+        {/* Disclaimer */}
+        <p className="mt-6 text-[9px] text-muted-foreground/50 text-center">
+          ⚠️ Les prédictions IA sont probabilistes, jamais garanties.
+        </p>
       </div>
     </div>
   );

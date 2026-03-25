@@ -1,15 +1,16 @@
 import { Link } from "react-router-dom";
-import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain, Sparkles } from "lucide-react";
+import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain, Sparkles, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { TopMatchesSection } from "@/components/home/TopMatchesSection";
 import { TopPickSection } from "@/components/home/TopPickSection";
 import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
-import { useHighConfidencePrecision } from "@/hooks/useMatchHistory";
+import { useEliteWinrate } from "@/hooks/useResults";
 import { useMatchDiagnostics } from "@/hooks/useMatchLifecycle";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 function AnimatedNumber({ value, duration = 1.5, suffix = "" }: { value: number; duration?: number; suffix?: string }) {
   const [count, setCount] = useState(0);
@@ -54,14 +55,13 @@ function ScrollSection({ children, className, delay = 0 }: { children: React.Rea
 
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
-  const { data: hcData } = useHighConfidencePrecision();
+  const { data: eliteData } = useEliteWinrate();
   useTriggerFetch();
   useMatchDiagnostics(matches);
 
   const matchCount = matches?.length || 0;
-  const precision = hcData?.precision ?? 84;
-
-  // Count ELITE matches
+  const eliteWinrate = eliteData?.winrate ?? 84;
+  const eliteStreak = eliteData?.streak;
   const eliteCount = matches?.filter(m => (m as any).ai_score >= 80).length || 0;
 
   return (
@@ -103,16 +103,28 @@ const Index = () => {
             </motion.span>
           </motion.h1>
 
-          <motion.p
-            className="mt-3 sm:mt-4 max-w-xl text-xs sm:text-sm text-muted-foreground"
+          {/* Dynamic ELITE winrate */}
+          <motion.div
+            className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-2"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            <span className="inline-flex items-center gap-1.5 font-bold text-primary text-sm sm:text-base">
-              <Sparkles className="h-4 w-4" /> {precision}% de réussite sur les matchs ELITE
+            <span className="inline-flex items-center gap-1.5 font-bold text-primary text-sm sm:text-base rounded-full border border-primary/20 bg-primary/5 px-3 py-1">
+              <Sparkles className="h-4 w-4" /> Top AI Picks : {eliteWinrate}% winrate
             </span>
-          </motion.p>
+            {eliteStreak && eliteStreak.count >= 2 && (
+              <span className={cn(
+                "inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 border",
+                eliteStreak.type === "win"
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+              )}>
+                <Flame className="h-3 w-3" />
+                {eliteStreak.count} {eliteStreak.type === "win" ? "wins" : "losses"} d'affilée
+              </span>
+            )}
+          </motion.div>
 
           <motion.p
             className="mt-1.5 max-w-lg text-[10px] sm:text-xs text-muted-foreground/80"
@@ -120,7 +132,7 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.55 }}
           >
-            Notre IA sélectionne uniquement les opportunités les plus fiables parmi des centaines de matchs analysés
+            Basé sur les 20 derniers matchs ELITE sélectionnés par l'IA
           </motion.p>
 
           <motion.div
@@ -139,7 +151,7 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.62 }}
           >
-            Les performances affichées concernent uniquement les matchs sélectionnés par l'IA (AI Score élevé)
+            Les performances affichées concernent uniquement les matchs ELITE (AI Score élevé)
           </motion.p>
 
           <motion.div
@@ -183,7 +195,7 @@ const Index = () => {
           <div className="container px-3 sm:px-4">
             <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
               {[
-                { label: "Précision ELITE", value: precision, suffix: "%", icon: Sparkles },
+                { label: "Winrate ELITE", value: eliteWinrate, suffix: "%", icon: Sparkles },
                 { label: "Matchs analysés", value: matchCount || 0, suffix: "", icon: BarChart3 },
                 { label: "Sports couverts", value: 12, suffix: "", icon: Star },
                 { label: "Matchs ELITE", value: eliteCount, suffix: "", icon: Zap },
@@ -217,7 +229,7 @@ const Index = () => {
                 { icon: TrendingUp, title: "Value Bets", desc: "Détection automatique des cotes sous-évaluées par les bookmakers." },
                 { icon: BarChart3, title: "12 Sports", desc: "Football, NBA, NFL, MMA, Hockey, F1, Handball, Rugby, Volleyball, Baseball, AFL et Basketball." },
                 { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 15 minutes. Opportunités détectées automatiquement." },
-                { icon: Shield, title: `${precision}% de Réussite`, desc: "Performance vérifiable sur les matchs ELITE. Historique transparent et accessible." },
+                { icon: Shield, title: `${eliteWinrate}% Winrate ELITE`, desc: "Performance vérifiable sur les 20 derniers matchs ELITE. Historique transparent." },
               ].map(({ icon: Icon, title, desc }, i) => (
                 <ScrollSection key={title} delay={i * 0.08}>
                   <div className="glass-card match-card-hover p-4 sm:p-5">
@@ -271,7 +283,7 @@ const Index = () => {
         <div className="container flex flex-col items-center gap-2 sm:gap-3 text-center text-xs text-muted-foreground px-3">
           <span className="font-display font-bold text-foreground text-sm">Pronosia</span>
           <p className="text-[10px] sm:text-xs">© 2026 Pronosia. Pronostics sportifs propulsés par l'IA.</p>
-          <p className="text-[9px] sm:text-[10px]">Les pronostics sont fournis à titre informatif. Pariez de manière responsable.</p>
+          <p className="text-[9px] sm:text-[10px]">⚠️ Les prédictions IA sont probabilistes, jamais garanties. Pariez de manière responsable.</p>
         </div>
       </footer>
     </div>

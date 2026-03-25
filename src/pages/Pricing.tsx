@@ -1,12 +1,13 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Zap, Clock, Loader2, Lock, Sparkles, Shield, Brain } from "lucide-react";
+import { CheckCircle, Zap, Clock, Loader2, Lock, Sparkles, Shield, Brain, Users, TrendingUp } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useAuth, STRIPE_PLANS } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useEliteWinrate } from "@/hooks/useResults";
 
 function UrgencyTimer() {
   const [mins, setMins] = useState(Math.floor(Math.random() * 20) + 5);
@@ -26,6 +27,7 @@ export default function Pricing() {
   const { user, isPremium, subscription } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { data: eliteData } = useEliteWinrate();
 
   const handleCheckout = async (priceId: string, planKey: string) => {
     if (!user) {
@@ -57,6 +59,8 @@ export default function Pricing() {
     }
   };
 
+  const eliteWinrate = eliteData?.winrate ?? 84;
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <Navbar />
@@ -66,7 +70,7 @@ export default function Pricing() {
             Débloquez <span className="gradient-text">Pronosia</span> Premium
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Accédez à toutes les prédictions IA et analyses complètes.
+            Basé sur les récentes sélections haute confiance • {eliteWinrate}% winrate ELITE
           </p>
           <div className="mt-3 flex justify-center">
             <UrgencyTimer />
@@ -92,6 +96,16 @@ export default function Pricing() {
             <div className="flex items-center justify-center gap-2">
               <Shield className="h-4 w-4 text-emerald-400 shrink-0" />
               <span className="text-[11px] sm:text-xs text-muted-foreground">✔ Accès prioritaire aux matchs <strong className="text-foreground">ELITE</strong></span>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+              <Users className="h-3 w-3" />
+              <span>Communauté active de parieurs</span>
+            </div>
+            <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+              <TrendingUp className="h-3 w-3" />
+              <span>Détection automatique Value Bets</span>
             </div>
           </div>
           <p className="mt-3 text-center text-[9px] text-warning font-medium">
@@ -205,7 +219,7 @@ export default function Pricing() {
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               { q: "Comment fonctionne l'IA ?", a: "Notre moteur analyse 11 dimensions : forme récente, H2H, xG, blessures, contexte, fatigue, conditions, marché et plus encore." },
-              { q: "Taux de réussite ?", a: "84% de réussite sur les matchs ELITE sélectionnés par l'IA, avec confiance calibrée selon la qualité des données." },
+              { q: "Taux de réussite ?", a: `${eliteWinrate}% de réussite sur les 20 derniers matchs ELITE sélectionnés par l'IA, avec confiance calibrée.` },
               { q: "Annulation possible ?", a: "Oui, sans engagement. Annulez à tout moment depuis votre compte." },
               { q: "Paiement sécurisé ?", a: "Stripe gère tous les paiements. Vos données bancaires ne transitent jamais par nos serveurs." },
             ].map(({ q, a }) => (
@@ -216,6 +230,11 @@ export default function Pricing() {
             ))}
           </div>
         </motion.div>
+
+        {/* Disclaimer */}
+        <p className="mt-8 text-[9px] text-muted-foreground/50 text-center">
+          ⚠️ Les prédictions IA sont probabilistes, jamais garanties. Ne pariez que ce que vous pouvez vous permettre de perdre.
+        </p>
       </div>
     </div>
   );
