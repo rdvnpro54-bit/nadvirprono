@@ -636,9 +636,7 @@ Deno.serve(async (req) => {
     // ─── Convert to rows (fallback predictions initially) ─────
     const rows = deduped.map(m => toRow(m, false));
 
-    const aiCount = Array.from(aiPredictions.keys()).length;
-    const fallbackCount = rows.length - aiCount;
-    console.log(`[PREDICTIONS] ${aiCount} AI-powered, ${fallbackCount} fallback`);
+    console.log(`[PREDICTIONS] ${rows.length} matches with initial predictions (AI will process via ai-predict function)`);
 
     // ─── TOP 3 FREE: 1 per sport ─────────────────────────────
     const freeIds = new Set<number>();
