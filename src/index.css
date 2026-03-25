@@ -107,17 +107,7 @@
     box-shadow: var(--shadow-glow);
   }
 
-  .safe-badge {
-    @apply bg-success/15 text-success border border-success/30;
-  }
-
-  .moderate-badge {
-    @apply bg-warning/15 text-warning border border-warning/30;
-  }
-
-  .risky-badge {
-    @apply bg-destructive/15 text-destructive border border-destructive/30;
-  }
+  /* Badge styles moved below with glow variants */
 
   .match-card-hover {
     @apply transition-all duration-300;
