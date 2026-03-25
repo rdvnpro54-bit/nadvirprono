@@ -17,6 +17,7 @@ import Login from "./pages/Login";
 import Suivis from "./pages/Suivis";
 import Compte from "./pages/Compte";
 import Admin from "./pages/Admin";
+import Success from "./pages/Success";
 
 const queryClient = new QueryClient();
 
