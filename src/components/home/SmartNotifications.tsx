@@ -1,96 +1,76 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Moon, Flame, Lock, TrendingUp, Zap, BarChart3 } from "lucide-react";
+import { X, Brain, Flame, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useMatches } from "@/hooks/useMatches";
 
 interface Notification {
   id: string;
   icon: React.ReactNode;
   text: string;
-  link?: string;
-  type: "night" | "premium" | "live" | "info";
-}
-
-const NIGHT_MESSAGES = [
-  { icon: <Moon className="h-4 w-4" />, text: "🌙 Encore debout ? Les meilleures cotes arrivent maintenant…" },
-  { icon: <Flame className="h-4 w-4" />, text: "🔥 Bonne intuition à cette heure tardive…" },
-  { icon: <TrendingUp className="h-4 w-4" />, text: "👀 Les joueurs nocturnes font les meilleurs gains…" },
-  { icon: <Zap className="h-4 w-4" />, text: "💎 2 matchs haute confiance dispo en Premium" },
-];
-
-const PREMIUM_MESSAGES = [
-  { icon: <Lock className="h-4 w-4" />, text: "🔒 Ce match est réservé aux membres Premium" },
-  { icon: <Flame className="h-4 w-4" />, text: "🔥 87% de réussite sur les matchs Premium aujourd'hui" },
-  { icon: <Zap className="h-4 w-4" />, text: "⏳ Offre Premium limitée – accès immédiat" },
-  { icon: <BarChart3 className="h-4 w-4" />, text: "📈 Les membres Premium gagnent + souvent sur ce type de match" },
-];
-
-const INFO_MESSAGES = [
-  { icon: <TrendingUp className="h-4 w-4" />, text: "📊 Nouvelle analyse IA disponible – consultez les pronostics" },
-  { icon: <Flame className="h-4 w-4" />, text: "🔥 Forte activité sur les matchs de ce soir" },
-];
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  link: string;
+  type: "match" | "info";
 }
 
 export function SmartNotifications() {
-  const { isPremium } = useAuth();
+  const { data: matches } = useMatches();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const shownCount = useRef(0);
-  const maxPerSession = 6;
+  const shownFixtures = useRef(new Set<number>());
+  const maxPerSession = 4;
 
   const dismiss = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
   const addNotification = useCallback(() => {
-    if (shownCount.current >= maxPerSession) return;
+    if (shownCount.current >= maxPerSession || !matches) return;
 
-    const hour = new Date().getHours();
-    let notif: { icon: React.ReactNode; text: string };
-    let type: Notification["type"];
-    let link: string | undefined;
+    // Find SAFE matches starting within 15-30 min that haven't been shown
+    const now = Date.now();
+    const safeMatches = matches.filter(m => {
+      if (m.pred_confidence !== "SAFE" || m.is_free !== true) return false;
+      if (shownFixtures.current.has(m.fixture_id)) return false;
+      const kickoff = new Date(m.kickoff).getTime();
+      const diff = kickoff - now;
+      // Show for matches between -5min and +60min of kickoff
+      return diff > -5 * 60_000 && diff < 60 * 60_000;
+    });
 
-    // Night mode (00h-05h)
-    if (hour >= 0 && hour < 5) {
-      notif = pickRandom(NIGHT_MESSAGES);
-      type = "night";
-      link = "/pricing";
-    }
-    // Premium push for non-premium users
-    else if (!isPremium && Math.random() > 0.4) {
-      notif = pickRandom(PREMIUM_MESSAGES);
-      type = "premium";
-      link = "/pricing";
-    }
-    // General info
-    else {
-      notif = pickRandom(INFO_MESSAGES);
-      type = "info";
-      link = "/matches";
-    }
+    if (safeMatches.length === 0) return;
+
+    // Pick the one closest to kickoff
+    const match = safeMatches.sort((a, b) =>
+      new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
+    )[0];
+
+    const confidence = Math.max(Number(match.pred_home_win), Number(match.pred_away_win));
+    const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
     const id = `notif-${Date.now()}`;
     shownCount.current++;
+    shownFixtures.current.add(match.fixture_id);
 
-    setNotifications(prev => [...prev.slice(-2), { id, ...notif, link, type }]);
+    const notif: Notification = {
+      id,
+      icon: <Flame className="h-4 w-4" />,
+      text: `🔥 Match SAFE détecté — ${match.home_team} vs ${match.away_team} • 💎 Confiance: ${confidence}% • ⏰ ${time}`,
+      link: `/match/${match.id}`,
+      type: "match",
+    };
 
-    // Auto-dismiss after 6s
-    setTimeout(() => dismiss(id), 6000);
-  }, [isPremium, dismiss]);
+    setNotifications(prev => [...prev.slice(-1), notif]);
+    setTimeout(() => dismiss(id), 8000);
+  }, [matches, dismiss]);
 
   useEffect(() => {
-    // First notification after 15s
-    const firstTimer = setTimeout(() => {
-      addNotification();
-    }, 15000);
+    // First check after 20s
+    const firstTimer = setTimeout(addNotification, 20000);
 
-    // Then every 35-60s
+    // Then every 45-90s
     const interval = setInterval(() => {
       addNotification();
-    }, 35000 + Math.random() * 25000);
+    }, 45000 + Math.random() * 45000);
 
     return () => {
       clearTimeout(firstTimer);
@@ -116,17 +96,10 @@ export function SmartNotifications() {
             >
               <X className="h-3.5 w-3.5" />
             </button>
-            {n.link ? (
-              <Link to={n.link} onClick={() => dismiss(n.id)} className="flex items-start gap-2.5">
-                <span className="mt-0.5 text-primary shrink-0">{n.icon}</span>
-                <p className="text-xs text-foreground leading-relaxed">{n.text}</p>
-              </Link>
-            ) : (
-              <div className="flex items-start gap-2.5">
-                <span className="mt-0.5 text-primary shrink-0">{n.icon}</span>
-                <p className="text-xs text-foreground leading-relaxed">{n.text}</p>
-              </div>
-            )}
+            <Link to={n.link} onClick={() => dismiss(n.id)} className="flex items-start gap-2.5">
+              <span className="mt-0.5 text-primary shrink-0">{n.icon}</span>
+              <p className="text-xs text-foreground leading-relaxed">{n.text}</p>
+            </Link>
           </motion.div>
         ))}
       </AnimatePresence>

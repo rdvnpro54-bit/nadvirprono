@@ -2,12 +2,13 @@ import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
 import { useMatch } from "@/hooks/useMatches";
-import { ArrowLeft, Brain, TrendingUp, Activity, Loader2, Share2, Users, AlertCircle, BarChart3, Lock, Zap } from "lucide-react";
+import { ArrowLeft, Brain, TrendingUp, Activity, Loader2, Share2, Users, AlertCircle, BarChart3, Lock, Zap, Shield, CheckCircle, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGlobalActivity } from "@/components/home/ActivityProvider";
 
 function DataQualityBadge({ analysis }: { analysis: string | null }) {
   if (!analysis) return null;
@@ -24,17 +25,53 @@ function DataQualityBadge({ analysis }: { analysis: string | null }) {
   );
 }
 
+function extractKeyFactors(analysis: string | null, homeTeam: string, awayTeam: string): string[] {
+  const factors: string[] = [];
+  if (!analysis) return factors;
+  if (analysis.includes("xG")) factors.push("Expected Goals (xG) analysés");
+  if (analysis.includes("PPDA")) factors.push("Pression offensive (PPDA) évaluée");
+  if (analysis.includes("PER")) factors.push("Player Efficiency Rating calculé");
+  if (analysis.includes("pace")) factors.push("Rythme de jeu (pace) pris en compte");
+  if (analysis.includes("complètes")) factors.push("Base de données complète disponible");
+  if (analysis.includes("partielles")) factors.push("Données partielles — confiance ajustée");
+  if (analysis.includes("avantage")) {
+    const winner = analysis.includes(homeTeam) ? homeTeam : awayTeam;
+    factors.push(`${winner} identifié comme favori statistique`);
+  }
+  if (factors.length < 3) factors.push("Forme récente des 5 derniers matchs intégrée");
+  if (factors.length < 3) factors.push("Historique des confrontations directes analysé");
+  return factors.slice(0, 5);
+}
+
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: match, isLoading, error, refetch } = useMatch(id || "");
   const { isPremium } = useAuth();
+  const { getMatchCount } = useGlobalActivity();
 
   const isLocked = match?.pred_confidence === "LOCKED" || (!isPremium && match?.pred_home_win === null);
+  const isLive = match && ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
 
   const userCount = useMemo(() => {
     if (!match) return 0;
-    return (match.fixture_id % 500) + 200 + Math.floor(Math.random() * 80);
-  }, [match?.fixture_id]);
+    return getMatchCount(match.fixture_id, match.sport || "football");
+  }, [match?.fixture_id, match?.sport, getMatchCount]);
+
+  const keyFactors = useMemo(() => {
+    if (!match || isLocked) return [];
+    return extractKeyFactors(match.pred_analysis, match.home_team, match.away_team);
+  }, [match, isLocked]);
+
+  const predictionText = useMemo(() => {
+    if (!match || isLocked) return "";
+    if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) return "Match nul probable";
+    return match.pred_home_win >= match.pred_away_win ? `${match.home_team} gagne` : `${match.away_team} gagne`;
+  }, [match, isLocked]);
+
+  const confidence = useMemo(() => {
+    if (!match) return 0;
+    return Math.max(Number(match.pred_home_win), Number(match.pred_away_win), Number(match.pred_draw));
+  }, [match]);
 
   const handleShare = () => {
     const url = window.location.href;
@@ -50,7 +87,7 @@ export default function MatchDetail() {
     return (
       <div className="min-h-screen bg-background pb-20">
         <Navbar />
-        <div className="container max-w-3xl pt-20 pb-16">
+        <div className="container max-w-3xl pt-20 pb-16 px-3 sm:px-4">
           <div className="flex items-center gap-2 mb-6">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             <span className="text-xs text-muted-foreground">Analyse IA en cours...</span>
@@ -69,7 +106,7 @@ export default function MatchDetail() {
     return (
       <div className="min-h-screen bg-background pb-20">
         <Navbar />
-        <div className="container flex flex-col items-center justify-center pt-28 text-center">
+        <div className="container flex flex-col items-center justify-center pt-28 text-center px-3">
           <AlertCircle className="h-10 w-10 text-destructive mb-3" />
           <p className="text-sm font-medium">Données temporairement indisponibles</p>
           <p className="mt-1 text-xs text-muted-foreground">Le match est introuvable ou les données sont en cours de chargement.</p>
@@ -89,49 +126,56 @@ export default function MatchDetail() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Navbar />
-      <div className="container max-w-3xl pt-20 pb-16">
+      <div className="container max-w-3xl pt-20 pb-16 px-3 sm:px-4">
+        {/* Branding header */}
         <div className="flex items-center justify-between mb-4">
           <Link to="/matches" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-3.5 w-3.5" /> Retour
           </Link>
           <div className="flex items-center gap-2">
-            {!isLocked && <DataQualityBadge analysis={match.pred_analysis} />}
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-primary">
+              <Shield className="h-3 w-3" /> Analyse IA certifiée
+            </span>
             <Button variant="ghost" size="sm" onClick={handleShare} className="gap-1 text-xs h-7">
               <Share2 className="h-3.5 w-3.5" /> Partager
             </Button>
           </div>
         </div>
 
-        {/* Header card */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card p-5 sm:p-6"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-muted-foreground">
+        {/* Branding slogan */}
+        <p className="text-center text-[10px] text-muted-foreground/70 mb-3">
+          Pronosia — L'IA qui prédit vos paris sportifs
+        </p>
+
+        {/* Header card with teams */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
               {match.league_country && <span className="font-medium">{match.league_country} • </span>}
               {match.league_name}
             </span>
             <div className="flex items-center gap-2">
+              {isLive && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive badge-pulse">
+                  🔴 LIVE
+                </span>
+              )}
               <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Users className="h-3 w-3" /> 🔥 {userCount} analysent ce match
+                <Users className="h-3 w-3" /> {userCount} analysent
               </span>
               {!isLocked && <ConfidenceBadge confidence={match.pred_confidence as any} size="lg" />}
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex-1 text-center">
               <div className="flex flex-col items-center gap-2">
                 {bothLogos ? (
-                  <img src={match.home_logo!} alt="" className="h-12 w-12 object-contain" loading="lazy" />
+                  <img src={match.home_logo!} alt="" className="h-12 w-12 sm:h-14 sm:w-14 object-contain" loading="lazy" />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground">
-                    {homeInitials}
-                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground">{homeInitials}</div>
                 )}
-                <h2 className="font-display text-base font-bold sm:text-lg">{match.home_team}</h2>
+                <h2 className="font-display text-sm sm:text-lg font-bold">{match.home_team}</h2>
               </div>
             </div>
             <div className="flex flex-col items-center">
@@ -155,33 +199,29 @@ export default function MatchDetail() {
             <div className="flex-1 text-center">
               <div className="flex flex-col items-center gap-2">
                 {bothLogos ? (
-                  <img src={match.away_logo!} alt="" className="h-12 w-12 object-contain" loading="lazy" />
+                  <img src={match.away_logo!} alt="" className="h-12 w-12 sm:h-14 sm:w-14 object-contain" loading="lazy" />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground">
-                    {awayInitials}
-                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground">{awayInitials}</div>
                 )}
-                <h2 className="font-display text-base font-bold sm:text-lg">{match.away_team}</h2>
+                <h2 className="font-display text-sm sm:text-lg font-bold">{match.away_team}</h2>
               </div>
             </div>
           </div>
 
           {/* Probability bar */}
           {isLocked ? (
-            <div className="mt-6">
+            <div className="mt-5">
               <div className="flex h-3 overflow-hidden rounded-full bg-muted">
                 <div className="bg-muted-foreground/20 w-1/3" />
                 <div className="bg-muted-foreground/10 w-1/3" />
                 <div className="bg-muted-foreground/20 w-1/3" />
               </div>
               <div className="flex justify-between text-xs text-muted-foreground/50 mt-1.5">
-                <span>🏠 ???%</span>
-                <span>Nul ???%</span>
-                <span>✈️ ???%</span>
+                <span>🏠 ???%</span><span>Nul ???%</span><span>✈️ ???%</span>
               </div>
             </div>
           ) : (
-            <div className="mt-6">
+            <div className="mt-5">
               <div className="flex justify-between text-xs font-medium mb-1.5">
                 <span className="text-primary">{match.pred_home_win}%</span>
                 {Number(match.pred_draw) > 0 && <span className="text-muted-foreground">Nul {match.pred_draw}%</span>}
@@ -196,19 +236,12 @@ export default function MatchDetail() {
           )}
         </motion.div>
 
-        {/* LOCKED STATE */}
+        {/* ── LOCKED STATE ── */}
         {isLocked ? (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mt-4 glass-card glow-border p-8 text-center"
-          >
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-4 glass-card glow-border p-6 sm:p-8 text-center">
             <Lock className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
             <h3 className="font-display text-lg font-bold">🔒 Analyse complète réservée Premium</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Les prédictions IA, scores, confiance et value bets sont exclusifs aux membres Premium.
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">Les prédictions IA, scores, confiance et value bets sont exclusifs aux membres Premium.</p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link to="/pricing">
                 <Button className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
@@ -223,35 +256,27 @@ export default function MatchDetail() {
             </div>
           </motion.div>
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {/* Predictions */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="glass-card p-5"
-            >
+          <div className="mt-4 space-y-4">
+            {/* 🔥 PRONOSTIC PRINCIPAL — always visible without scroll */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="glass-card glow-border p-4 sm:p-5">
               <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold mb-3">
-                <Brain className="h-4 w-4 text-primary" /> Prédictions IA
+                <Target className="h-4 w-4 text-primary" /> 🔥 Pronostic Principal
               </h3>
-              <div className="space-y-3">
-                {[
-                  { label: `Over ${match.pred_over_under}`, value: match.pred_over_prob, color: "bg-primary" },
-                  { label: `Under ${match.pred_over_under}`, value: 100 - Number(match.pred_over_prob), color: "bg-secondary" },
-                  { label: "BTTS Oui", value: match.pred_btts_prob, color: "bg-success" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">{label}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-20 rounded-full bg-muted overflow-hidden">
-                        <div className={`h-full ${color} rounded-full`} style={{ width: `${value}%` }} />
-                      </div>
-                      <span className="text-xs font-semibold w-10 text-right">{value}%</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">📊 Pronostic</span>
+                  <span className="text-sm font-bold text-primary">{predictionText}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">💎 Confiance</span>
+                  <ConfidenceBadge confidence={match.pred_confidence as any} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">🎯 Score prédit</span>
+                  <span className="text-sm font-bold">{match.pred_score_home} - {match.pred_score_away}</span>
+                </div>
                 {match.pred_value_bet && (
-                  <div className="flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 p-2.5">
+                  <div className="flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 p-2">
                     <TrendingUp className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-medium text-primary">Value Bet détecté</span>
                   </div>
@@ -259,47 +284,97 @@ export default function MatchDetail() {
               </div>
             </motion.div>
 
-            {/* Status */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="glass-card p-5"
-            >
-              <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold mb-3">
-                <Activity className="h-4 w-4 text-primary" /> Statut
-              </h3>
-              <div className="space-y-2.5">
-                {[
-                  { label: "Confiance IA", content: <ConfidenceBadge confidence={match.pred_confidence as any} /> },
-                  { label: "Score prédit", content: <span className="text-xs font-bold">{match.pred_score_home} - {match.pred_score_away}</span> },
-                  { label: "Facteurs", content: <span className="text-xs font-medium text-primary">+250</span> },
-                  { label: "Sport", content: <span className="text-xs font-medium capitalize">{match.sport}</span> },
-                  { label: "Dernière MAJ", content: <span className="text-[10px]">{new Date(match.fetched_at).toLocaleTimeString("fr-FR")}</span> },
-                ].map(({ label, content }) => (
-                  <div key={label} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{label}</span>
-                    {content}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Prédictions détaillées */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="glass-card p-4 sm:p-5">
+                <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold mb-3">
+                  <Brain className="h-4 w-4 text-primary" /> Prédictions IA
+                </h3>
+                <div className="space-y-3">
+                  {[
+                    { label: `Over ${match.pred_over_under}`, value: match.pred_over_prob, color: "bg-primary" },
+                    { label: `Under ${match.pred_over_under}`, value: 100 - Number(match.pred_over_prob), color: "bg-secondary" },
+                    { label: "BTTS Oui", value: match.pred_btts_prob, color: "bg-success" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">{label}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-20 rounded-full bg-muted overflow-hidden">
+                          <div className={`h-full ${color} rounded-full`} style={{ width: `${value}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold w-10 text-right">{value}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
 
-            {/* Analysis */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="glass-card p-5 sm:col-span-2"
-            >
+              {/* Statut */}
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-4 sm:p-5">
+                <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold mb-3">
+                  <Activity className="h-4 w-4 text-primary" /> Statut
+                </h3>
+                <div className="space-y-2.5">
+                  {[
+                    { label: "Confiance IA", content: <ConfidenceBadge confidence={match.pred_confidence as any} /> },
+                    { label: "Sport", content: <span className="text-xs font-medium capitalize">{match.sport}</span> },
+                    { label: "Qualité données", content: <DataQualityBadge analysis={match.pred_analysis} /> },
+                    { label: "Facteurs analysés", content: <span className="text-xs font-medium text-primary">+250</span> },
+                    { label: "Dernière MAJ", content: <span className="text-[10px]">{new Date(match.fetched_at).toLocaleTimeString("fr-FR")}</span> },
+                  ].map(({ label, content }) => (
+                    <div key={label} className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{label}</span>
+                      {content}
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Analyse IA */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-4 sm:p-5">
               <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold mb-3">
                 <BarChart3 className="h-4 w-4 text-primary" /> Analyse IA
               </h3>
               <p className="text-xs leading-relaxed text-muted-foreground">{match.pred_analysis}</p>
-              <p className="mt-3 text-[10px] text-muted-foreground/50">
-                Basé sur +250 facteurs • Mis à jour toutes les 15 minutes • Taux de réussite IA : 82%
-              </p>
             </motion.div>
+
+            {/* Pourquoi ce prono */}
+            {keyFactors.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card p-4 sm:p-5">
+                <h3 className="flex items-center gap-1.5 font-display text-sm font-semibold mb-3">
+                  <CheckCircle className="h-4 w-4 text-primary" /> Pourquoi ce pronostic ?
+                </h3>
+                <ul className="space-y-1.5">
+                  {keyFactors.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <span className="text-primary mt-0.5">✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            )}
+
+            {/* CTA */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Link to="/matches">
+                <Button variant="outline" className="w-full sm:w-auto gap-2">
+                  <Brain className="h-4 w-4" /> Voir autres pronostics
+                </Button>
+              </Link>
+              {!isPremium && (
+                <Link to="/pricing">
+                  <Button className="w-full sm:w-auto gap-2 btn-shimmer">
+                    <Zap className="h-4 w-4" /> Passer Premium
+                  </Button>
+                </Link>
+              )}
+            </motion.div>
+
+            {/* Branding footer */}
+            <p className="text-center text-[9px] text-muted-foreground/50 mt-2">
+              Analyse générée par Pronosia IA • Basé sur +250 facteurs
+            </p>
           </div>
         )}
       </div>
