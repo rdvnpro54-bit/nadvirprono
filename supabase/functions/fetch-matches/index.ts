@@ -355,16 +355,21 @@ Deno.serve(async (req) => {
 
     const [footMatches, tennisMatches, basketMatches] = await Promise.all([
       fetchFootball(),
-      // Fetch today + tomorrow for tennis/basket too
+      // TENNIS: SofaScore (primary) → fallback to empty
       (async () => {
-        const [t1, t2] = await Promise.all([fetchESPN("tennis", compact), fetchESPN("tennis", tomorrowCompact)]);
-        const seen = new Set<string>();
-        return [...t1, ...t2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+        const matches = await fetchSofaScore("tennis", iso);
+        if (matches.length > 0) return matches;
+        console.log(`[FALLBACK] SofaScore tennis 0 for today`);
+        return [];
       })(),
+      // BASKETBALL: ESPN (primary) + SofaScore (fallback)
       (async () => {
         const [b1, b2] = await Promise.all([fetchESPN("basketball", compact), fetchESPN("basketball", tomorrowCompact)]);
         const seen = new Set<string>();
-        return [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+        const espnMatches = [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+        if (espnMatches.length > 0) return espnMatches;
+        console.log(`[FALLBACK] ESPN basketball 0 → trying SofaScore`);
+        return fetchSofaScore("basketball", iso);
       })(),
     ]);
 
