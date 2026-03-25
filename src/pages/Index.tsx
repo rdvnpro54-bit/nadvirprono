@@ -164,53 +164,7 @@ const Index = () => {
       </section>
 
       {/* Top 3 */}
-      <ScrollSection>
-        <section className="border-t border-border/30 py-12">
-          <div className="container">
-            <div className="mb-6 text-center">
-              <h2 className="font-display text-2xl font-bold">
-                🔥 Top 3 Pronostics <span className="gradient-text">du Jour</span>
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Les meilleures prédictions IA multi-sport
-              </p>
-            </div>
-
-            {isLoading ? (
-              <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-32 rounded-xl" />
-                ))}
-              </div>
-            ) : (
-              <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {topMatches.map((m, i) => (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.15, duration: 0.4 }}
-                    className="group"
-                    whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
-                  >
-                    <div className="transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/10 rounded-xl">
-                      <MatchCard match={m} index={i} />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-6 text-center">
-              <Link to="/matches">
-                <Button variant="outline" className="gap-2 transition-all duration-200 hover:scale-105">
-                  Voir tous les matchs <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-      </ScrollSection>
+      <TopMatchesSection matches={matches} isLoading={isLoading} />
 
       {/* Features */}
       <ScrollSection>
