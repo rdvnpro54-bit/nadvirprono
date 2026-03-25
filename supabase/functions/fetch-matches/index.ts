@@ -10,6 +10,7 @@ const corsHeaders = {
 const SPORTSRC_BASE = "https://api.sportsrc.org/v2/";
 const SPORTSRC_KEY = "8d44848359af5c9ea4c13a11aa996811";
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports";
+const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ─── UTILS ───────────────────────────────────────────────────────────
 function hash(str: string): number {
@@ -31,7 +32,182 @@ function getTodayParis(): { iso: string; compact: string; tomorrowCompact: strin
   return { iso: parisStr, compact: parisStr.replace(/-/g, ""), tomorrowCompact: tomorrowStr.replace(/-/g, "") };
 }
 
-// ─── AI PREDICTION ENGINE ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// AI PREDICTION ENGINE — SYSTEM PROMPT
+// ═══════════════════════════════════════════════════════════════════════
+const AI_SYSTEM_PROMPT = `You are an elite AI sports analyst combining deep statistical modeling, predictive analytics, and contextual intelligence. Your sole purpose is to deliver the most accurate, data-driven match predictions possible — never optimistic, never fabricated, always rigorous.
+
+CORE DIRECTIVE:
+Every prediction must be grounded in real, verifiable data patterns, calibrated for realism over confidence, transparent in reasoning and uncertainty, never guaranteed, never invented.
+
+MANDATORY ANALYSIS FRAMEWORK — For every match, systematically evaluate:
+1. RECENT FORM: Last 5-10 matches, win/loss/draw streaks, momentum trajectory
+2. HEAD-TO-HEAD: All-time and recent H2H record, psychological dominance, venue-specific splits
+3. HOME/AWAY DYNAMICS: Home/away win rates, points per game, crowd influence
+4. MATCH LOCATION: Stadium, travel fatigue, altitude, surface type
+5. ADVANCED STATS: xG, shots on target, possession %, press intensity, defensive solidity, set-piece threat
+6. SQUAD STATUS: Injuries, suspensions, key player availability, rotation likelihood
+7. MATCH CONTEXT: Competition stage, league position implications, rivalry intensity
+8. FATIGUE: Days since last match, fixture congestion, rotation likelihood
+9. EXTERNAL CONDITIONS: Weather, pitch condition, kick-off time
+10. BETTING MARKET SIGNALS: Odds movement, sharp money indicators, value identification
+11. INTERNAL MODEL: Synthesize all dimensions into probabilities, expected score, confidence score
+
+CONFIDENCE LEVELS:
+- SAFE: High data completeness, clear statistical advantage, confidence ≥ 7/10
+- MODÉRÉ: Moderate data, some uncertainty, confidence 4-6/10
+- RISQUÉ: Limited data, high uncertainty, confidence ≤ 3/10
+
+RULES:
+- If data is missing for a dimension, state uncertainty and lower confidence accordingly
+- Never skip analysis even if data is incomplete
+- Probabilities must sum to 100%
+- Be conservative — avoid overconfident predictions
+- For draws in sports where possible, properly account for draw probability`;
+
+// ─── AI-POWERED PREDICTION (batch all matches in one call) ──────────
+interface AIPrediction {
+  fixture_id: number;
+  pred_home_win: number;
+  pred_draw: number;
+  pred_away_win: number;
+  pred_score_home: number;
+  pred_score_away: number;
+  pred_over_under: number;
+  pred_over_prob: number;
+  pred_btts_prob: number;
+  pred_confidence: string;
+  pred_value_bet: boolean;
+  pred_analysis: string;
+}
+
+async function generateAIPredictions(
+  matches: { fixtureId: number; homeTeam: string; awayTeam: string; sport: string; league: string; kickoff: string }[]
+): Promise<Map<number, AIPrediction>> {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey || matches.length === 0) return new Map();
+
+  // Build the user prompt with all matches
+  const matchList = matches.map((m, i) =>
+    `${i + 1}. [ID:${m.fixtureId}] ${m.homeTeam} vs ${m.awayTeam} | ${m.sport.toUpperCase()} | ${m.league} | ${m.kickoff}`
+  ).join("\n");
+
+  const userPrompt = `Analyze these ${matches.length} matches and provide predictions for each.
+
+MATCHES:
+${matchList}
+
+For EACH match, you MUST call the "predict_matches" function with your predictions. Each prediction needs:
+- fixture_id: the ID provided
+- pred_home_win: home win probability (0-100, integer)
+- pred_draw: draw probability (0-100, integer, 0 for sports without draws like tennis/basketball/MMA/baseball)
+- pred_away_win: away win probability (0-100, integer)
+- All three probabilities MUST sum to exactly 100
+- pred_score_home: predicted home score (integer)
+- pred_score_away: predicted away score (integer)
+- pred_over_under: over/under line (e.g. 2.5 for football)
+- pred_over_prob: probability of over (0-100)
+- pred_btts_prob: probability both teams score (0-100, 0 for non-applicable sports)
+- pred_confidence: "SAFE", "MODÉRÉ", or "RISQUÉ"
+- pred_value_bet: true if you identify value
+- pred_analysis: 2-3 sentence analysis in French explaining key factors
+
+Be rigorous and realistic. Do NOT inflate confidence. Use all 11 analysis dimensions.`;
+
+  try {
+    console.log(`[AI] Requesting predictions for ${matches.length} matches...`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000); // 25s timeout
+    const response = await fetch(AI_GATEWAY, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: AI_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "predict_matches",
+            description: "Submit predictions for all analyzed matches",
+            parameters: {
+              type: "object",
+              properties: {
+                predictions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      fixture_id: { type: "number" },
+                      pred_home_win: { type: "number" },
+                      pred_draw: { type: "number" },
+                      pred_away_win: { type: "number" },
+                      pred_score_home: { type: "number" },
+                      pred_score_away: { type: "number" },
+                      pred_over_under: { type: "number" },
+                      pred_over_prob: { type: "number" },
+                      pred_btts_prob: { type: "number" },
+                      pred_confidence: { type: "string", enum: ["SAFE", "MODÉRÉ", "RISQUÉ"] },
+                      pred_value_bet: { type: "boolean" },
+                      pred_analysis: { type: "string" },
+                    },
+                    required: ["fixture_id", "pred_home_win", "pred_draw", "pred_away_win", "pred_score_home", "pred_score_away", "pred_over_under", "pred_over_prob", "pred_btts_prob", "pred_confidence", "pred_value_bet", "pred_analysis"],
+                  },
+                },
+              },
+              required: ["predictions"],
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "predict_matches" } },
+      }),
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[AI] Gateway error ${response.status}: ${errText}`);
+      return new Map();
+    }
+
+    const result = await response.json();
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) {
+      console.error("[AI] No tool call in response");
+      return new Map();
+    }
+
+    const parsed = JSON.parse(toolCall.function.arguments);
+    const predictions = parsed.predictions as AIPrediction[];
+    
+    const map = new Map<number, AIPrediction>();
+    for (const p of predictions) {
+      // Validate probabilities sum to 100
+      const total = p.pred_home_win + p.pred_draw + p.pred_away_win;
+      if (Math.abs(total - 100) > 2) {
+        // Normalize
+        p.pred_home_win = Math.round((p.pred_home_win / total) * 100);
+        p.pred_draw = Math.round((p.pred_draw / total) * 100);
+        p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+      }
+      map.set(p.fixture_id, p);
+    }
+    
+    console.log(`[AI] Successfully generated ${map.size}/${matches.length} predictions`);
+    return map;
+  } catch (e) {
+    console.error("[AI] Prediction error:", e);
+    return new Map();
+  }
+}
+
+// ─── FALLBACK DETERMINISTIC PREDICTION ENGINE ────────────────────────
 const SPORT_PROFILES: Record<string, { features: Record<string, number>; drawPossible: boolean; scoreRange: [number, number] }> = {
   football: { features: { form: 0.25, ranking: 0.20, attack: 0.20, defense: 0.15, h2h: 0.10, homeAdv: 0.10 }, drawPossible: true, scoreRange: [0, 4] },
   tennis:   { features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
@@ -54,7 +230,7 @@ function computeDataAvailability(teamName: string, fixtureId: number): number {
   return clamp01(0.5 + clamp01(teamName.length / 20) * 0.3 + seeded(hash(teamName) + fixtureId, 99) * 0.2);
 }
 
-function generatePrediction(homeTeam: string, awayTeam: string, fixtureId: number, sport: string) {
+function generateFallbackPrediction(homeTeam: string, awayTeam: string, fixtureId: number, sport: string) {
   const profile = SPORT_PROFILES[sport] || SPORT_PROFILES.football;
   const features = Object.entries(profile.features);
   let homeScore = 0, awayScore = 0, totalWeight = 0, usedFeatures = 0;
@@ -119,23 +295,9 @@ function generatePrediction(homeTeam: string, awayTeam: string, fixtureId: numbe
 
   const valueBet = confidenceScore >= 0.55 && maxProb >= 50 && seeded(baseSeed, 5) > 0.5;
 
-  const sportText: Record<string, string> = {
-    football: "xG, PPDA, expected goals et pression offensive",
-    tennis: "% service gagnant, break points, retour et forme récente",
-    basketball: "PER, true shooting %, pace et net rating",
-    hockey: "Corsi, buts pour/contre, power play et penalty kill",
-    baseball: "ERA, OPS, WHIP et batting average",
-    mma: "striking accuracy, takedown defense, volume de frappes",
-    f1: "pace qualif, rythme de course, fiabilité et performance équipe",
-    nfl: "yards offensifs, turnovers, red zone efficiency",
-    rugby: "possession, plaquages, mêlées et touches",
-    afl: "disposals, scoring shots, tackles et marks",
-  };
-
   const fav = predHome >= predAway ? homeTeam : awayTeam;
   const underdog = predHome >= predAway ? awayTeam : homeTeam;
-  const dataQualityLabel = dataCompleteness >= 0.8 ? "complètes" : dataCompleteness >= 0.5 ? "partielles" : "limitées";
-  const analysis = `Notre moteur IA a analysé ${usedFeatures} métriques clés (${sportText[sport] || "multi-facteurs"}). Données ${dataQualityLabel}. ${fav} présente un avantage statistique face à ${underdog}. Confiance : ${confidence}.`;
+  const analysis = `Analyse basée sur le modèle statistique. ${fav} présente un avantage face à ${underdog}. Confiance : ${confidence}.`;
 
   return {
     pred_home_win: predHome, pred_draw: predDraw, pred_away_win: predAway,
@@ -238,7 +400,6 @@ async function fetchSofaScore(sport: string, dateISO: string): Promise<Normalize
 }
 
 // ─── ESPN LEAGUES CONFIG ────────────────────────────────────────────
-// All verified working ESPN endpoints (200 OK)
 const ESPN_LEAGUES: Record<string, { path: string; label: string }[]> = {
   football: [
     { path: "soccer/eng.1", label: "Premier League" },
@@ -315,7 +476,6 @@ async function fetchESPN(sport: string, dateCompact: string): Promise<Normalized
 
 // ─── FETCH ESPN WITH EXTENDED DATE RANGE (for sparse sports) ────────
 async function fetchESPNExtended(sport: string, compact: string, tomorrowCompact: string): Promise<NormalizedMatch[]> {
-  // For sparse sports (MMA, F1, AFL, NFL), scan up to 10 days ahead
   const dates = [compact, tomorrowCompact];
   const now = new Date();
   for (let i = 2; i <= 10; i++) {
@@ -333,17 +493,16 @@ async function fetchESPNExtended(sport: string, compact: string, tomorrowCompact
       const k = dedupKey(m);
       if (!seen.has(k)) { seen.add(k); allMatches.push(m); }
     }
-    // Stop scanning once we have enough
     if (allMatches.length >= 10) break;
   }
 
   return allMatches;
 }
 
-// ─── CONVERT TO DB ROW ──────────────────────────────────────────────
-function toRow(m: NormalizedMatch, isFree: boolean) {
+// ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
+function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction) {
   const fixtureId = hash(m.id);
-  const prediction = generatePrediction(m.homeTeam, m.awayTeam, fixtureId, m.sport);
+  const prediction = aiPrediction || generateFallbackPrediction(m.homeTeam, m.awayTeam, fixtureId, m.sport);
   return {
     fixture_id: fixtureId,
     sport: m.sport, league_name: m.league, league_country: m.country || null,
@@ -436,7 +595,6 @@ Deno.serve(async (req) => {
       return [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
     };
 
-    // Sparse sports: scan up to 10 days ahead
     const fetchNFL = () => fetchESPNExtended("nfl", compact, tomorrowCompact);
     const fetchMMA = () => fetchESPNExtended("mma", compact, tomorrowCompact);
     const fetchF1 = () => fetchESPNExtended("f1", compact, tomorrowCompact);
@@ -475,10 +633,58 @@ Deno.serve(async (req) => {
     }
     console.log(`[DEDUP] ${allRaw.length} → ${deduped.length}`);
 
-    // ─── Convert to rows ─────────────────────────────────────
-    const rows = deduped.map(m => toRow(m, false));
+    // ─── Check which matches already have AI predictions in cache ─
+    const existingFixtureIds = new Set<number>();
+    const { data: existingMatches } = await supabase
+      .from("cached_matches")
+      .select("fixture_id, pred_analysis")
+      .in("fixture_id", deduped.map(m => hash(m.id)));
+    if (existingMatches) {
+      for (const em of existingMatches) {
+        // Only skip if the match already has a real AI analysis (not fallback)
+        if (em.pred_analysis && !em.pred_analysis.startsWith("Analyse basée sur le modèle statistique")) {
+          existingFixtureIds.add(em.fixture_id);
+        }
+      }
+    }
 
-    // ─── TOP 3 FREE: 1 per sport (prioritize football, basketball, tennis) ─
+    // Only request AI predictions for matches without AI analysis
+    const newMatches = deduped.filter(m => !existingFixtureIds.has(hash(m.id)));
+    console.log(`[AI] ${newMatches.length} matches need AI predictions (${existingFixtureIds.size} already have AI)`);
+
+    // ─── Generate AI predictions ─────────────────────────────
+    let aiPredictions = new Map<number, AIPrediction>();
+    if (newMatches.length > 0) {
+      const matchesForAI = newMatches.map(m => ({
+        fixtureId: hash(m.id),
+        homeTeam: m.homeTeam,
+        awayTeam: m.awayTeam,
+        sport: m.sport,
+        league: m.league,
+        kickoff: new Date(m.timestamp).toISOString(),
+      }));
+
+      // Process only first 20 matches with AI to stay within timeout
+      const aiSlice = matchesForAI.slice(0, 20);
+      if (aiSlice.length > 0) {
+        const batchPredictions = await generateAIPredictions(aiSlice);
+        for (const [k, v] of batchPredictions) aiPredictions.set(k, v);
+        console.log(`[AI] Got ${batchPredictions.size}/${aiSlice.length} AI predictions (${matchesForAI.length - aiSlice.length} will use fallback)`);
+      }
+    }
+
+    // ─── Convert to rows (AI prediction or fallback) ─────────
+    const rows = deduped.map(m => {
+      const fixtureId = hash(m.id);
+      const aiPred = aiPredictions.get(fixtureId);
+      return toRow(m, false, aiPred);
+    });
+
+    const aiCount = Array.from(aiPredictions.keys()).length;
+    const fallbackCount = rows.length - aiCount;
+    console.log(`[PREDICTIONS] ${aiCount} AI-powered, ${fallbackCount} fallback`);
+
+    // ─── TOP 3 FREE: 1 per sport ─────────────────────────────
     const freeIds = new Set<number>();
     const freeSportPriority = ["football", "basketball", "tennis", "hockey", "baseball", "nfl", "mma", "f1", "afl"];
     for (const sport of freeSportPriority) {
@@ -520,7 +726,6 @@ Deno.serve(async (req) => {
       datesToCheck.push(twoDaysBack.toISOString().slice(0, 10).replace(/-/g, ""));
       const uniqueScoreDates = [...new Set(datesToCheck)];
 
-      // Fetch finished scores for ALL sports that have ESPN leagues
       async function fetchFinishedScoresForDate(dateStr: string) {
         for (const [sport, leagues] of Object.entries(ESPN_LEAGUES)) {
           for (const lg of leagues) {
@@ -617,7 +822,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── Update metadata ─────────────────────────────────────
-    const apiCallsThisCycle = Object.keys(ESPN_LEAGUES).length + 2; // ESPN leagues + SportSRC + SofaScore
+    const apiCallsThisCycle = Object.keys(ESPN_LEAGUES).length + 2;
     await supabase.from("cache_metadata").upsert({
       id: "api_football",
       last_fetched_at: new Date().toISOString(),
@@ -625,12 +830,14 @@ Deno.serve(async (req) => {
       last_reset_date: iso,
     });
 
-    console.log(`[DONE] Counts: ${JSON.stringify(sportResults)}. Free: ${freeIds.size}. Requests today: ${requestCount + apiCallsThisCycle}`);
+    console.log(`[DONE] Counts: ${JSON.stringify(sportResults)}. Free: ${freeIds.size}. AI: ${aiCount}. Fallback: ${fallbackCount}. Requests today: ${requestCount + apiCallsThisCycle}`);
 
     return new Response(JSON.stringify({
       success: true,
       matches_count: rows.length,
       free_count: freeIds.size,
+      ai_predictions: aiCount,
+      fallback_predictions: fallbackCount,
       sport_counts: sportResults,
       requests_today: requestCount + apiCallsThisCycle,
     }), {
