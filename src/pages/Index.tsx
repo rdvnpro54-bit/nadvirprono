@@ -116,6 +116,15 @@ const Index = () => {
           </motion.div>
 
           <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+            className="mt-4"
+          >
+            <GlobalActivityBanner />
+          </motion.div>
+
+          <motion.div
             className="mt-6 flex flex-wrap items-center justify-center gap-3"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
