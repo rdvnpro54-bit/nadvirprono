@@ -2,11 +2,10 @@ import { Link } from "react-router-dom";
 import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
-import { MatchCard } from "@/components/matches/MatchCard";
+import { TopMatchesSection } from "@/components/home/TopMatchesSection";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { motion, useInView } from "framer-motion";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 
 // ─── Animated Counter ──────────────────────────────────────
 function AnimatedNumber({ value, duration = 1.5, suffix = "" }: { value: number; duration?: number; suffix?: string }) {
@@ -54,40 +53,6 @@ function ScrollSection({ children, className, delay = 0 }: { children: React.Rea
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
   useTriggerFetch();
-
-  const topMatches = (() => {
-    const free = matches?.filter(m => m.is_free) || [];
-    const bySport = new Map<string, typeof free>();
-    for (const m of free) {
-      const sport = m.sport || "football";
-      if (!bySport.has(sport)) bySport.set(sport, []);
-      bySport.get(sport)!.push(m);
-    }
-    const confScore = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
-    const bestPerSport = [...bySport.entries()].map(([sport, ms]) => {
-      const sorted = ms.sort((a, b) => {
-        const scoreA = Math.max(a.pred_home_win, a.pred_away_win) + confScore(a.pred_confidence) * 10;
-        const scoreB = Math.max(b.pred_home_win, b.pred_away_win) + confScore(b.pred_confidence) * 10;
-        return scoreB - scoreA;
-      });
-      return { sport, match: sorted[0] };
-    });
-    const priority = ["football", "nba", "nfl", "hockey", "mma", "baseball", "formula1", "handball", "rugby", "volleyball", "afl", "basketball"];
-    bestPerSport.sort((a, b) => {
-      const ia = priority.indexOf(a.sport.toLowerCase());
-      const ib = priority.indexOf(b.sport.toLowerCase());
-      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-    });
-    const result = bestPerSport.slice(0, 3).map(x => x.match);
-    if (result.length < 3) {
-      const ids = new Set(result.map(m => m.id));
-      for (const m of free) {
-        if (result.length >= 3) break;
-        if (!ids.has(m.id)) { result.push(m); ids.add(m.id); }
-      }
-    }
-    return result;
-  })();
 
   const matchCount = matches?.length || 0;
 
@@ -199,53 +164,7 @@ const Index = () => {
       </section>
 
       {/* Top 3 */}
-      <ScrollSection>
-        <section className="border-t border-border/30 py-12">
-          <div className="container">
-            <div className="mb-6 text-center">
-              <h2 className="font-display text-2xl font-bold">
-                🔥 Top 3 Pronostics <span className="gradient-text">du Jour</span>
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Les meilleures prédictions IA multi-sport
-              </p>
-            </div>
-
-            {isLoading ? (
-              <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-32 rounded-xl" />
-                ))}
-              </div>
-            ) : (
-              <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {topMatches.map((m, i) => (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.15, duration: 0.4 }}
-                    className="group"
-                    whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
-                  >
-                    <div className="transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/10 rounded-xl">
-                      <MatchCard match={m} index={i} />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-6 text-center">
-              <Link to="/matches">
-                <Button variant="outline" className="gap-2 transition-all duration-200 hover:scale-105">
-                  Voir tous les matchs <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-      </ScrollSection>
+      <TopMatchesSection matches={matches} isLoading={isLoading} />
 
       {/* Features */}
       <ScrollSection>

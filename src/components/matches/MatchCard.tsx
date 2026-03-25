@@ -1,20 +1,24 @@
 import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
-import { Lock, TrendingUp, Clock, Wifi, Star, Users, Dribbble, Swords, Car, Bike, Trophy, Dumbbell, type LucideIcon } from "lucide-react";
+import { Lock, TrendingUp, Clock, Wifi, Star, Users, Dribbble, Swords, Car, Bike, Trophy, Dumbbell, CircleDot, CheckCircle2, XCircle, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   football: { icon: Dribbble, label: "Football" },
+  tennis: { icon: CircleDot, label: "Tennis" },
   nba: { icon: Trophy, label: "NBA" },
   basketball: { icon: Trophy, label: "Basketball" },
   nfl: { icon: Swords, label: "NFL" },
   nhl: { icon: Swords, label: "NHL" },
+  hockey: { icon: Swords, label: "Hockey" },
   mma: { icon: Dumbbell, label: "MMA" },
   mlb: { icon: Trophy, label: "MLB" },
+  baseball: { icon: Trophy, label: "Baseball" },
   f1: { icon: Car, label: "F1" },
+  formula1: { icon: Car, label: "F1" },
   handball: { icon: Dribbble, label: "Handball" },
   rugby: { icon: Dribbble, label: "Rugby" },
   volleyball: { icon: Dribbble, label: "Volleyball" },
@@ -94,6 +98,17 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const fav = match.pred_home_win >= match.pred_away_win ? "home" : "away";
   const isLive = match.status === "1H" || match.status === "2H" || match.status === "HT" || match.status === "ET";
+  const isFinished = match.status === "FT" || match.status === "AET" || match.status === "PEN";
+
+  // Check prediction result for finished matches
+  const predictionResult = (() => {
+    if (!isFinished || match.home_score === null || match.away_score === null) return null;
+    const predictedHome = match.pred_home_win > match.pred_away_win;
+    const actualHome = match.home_score > match.away_score;
+    const isDraw = match.home_score === match.away_score;
+    if (isDraw) return null; // Draw = inconclusive
+    return predictedHome === actualHome ? "correct" : "incorrect";
+  })();
 
   // Consistent logo display: all logos or all initials
   const bothLogos = !!match.home_logo && !!match.away_logo;
@@ -204,6 +219,22 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                 <UserActivity fixtureId={match.fixture_id} />
                 <span>{match.pred_away_win}%</span>
               </div>
+            </div>
+          )}
+
+          {/* Prediction result for finished matches */}
+          {!locked && isFinished && predictionResult && (
+            <div className={cn(
+              "mt-2 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold",
+              predictionResult === "correct"
+                ? "bg-success/10 text-success"
+                : "bg-destructive/10 text-destructive"
+            )}>
+              {predictionResult === "correct" ? (
+                <><CheckCircle2 className="h-3.5 w-3.5" /> Prédiction correcte — Score : {match.home_score}-{match.away_score}</>
+              ) : (
+                <><XCircle className="h-3.5 w-3.5" /> Prédiction incorrecte — Score : {match.home_score}-{match.away_score}</>
+              )}
             </div>
           )}
 
