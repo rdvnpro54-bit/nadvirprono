@@ -21,8 +21,37 @@ const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   f1: { icon: Car, label: "F1" },
 };
 
+const TEAM_ALIASES: Record<string, string> = {
+  "Manchester United": "Man Utd",
+  "Manchester City": "Man City",
+  "Fútbol Club Barcelona": "Barça",
+  "FC Barcelona": "Barça",
+  "Paris Saint-Germain": "PSG",
+  "Borussia Dortmund": "Dortmund",
+  "Atlético Madrid": "Atlético",
+  "Atletico Madrid": "Atlético",
+  "Inter Miami CF": "Inter Miami",
+  "Tottenham Hotspur": "Tottenham",
+  "Wolverhampton Wanderers": "Wolves",
+  "Newcastle United": "Newcastle",
+  "West Ham United": "West Ham",
+  "Real Sociedad": "R. Sociedad",
+  "Bayer Leverkusen": "Leverkusen",
+  "Bayern München": "Bayern",
+  "Bayern Munich": "Bayern",
+  "Los Angeles Lakers": "LA Lakers",
+  "Golden State Warriors": "GS Warriors",
+  "Indiana Pacers": "Pacers",
+  "Philadelphia 76ers": "76ers",
+};
+
+function shortName(name: string): string {
+  return TEAM_ALIASES[name] || name;
+}
+
 function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string | null; isFav: boolean; side: "home" | "away" }) {
-  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const display = shortName(name);
+  const initials = display.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   return (
     <div className={cn("flex items-center gap-1.5 min-w-0", side === "home" ? "flex-row-reverse text-right" : "flex-row text-left")}>
       {logo ? (
@@ -33,7 +62,7 @@ function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string |
         </div>
       )}
       <p className={cn("text-[13px] sm:text-sm font-semibold truncate max-w-[90px] sm:max-w-[120px]", isFav && "text-primary")}>
-        {name}
+        {display}
       </p>
     </div>
   );
@@ -83,8 +112,8 @@ function getPredictionText(match: CachedMatch): string {
     return "Match nul probable";
   }
   const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
-  const shortName = winner.length > 20 ? winner.split(" ").slice(0, 2).join(" ") : winner;
-  return `${shortName} gagne`;
+  const displayName = shortName(winner);
+  return `${displayName} gagne`;
 }
 
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
