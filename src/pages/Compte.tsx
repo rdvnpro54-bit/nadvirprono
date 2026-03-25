@@ -1,5 +1,5 @@
 import { Navbar } from "@/components/layout/Navbar";
-import { User, Zap, CreditCard, LogOut, Loader2, Shield, BarChart3, Users, Activity } from "lucide-react";
+import { User, Zap, CreditCard, LogOut, Loader2, Shield, BarChart3, Users, Activity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -7,6 +7,7 @@ import { useAuth, STRIPE_PLANS } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DashboardStats {
   totalUsers: number;
@@ -16,11 +17,13 @@ interface DashboardStats {
 }
 
 export default function Compte() {
-  const { user, isPremium, isAdmin, subscription, signOut, checkSubscription, loading } = useAuth();
+  const { user, isPremium, isAdmin, subscription, signOut, checkSubscription } = useAuth();
   const [portalLoading, setPortalLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const [adminStats, setAdminStats] = useState<DashboardStats | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") {
@@ -29,17 +32,22 @@ export default function Compte() {
     }
   }, [searchParams, checkSubscription]);
 
+  const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Non connecté");
+    const { data, error } = await supabase.functions.invoke("admin-actions", {
+      body: { action, ...extra },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (error) throw error;
+    return data;
+  }, []);
+
   const fetchAdminStats = useCallback(async () => {
     if (!isAdmin || !user) return;
     setAdminLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const { data, error } = await supabase.functions.invoke("admin-actions", {
-        body: { action: "dashboard" },
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (error) throw error;
+      const data = await adminCall("dashboard");
       setAdminStats({
         totalUsers: data.totalUsers || 0,
         premiumCount: data.premiumCount || 0,
@@ -51,11 +59,28 @@ export default function Compte() {
     } finally {
       setAdminLoading(false);
     }
-  }, [isAdmin, user]);
+  }, [isAdmin, user, adminCall]);
 
   useEffect(() => {
     fetchAdminStats();
   }, [fetchAdminStats]);
+
+  const handleForceRefresh = async () => {
+    setRefreshLoading(true);
+    try {
+      const data = await adminCall("force-refresh");
+      toast.success(`✅ ${data.matches_count || 0} matchs rafraîchis (${data.free_count || 0} gratuits)`);
+      // Invalidate match queries to reload UI
+      queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["trigger-fetch"] });
+      // Refresh admin stats
+      fetchAdminStats();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors du rafraîchissement");
+    } finally {
+      setRefreshLoading(false);
+    }
+  };
 
   const handlePortal = async () => {
     setPortalLoading(true);
@@ -126,6 +151,28 @@ export default function Compte() {
                   <h2 className="font-display text-sm font-bold">Console Admin</h2>
                 </div>
 
+                {/* Force Refresh Button */}
+                <div className="mb-4 rounded-lg bg-destructive/5 border border-destructive/20 p-3">
+                  <p className="text-[11px] font-semibold text-foreground mb-1">🔄 Rafraîchir les Pronostics</p>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Force le rechargement immédiat des 3 pronostics du jour (foot + tennis + basket). Nouveau reset automatique à minuit.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full gap-1.5 text-[11px]"
+                    onClick={handleForceRefresh}
+                    disabled={refreshLoading}
+                  >
+                    {refreshLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                    {refreshLoading ? "Rafraîchissement..." : "Forcer le rafraîchissement maintenant"}
+                  </Button>
+                </div>
+
                 {adminLoading ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -156,7 +203,7 @@ export default function Compte() {
                     <div className="rounded-lg bg-muted/50 p-3">
                       <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
                         <Activity className="h-3.5 w-3.5" />
-                        <span className="text-[10px] font-medium">API Status</span>
+                        <span className="text-[10px] font-medium">Dernier fetch</span>
                       </div>
                       <p className="font-display text-xs font-bold">
                         {adminStats.apiStatus

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const ADMIN_EMAIL = "rdvnpro54@gmail.com";
@@ -65,29 +65,24 @@ Deno.serve(async (req) => {
 
     // ─── GET DASHBOARD STATS ──────────────────────────────────
     if (action === "dashboard") {
-      // Get all users
       const { data: users, error: usersErr } = await supabase.auth.admin.listUsers();
       if (usersErr) throw usersErr;
 
       const totalUsers = users?.users?.length || 0;
 
-      // Get subscriptions
       const { data: subs } = await supabase.from("subscriptions").select("*");
       const premiumCount = subs?.filter((s: any) => s.is_premium && (!s.expires_at || new Date(s.expires_at) > new Date())).length || 0;
 
-      // Get match count
       const { count: matchCount } = await supabase
         .from("cached_matches")
         .select("*", { count: "exact", head: true });
 
-      // Get cache metadata for API status
       const { data: meta } = await supabase
         .from("cache_metadata")
         .select("*")
         .eq("id", "api_football")
         .single();
 
-      // Get recent logs
       const { data: logs } = await supabase
         .from("admin_logs")
         .select("*")
@@ -134,9 +129,52 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── FORCE REFRESH PREDICTIONS ────────────────────────────
+    if (action === "force-refresh") {
+      console.log("[ADMIN] Force refresh triggered by", user.email);
+
+      // 1. Delete ALL existing cached matches to force fresh data
+      const { error: delErr } = await supabase.from("cached_matches").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (delErr) console.error("Delete error:", delErr);
+
+      // 2. Reset cache metadata to force re-fetch
+      await supabase.from("cache_metadata").upsert({
+        id: "api_football",
+        last_fetched_at: new Date(0).toISOString(), // epoch = force re-fetch
+        request_count_today: 0,
+        last_reset_date: new Date().toISOString().split("T")[0],
+      });
+
+      // 3. Trigger fetch-matches to get fresh data
+      const fetchUrl = `${supabaseUrl}/functions/v1/fetch-matches`;
+      const fetchRes = await fetch(fetchUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+        },
+      });
+      const fetchData = await fetchRes.json();
+
+      // 4. Log the action
+      await supabase.from("admin_logs").insert({
+        action: "force_refresh",
+        details: { result: fetchData },
+        admin_email: user.email!,
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Pronostics rafraîchis avec succès",
+        ...fetchData,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── ACTIVATE PREMIUM ─────────────────────────────────────
     if (action === "activate-premium") {
-      const { email, duration } = body; // duration: "weekly" | "monthly"
+      const { email, duration } = body;
       if (!email || !duration) {
         return new Response(JSON.stringify({ error: "email and duration required" }), {
           status: 400,
@@ -144,7 +182,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Find user by email
       const { data: authUsers } = await supabase.auth.admin.listUsers();
       const targetUser = authUsers?.users?.find((u: any) => u.email === email);
 
@@ -171,7 +208,6 @@ Deno.serve(async (req) => {
 
       if (upsertErr) throw upsertErr;
 
-      // Log the action
       await supabase.from("admin_logs").insert({
         action: "activate_premium",
         details: { target_email: email, duration, expires_at: expiresAt.toISOString() },
@@ -215,7 +251,6 @@ Deno.serve(async (req) => {
 
       if (updateErr) throw updateErr;
 
-      // Log the action
       await supabase.from("admin_logs").insert({
         action: "deactivate_premium",
         details: { target_email: email },
