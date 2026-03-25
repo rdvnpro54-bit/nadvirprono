@@ -4,12 +4,57 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
-import { motion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRef, useState, useEffect, useCallback } from "react";
+
+// ─── Animated Counter ──────────────────────────────────────
+function AnimatedNumber({ value, duration = 1.5, suffix = "" }: { value: number; duration?: number; suffix?: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+
+  useEffect(() => {
+    if (!inView) return;
+    let start = 0;
+    const step = value / (duration * 60);
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= value) {
+        setCount(value);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(start));
+      }
+    }, 1000 / 60);
+    return () => clearInterval(timer);
+  }, [inView, value, duration]);
+
+  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
+}
+
+// ─── Scroll-triggered section ──────────────────────────────
+function ScrollSection({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
   useTriggerFetch();
+
   const topMatches = (() => {
     const free = matches?.filter(m => m.is_free) || [];
     const bySport = new Map<string, typeof free>();
@@ -18,7 +63,6 @@ const Index = () => {
       if (!bySport.has(sport)) bySport.set(sport, []);
       bySport.get(sport)!.push(m);
     }
-    // Pick best match per sport (highest home_win or away_win + confidence)
     const confScore = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
     const bestPerSport = [...bySport.entries()].map(([sport, ms]) => {
       const sorted = ms.sort((a, b) => {
@@ -28,15 +72,13 @@ const Index = () => {
       });
       return { sport, match: sorted[0] };
     });
-    // Prioritize major sports
-    const priority = ["football", "nba", "nfl", "nhl", "mma", "mlb", "f1", "handball", "rugby", "volleyball", "afl", "basketball"];
+    const priority = ["football", "nba", "nfl", "hockey", "mma", "baseball", "formula1", "handball", "rugby", "volleyball", "afl", "basketball"];
     bestPerSport.sort((a, b) => {
       const ia = priority.indexOf(a.sport.toLowerCase());
       const ib = priority.indexOf(b.sport.toLowerCase());
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
     });
     const result = bestPerSport.slice(0, 3).map(x => x.match);
-    // Fallback: if < 3 sports, fill from remaining free matches (no duplicates)
     if (result.length < 3) {
       const ids = new Set(result.map(m => m.id));
       for (const m of free) {
@@ -46,6 +88,8 @@ const Index = () => {
     }
     return result;
   })();
+
+  const matchCount = matches?.length || 0;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -75,14 +119,21 @@ const Index = () => {
           >
             Pronostics Sportifs
             <br />
-            <span className="gradient-text">Propulsés par l'IA</span>
+            <motion.span
+              className="gradient-text inline-block"
+              initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              Propulsés par l'IA
+            </motion.span>
           </motion.h1>
 
           <motion.p
             className="mt-4 max-w-xl text-sm text-muted-foreground sm:text-base"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.25 }}
+            transition={{ delay: 0.5 }}
           >
             Notre moteur IA hybride analyse des centaines de variables par match.{" "}
             <span className="font-semibold text-primary">82% de réussite</span> vérifiée.
@@ -92,9 +143,9 @@ const Index = () => {
             className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.35 }}
+            transition={{ delay: 0.6 }}
           >
-            <RefreshCw className="h-3 w-3" />
+            <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
             <span>Données temps réel • Mis à jour toutes les 15 min</span>
           </motion.div>
 
@@ -102,125 +153,156 @@ const Index = () => {
             className="mt-6 flex flex-wrap items-center justify-center gap-3"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
+            transition={{ delay: 0.7 }}
           >
             <Link to="/matches">
-              <Button size="lg" className="gap-2 text-sm font-semibold">
+              <Button size="lg" className="gap-2 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
                 <Brain className="h-4 w-4" /> Voir les pronostics
               </Button>
             </Link>
             <Link to="/pricing">
-              <Button size="lg" variant="outline" className="gap-2 text-sm">
+              <Button size="lg" variant="outline" className="gap-2 text-sm transition-all duration-200 hover:scale-105">
                 Découvrir Premium <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
           </motion.div>
 
-          {/* Stats */}
+          {/* Animated Stats */}
           <motion.div
             className="mt-12 grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.9 }}
           >
             {[
-              { label: "Précision IA", value: "82%", icon: TrendingUp },
-              { label: "Matchs analysés", value: matches?.length?.toLocaleString() || "—", icon: BarChart3 },
-              { label: "Sports couverts", value: "12", icon: Star },
-              { label: "ROI mensuel", value: "+14.2%", icon: Shield },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="glass-card flex flex-col items-center gap-1.5 p-3">
+              { label: "Précision IA", value: 82, suffix: "%", icon: TrendingUp },
+              { label: "Matchs analysés", value: matchCount || 257, suffix: "", icon: BarChart3 },
+              { label: "Sports couverts", value: 12, suffix: "", icon: Star },
+              { label: "ROI mensuel", value: 14.2, suffix: "%", icon: Shield, prefix: "+" },
+            ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
+              <motion.div
+                key={label}
+                className="glass-card flex flex-col items-center gap-1.5 p-3 transition-all duration-200 hover:scale-105 hover:border-primary/20"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 + i * 0.1 }}
+              >
                 <Icon className="h-4 w-4 text-primary" />
-                <span className="font-display text-xl font-bold">{value}</span>
+                <span className="font-display text-xl font-bold">
+                  {prefix || ""}<AnimatedNumber value={Math.floor(value)} suffix={suffix} />
+                </span>
                 <span className="text-[10px] text-muted-foreground">{label}</span>
-              </div>
+              </motion.div>
             ))}
           </motion.div>
         </div>
       </section>
 
-      {/* Top 3 gratuits */}
-      <section className="border-t border-border/30 py-12">
-        <div className="container">
-          <div className="mb-6 text-center">
-            <h2 className="font-display text-2xl font-bold">
-              🔥 Top 3 Pronostics <span className="gradient-text">Gratuits</span>
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Aperçu des meilleures prédictions IA du jour
-            </p>
-          </div>
-
-          {isLoading ? (
-            <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-32 rounded-xl" />
-              ))}
+      {/* Top 3 */}
+      <ScrollSection>
+        <section className="border-t border-border/30 py-12">
+          <div className="container">
+            <div className="mb-6 text-center">
+              <h2 className="font-display text-2xl font-bold">
+                🔥 Top 3 Pronostics <span className="gradient-text">du Jour</span>
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Les meilleures prédictions IA multi-sport
+              </p>
             </div>
-          ) : (
-            <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {topMatches.map((m, i) => (
-                <MatchCard key={m.id} match={m} index={i} />
-              ))}
-            </div>
-          )}
 
-          <div className="mt-6 text-center">
-            <Link to="/matches">
-              <Button variant="outline" className="gap-2">
-                Voir tous les matchs <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t border-border/30 py-12">
-        <div className="container">
-          <h2 className="mb-8 text-center font-display text-2xl font-bold">
-            Pourquoi <span className="gradient-text">Pronosia</span> ?
-          </h2>
-          <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: Brain, title: "IA Hybride Multi-Sport", desc: "Moteur de pondération dynamique adaptatif selon la qualité et la disponibilité des données." },
-              { icon: Shield, title: "Confiance Calibrée", desc: "SAFE, MODÉRÉ ou RISQUÉ. La confiance diminue automatiquement si les données sont insuffisantes." },
-              { icon: TrendingUp, title: "Value Bets", desc: "Détection automatique des cotes sous-évaluées par les bookmakers." },
-              { icon: BarChart3, title: "12 Sports", desc: "Football, NBA, NFL, MMA, Hockey, F1, Handball, Rugby, Volleyball, Baseball, AFL et Basketball." },
-              { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 15 minutes. Pronostics toujours frais." },
-              { icon: Star, title: "82% de Réussite", desc: "Performance IA vérifiable. Historique transparent et accessible." },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="glass-card p-5 transition-all hover:border-primary/30">
-                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15">
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
-                <h3 className="mb-1 font-display text-sm font-semibold">{title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+            {isLoading ? (
+              <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-32 rounded-xl" />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            ) : (
+              <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {topMatches.map((m, i) => (
+                  <motion.div
+                    key={m.id}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.15, duration: 0.4 }}
+                    className="group"
+                    whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
+                  >
+                    <div className="transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/10 rounded-xl">
+                      <MatchCard match={m} index={i} />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
 
-      {/* CTA Premium */}
-      <section className="border-t border-border/30 py-12">
-        <div className="container max-w-lg text-center">
-          <div className="glass-card glow-border p-8">
-            <Zap className="mx-auto h-8 w-8 text-primary mb-3" />
-            <h2 className="font-display text-xl font-bold">Passe à Premium</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Débloque toutes les prédictions, analyses complètes et matchs haute confiance.
-            </p>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
-              <Link to="/pricing">
-                <Button className="gap-2">
-                  <Zap className="h-4 w-4" /> À partir de 9,90€/semaine
+            <div className="mt-6 text-center">
+              <Link to="/matches">
+                <Button variant="outline" className="gap-2 transition-all duration-200 hover:scale-105">
+                  Voir tous les matchs <ChevronRight className="h-4 w-4" />
                 </Button>
               </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </ScrollSection>
+
+      {/* Features */}
+      <ScrollSection>
+        <section className="border-t border-border/30 py-12">
+          <div className="container">
+            <h2 className="mb-8 text-center font-display text-2xl font-bold">
+              Pourquoi <span className="gradient-text">Pronosia</span> ?
+            </h2>
+            <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                { icon: Brain, title: "IA Hybride Multi-Sport", desc: "Moteur de pondération dynamique adaptatif selon la qualité et la disponibilité des données." },
+                { icon: Shield, title: "Confiance Calibrée", desc: "SAFE, MODÉRÉ ou RISQUÉ. La confiance diminue automatiquement si les données sont insuffisantes." },
+                { icon: TrendingUp, title: "Value Bets", desc: "Détection automatique des cotes sous-évaluées par les bookmakers." },
+                { icon: BarChart3, title: "12 Sports", desc: "Football, NBA, NFL, MMA, Hockey, F1, Handball, Rugby, Volleyball, Baseball, AFL et Basketball." },
+                { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 15 minutes. Pronostics toujours frais." },
+                { icon: Star, title: "82% de Réussite", desc: "Performance IA vérifiable. Historique transparent et accessible." },
+              ].map(({ icon: Icon, title, desc }, i) => (
+                <ScrollSection key={title} delay={i * 0.08}>
+                  <div className="glass-card p-5 transition-all duration-200 hover:border-primary/30 hover:scale-[1.02] hover:shadow-md">
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <h3 className="mb-1 font-display text-sm font-semibold">{title}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                  </div>
+                </ScrollSection>
+              ))}
+            </div>
+          </div>
+        </section>
+      </ScrollSection>
+
+      {/* CTA Premium */}
+      <ScrollSection>
+        <section className="border-t border-border/30 py-12">
+          <div className="container max-w-lg text-center">
+            <motion.div
+              className="glass-card glow-border p-8"
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Zap className="mx-auto h-8 w-8 text-primary mb-3" />
+              <h2 className="font-display text-xl font-bold">Passe à Premium</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Débloque toutes les prédictions, analyses complètes et matchs haute confiance.
+              </p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <Link to="/pricing">
+                  <Button className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
+                    <Zap className="h-4 w-4" /> À partir de 9,90€/semaine
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      </ScrollSection>
 
       {/* Footer */}
       <footer className="border-t border-border/30 py-8">
