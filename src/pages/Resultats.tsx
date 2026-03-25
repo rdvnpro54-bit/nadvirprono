@@ -220,18 +220,7 @@ export default function Resultats() {
             <div className="flex items-center justify-between">
               <p className="text-[10px] text-muted-foreground">
                 {displayResults.length} pronostic{displayResults.length !== 1 ? "s" : ""} affiché{displayResults.length !== 1 ? "s" : ""}
-                {!showAllResults && " (ELITE & STRONG uniquement)"}
               </p>
-              {!showAllResults && hiddenCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => setShowAllResults(true)} className="text-[10px] h-7 gap-1">
-                  <Eye className="h-3 w-3" /> Voir tous ({hiddenCount} masqués)
-                </Button>
-              )}
-              {showAllResults && (
-                <Button variant="ghost" size="sm" onClick={() => setShowAllResults(false)} className="text-[10px] h-7 gap-1">
-                  <Sparkles className="h-3 w-3" /> ELITE & STRONG uniquement
-                </Button>
-              )}
             </div>
 
             {/* Grouped results */}
