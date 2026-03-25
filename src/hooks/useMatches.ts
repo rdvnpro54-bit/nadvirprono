@@ -4,7 +4,12 @@ import type { Tables } from "@/integrations/supabase/types";
 
 export type CachedMatch = Tables<"cached_matches">;
 
-const FINISHED_STATUSES = ["FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD", "INT", "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED"];
+const FINISHED_STATUSES = [
+  "FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD",
+  "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED",
+];
+
+const LIVE_STATUSES = ["LIVE", "1H", "2H", "HT", "ET", "BT", "P"];
 
 /** Deduplicate by fixture_id, keeping the most recent entry */
 function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
@@ -18,24 +23,34 @@ function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
   return Array.from(map.values());
 }
 
-/** Filter out finished matches and past non-live matches */
+/** Strict filter: only scheduled or live matches from today */
 function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
   const now = Date.now();
-  const LIVE_TOLERANCE = 4 * 60 * 60 * 1000; // 4h for long matches
+  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
   return matches.filter(m => {
-    // Exclude finished statuses
-    if (FINISHED_STATUSES.includes(m.status.toUpperCase())) return false;
+    const statusUp = m.status.toUpperCase();
 
-    const kickoff = new Date(m.kickoff).getTime();
+    // 1. Hard exclude any finished status
+    if (FINISHED_STATUSES.includes(statusUp)) return false;
 
-    // Live matches: always show
-    if (["LIVE", "1H", "2H", "HT", "ET", "BT", "P"].includes(m.status.toUpperCase())) {
-      return true;
+    // 2. Hard exclude if both scores are set and status isn't live (stale data)
+    if (m.home_score !== null && m.away_score !== null && !LIVE_STATUSES.includes(statusUp)) {
+      return false;
     }
 
-    // Scheduled: only show if kickoff hasn't passed too long ago
-    if (kickoff + LIVE_TOLERANCE < now) return false;
+    const kickoff = new Date(m.kickoff);
+    const kickoffStr = kickoff.toISOString().split("T")[0];
+
+    // 3. Exclude matches from previous days
+    if (kickoffStr < todayStr) return false;
+
+    // 4. Live matches: always show
+    if (LIVE_STATUSES.includes(statusUp)) return true;
+
+    // 5. Scheduled: only show if kickoff hasn't passed by more than 3h
+    // (gives buffer for delayed starts, but removes stale matches)
+    if (kickoff.getTime() + 3 * 60 * 60 * 1000 < now) return false;
 
     return true;
   });
@@ -45,10 +60,11 @@ export function useMatches() {
   return useQuery({
     queryKey: ["cached-matches"],
     queryFn: async () => {
+      const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("cached_matches")
         .select("*")
-        .gte("kickoff", new Date().toISOString().split("T")[0])
+        .gte("kickoff", today)
         .order("kickoff", { ascending: true });
 
       if (error) throw error;
@@ -56,8 +72,8 @@ export function useMatches() {
       const deduplicated = deduplicateMatches(data as CachedMatch[]);
       return filterActiveMatches(deduplicated);
     },
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 15 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000, // Refresh more often to catch status changes
   });
 }
 
