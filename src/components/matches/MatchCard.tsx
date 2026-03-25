@@ -183,7 +183,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                     </span>
                   );
                 })()}
-                <span className="truncate">{match.league_name}</span>
+                <span className="truncate">{match.league_name}{match.league_country ? ` • ${match.league_country}` : ""}</span>
               </span>
               <div className="flex items-center gap-1">
                 {match.pred_value_bet && !locked && (
