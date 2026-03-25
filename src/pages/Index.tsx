@@ -107,17 +107,16 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            Notre moteur IA hybride analyse des centaines de variables par match.{" "}
-            <span className="font-semibold text-primary">{precision}% de réussite</span> vérifiée.
+            🔥 <span className="font-bold text-primary text-sm sm:text-base">{precision}% de réussite IA</span>
           </motion.p>
 
           <motion.p
-            className="mt-1 text-[10px] text-muted-foreground/70"
+            className="mt-1 max-w-lg text-[10px] sm:text-xs text-muted-foreground/80"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.55 }}
           >
-            📈 IA basée sur données réelles + machine learning
+            Basé sur les meilleurs pronostics sélectionnés • Analyse de centaines de variables pour identifier les opportunités les plus fiables
           </motion.p>
 
           <motion.div
