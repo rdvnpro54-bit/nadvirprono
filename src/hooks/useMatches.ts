@@ -1,22 +1,47 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type CachedMatch = Tables<"cached_matches">;
+
+// ─── Sport durations (minutes) for LIVE window ──────────────────
+const SPORT_DURATIONS: Record<string, number> = {
+  football: 120,
+  tennis: 180,
+  basketball: 150,
+};
 
 const FINISHED_STATUSES = [
   "FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD",
   "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED",
 ];
 
+function isFinishedByAPI(status: string): boolean {
+  return FINISHED_STATUSES.includes(status.toUpperCase());
+}
+
+function getSportDuration(sport: string): number {
+  return (SPORT_DURATIONS[sport?.toLowerCase()] || 120) * 60 * 1000;
+}
+
+/**
+ * Filter matches: keep upcoming + live, drop truly finished.
+ * Uses sport-specific durations instead of a fixed 3h window.
+ */
 function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
   const now = Date.now();
   return matches.filter(m => {
-    const statusUp = m.status.toUpperCase();
-    if (FINISHED_STATUSES.includes(statusUp)) return false;
-    if (m.home_score !== null && m.away_score !== null) return false;
     const kickoff = new Date(m.kickoff).getTime();
-    if (kickoff + 3 * 60 * 60 * 1000 < now) return false;
+    const duration = getSportDuration(m.sport);
+
+    // Already finished by API AND past duration → remove
+    if (isFinishedByAPI(m.status) && now > kickoff + duration) return false;
+    // Has final scores AND past duration → remove
+    if (m.home_score !== null && m.away_score !== null && now > kickoff + duration) return false;
+    // Too far past (duration + 30min buffer) → remove even without API confirmation
+    if (now > kickoff + duration + 30 * 60 * 1000) return false;
+    // Too far in the future
     if (kickoff > now + 48 * 60 * 60 * 1000) return false;
     return true;
   });
@@ -43,6 +68,37 @@ function deduplicateByTeams(matches: CachedMatch[]): CachedMatch[] {
   });
 }
 
+/**
+ * Merge new API data with existing cached matches.
+ * Rule: NEVER drop a match that was previously shown and is still in its LIVE window.
+ */
+function mergeMatches(previous: CachedMatch[], incoming: CachedMatch[]): CachedMatch[] {
+  const now = Date.now();
+  const incomingMap = new Map<string, CachedMatch>();
+  for (const m of incoming) incomingMap.set(m.id, m);
+
+  const merged = new Map<string, CachedMatch>();
+
+  // Add all incoming first
+  for (const m of incoming) merged.set(m.id, m);
+
+  // Preserve previous matches still in their LIVE window that API dropped
+  for (const prev of previous) {
+    if (merged.has(prev.id)) continue; // already in new data, skip
+
+    const kickoff = new Date(prev.kickoff).getTime();
+    const duration = getSportDuration(prev.sport);
+    const isStillActive = now < kickoff + duration + 30 * 60 * 1000;
+
+    if (isStillActive && !isFinishedByAPI(prev.status)) {
+      // API dropped it but it's still in LIVE window → keep it
+      merged.set(prev.id, prev);
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
@@ -52,6 +108,8 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 export function useMatches() {
+  const cacheRef = useRef<CachedMatch[]>([]);
+
   return useQuery({
     queryKey: ["cached-matches"],
     queryFn: async () => {
@@ -59,14 +117,28 @@ export function useMatches() {
         headers: await getAuthHeaders(),
       });
 
-      if (error) throw error;
+      if (error) {
+        // On API error, return cached data instead of throwing
+        if (cacheRef.current.length > 0) {
+          console.warn("[useMatches] API error, returning cached data", error);
+          return cacheRef.current;
+        }
+        throw error;
+      }
 
       const matches = data as CachedMatch[];
       let result = deduplicateMatches(matches);
       result = deduplicateByTeams(result);
+
+      // Merge with previous cache to prevent disappearing matches
+      result = mergeMatches(cacheRef.current, result);
       result = filterActiveMatches(result);
 
-      console.log(`[useMatches] ${matches?.length} raw → ${result.length} after dedup+filter`);
+      // Sort by kickoff
+      result.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
+
+      cacheRef.current = result;
+      console.log(`[useMatches] ${matches?.length} raw → ${result.length} after merge+dedup+filter`);
       return result;
     },
     staleTime: 2 * 60_000,

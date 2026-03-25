@@ -127,13 +127,22 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const fav = match.pred_home_win >= match.pred_away_win ? "home" : "away";
-  // Smart LIVE: based on API status OR kickoff time
+
+  // Re-render every 30s so LIVE badge appears/disappears on time
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Smart LIVE: based on API status OR kickoff time (time-based, never depends only on API)
   const apiLive = ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
   const kickoffTime = new Date(match.kickoff).getTime();
   const now = Date.now();
   const sportDurations: Record<string, number> = { football: 120, tennis: 180, basketball: 150 };
   const maxDuration = (sportDurations[(match.sport || "football").toLowerCase()] || 120) * 60 * 1000;
-  const timeLive = now >= kickoffTime && now <= kickoffTime + maxDuration && !["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED"].includes(match.status.toUpperCase());
+  const isFinished = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED"].includes(match.status.toUpperCase());
+  const timeLive = now >= kickoffTime && now <= kickoffTime + maxDuration && !isFinished;
   const isLive = apiLive || timeLive;
   const confidence = Math.max(Number(match.pred_home_win), Number(match.pred_away_win), Number(match.pred_draw));
   const bothLogos = !!match.home_logo && !!match.away_logo;
