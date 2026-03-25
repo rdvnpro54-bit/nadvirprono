@@ -182,9 +182,10 @@ export default function Matches() {
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 capitalize">{date}</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {dateMatches.map((match, i) => {
-                const isUnlocked = isPremium || match.is_free;
+                // Server already strips prediction data for non-premium locked matches
+                const isLocked = !isPremium && !match.is_free && match.pred_confidence === "LOCKED";
                 return (
-                  <MatchCard key={match.id} match={match} locked={!isUnlocked} index={i} />
+                  <MatchCard key={match.id} match={match} locked={isLocked} index={i} />
                 );
               })}
             </div>
