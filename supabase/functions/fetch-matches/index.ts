@@ -28,6 +28,31 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
+const LIVE_STATUSES = new Set(["LIVE", "1H", "2H", "HT", "ET", "BT", "P"]);
+const SCHEDULED_STATUSES = new Set(["NS", "SCHEDULED", "NOT_STARTED", "TBD", "TIME_TO_BE_DEFINED"]);
+const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "FINISHED", "ENDED", "COMPLETED", "CANC", "PST", "SUSP", "ABD", "AWD", "WO"]);
+
+function isDisplayableMatch(match: { kickoff: string; status: string; home_score: number | null; away_score: number | null }, now: Date): boolean {
+  const status = (match.status || "").toUpperCase();
+  const kickoff = new Date(match.kickoff);
+  const today = formatDate(now);
+
+  if (Number.isNaN(kickoff.getTime())) return false;
+  if (formatDate(kickoff) !== today) return false;
+  if (FINISHED_STATUSES.has(status)) return false;
+
+  if (LIVE_STATUSES.has(status)) {
+    return kickoff.getTime() <= now.getTime() + 6 * 60 * 60 * 1000;
+  }
+
+  if (!SCHEDULED_STATUSES.has(status)) return false;
+  if (kickoff.getTime() < now.getTime()) return false;
+
+  if (match.home_score !== null || match.away_score !== null) return false;
+
+  return true;
+}
+
 // ─── SPORT DETECTION ─────────────────────────────────────────────────
 type SportType = "football" | "tennis" | "basketball" | "mma" | "hockey" | "baseball"
   | "handball" | "volleyball" | "rugby" | "afl" | "formula1" | "nfl" | "nba";
@@ -485,8 +510,9 @@ Deno.serve(async (req) => {
 
     console.log(`Fetched ${allFixtures.length} football fixtures`);
 
-    // ─── PROCESS FOOTBALL FIXTURES ──────────────────────────────
-    const matches: any[] = allFixtures.map((f: any) => {
+    // ─── PROCESS + STRICT BACKEND FILTER ───────────────────────
+    const now = new Date();
+    const processedFootballMatches: any[] = allFixtures.map((f: any) => {
       const leagueName = f.league?.name || "Unknown";
       const leagueCountry = f.league?.country || null;
       const sport = detectSport(leagueName, leagueCountry);
@@ -516,9 +542,11 @@ Deno.serve(async (req) => {
         fetched_at: new Date().toISOString(),
         ...prediction,
       };
-    });
+    }).filter((match) => isDisplayableMatch(match, now));
 
-    // ─── ADD MULTI-SPORT SIMULATED MATCHES ──────────────────────
+    const matches: any[] = [...processedFootballMatches];
+
+    // ─── ADD MULTI-SPORT SIMULATED MATCHES (STRICT TODAY/LIVE ONLY) ───
     for (const dateStr of dates) {
       const simulatedRaw = generateMultiSportMatches(dateStr);
       for (const sim of simulatedRaw) {
@@ -529,24 +557,28 @@ Deno.serve(async (req) => {
           sim.sport as SportType,
           sim.league_name,
         );
-        matches.push({
+
+        const simulatedMatch = {
           ...sim,
           is_free: false,
           fetched_at: new Date().toISOString(),
           ...prediction,
-        });
+        };
+
+        if (isDisplayableMatch(simulatedMatch, now)) {
+          matches.push(simulatedMatch);
+        }
       }
     }
 
-    console.log(`Total matches (football + multi-sport): ${matches.length}`);
+    console.log(`Total valid matches after strict filtering: ${matches.length}`);
 
     // ─── PICK EXACTLY 3 FREE: 1 Football + 1 Tennis + 1 Basketball ───
     const confVal = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
     const scoreMatch = (m: any) => Math.max(m.pred_home_win, m.pred_away_win) + confVal(m.pred_confidence) * 10;
 
-    // Filter today's matches only for free selection
-    const todayStr = formatDate(new Date());
-    const todayMatches = matches.filter(m => m.kickoff.startsWith(todayStr));
+    // Filter today's already-valid matches only for free selection
+    const todayMatches = matches;
 
     // Group by the 3 required sport categories
     const footballMatches = todayMatches.filter(m => m.sport === "football");
@@ -554,20 +586,20 @@ Deno.serve(async (req) => {
     const basketballMatches = todayMatches.filter(m => m.sport === "nba" || m.sport === "basketball");
 
     // Sort each group: prioritize LIVE/soon, then by AI score
-    const now = Date.now();
+    const nowTs = now.getTime();
     const sortByRelevance = (arr: any[]) => {
       return arr.sort((a, b) => {
-        const aLive = ["1H", "2H", "HT", "ET"].includes(a.status) ? 1 : 0;
-        const bLive = ["1H", "2H", "HT", "ET"].includes(b.status) ? 1 : 0;
-        if (aLive !== bLive) return bLive - aLive; // LIVE first
-        
+        const aLive = LIVE_STATUSES.has((a.status || "").toUpperCase()) ? 1 : 0;
+        const bLive = LIVE_STATUSES.has((b.status || "").toUpperCase()) ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+
         const aTime = new Date(a.kickoff).getTime();
         const bTime = new Date(b.kickoff).getTime();
-        const aSoon = (aTime - now > 0 && aTime - now < 7200000) ? 1 : 0; // < 2h
-        const bSoon = (bTime - now > 0 && bTime - now < 7200000) ? 1 : 0;
-        if (aSoon !== bSoon) return bSoon - aSoon; // Soon first
-        
-        return scoreMatch(b) - scoreMatch(a); // Best AI score
+        const aSoon = (aTime - nowTs > 0 && aTime - nowTs < 7200000) ? 1 : 0;
+        const bSoon = (bTime - nowTs > 0 && bTime - nowTs < 7200000) ? 1 : 0;
+        if (aSoon !== bSoon) return bSoon - aSoon;
+
+        return scoreMatch(b) - scoreMatch(a);
       });
     };
 
@@ -576,27 +608,11 @@ Deno.serve(async (req) => {
     sortByRelevance(basketballMatches);
 
     const freeIds = new Set<number>();
-    
-    // Pick exactly 1 from each category
-    if (footballMatches.length > 0) freeIds.add(footballMatches[0].fixture_id);
-    if (tennisMatches.length > 0) freeIds.add(tennisMatches[0].fixture_id);
-    if (basketballMatches.length > 0) freeIds.add(basketballMatches[0].fixture_id);
 
-    // If any category is empty, DO NOT fill with another sport — keep strict 3-sport rule
-    // But if absolutely needed (no data at all), fill from remaining
-    if (freeIds.size < 3 && footballMatches.length === 0) {
-      // Try to get a second basketball or tennis
-      const fallback = [...tennisMatches, ...basketballMatches].filter(m => !freeIds.has(m.fixture_id));
-      if (fallback.length > 0) freeIds.add(fallback[0].fixture_id);
-    }
-    if (freeIds.size < 3 && tennisMatches.length === 0) {
-      const remaining = todayMatches.filter(m => !freeIds.has(m.fixture_id));
-      if (remaining.length > 0) freeIds.add(remaining[0].fixture_id);
-    }
-    if (freeIds.size < 3 && basketballMatches.length === 0) {
-      const remaining = todayMatches.filter(m => !freeIds.has(m.fixture_id));
-      if (remaining.length > 0) freeIds.add(remaining[0].fixture_id);
-    }
+    // Strict rule: exactly Football + Tennis + Basketball only if each exists
+    if (footballMatches[0]) freeIds.add(footballMatches[0].fixture_id);
+    if (tennisMatches[0]) freeIds.add(tennisMatches[0].fixture_id);
+    if (basketballMatches[0]) freeIds.add(basketballMatches[0].fixture_id);
 
     // Mark free matches
     for (const m of matches) {
