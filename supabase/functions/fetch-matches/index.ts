@@ -20,18 +20,11 @@ function seeded(seed: number, offset = 0): number {
   return x - Math.floor(x);
 }
 function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
-function formatDate(d: Date): string { return d.toISOString().split("T")[0]; }
 
 // ─── AI PREDICTION ENGINE ────────────────────────────────────────────
-interface FeatureProfile {
-  features: Record<string, number>;
-  drawPossible: boolean;
-  scoreRange: [number, number];
-}
-
-const SPORT_PROFILES: Record<string, FeatureProfile> = {
+const SPORT_PROFILES: Record<string, { features: Record<string, number>; drawPossible: boolean; scoreRange: [number, number] }> = {
   football: { features: { form: 0.25, ranking: 0.20, attack: 0.20, defense: 0.15, h2h: 0.10, homeAdv: 0.10 }, drawPossible: true, scoreRange: [0, 4] },
-  tennis:   { features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
+  tennis: { features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
   basketball: { features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [85, 130] },
 };
 
@@ -148,6 +141,7 @@ interface SportsRCLeague {
 }
 
 async function fetchSportMatches(sport: string): Promise<{ league: string; country: string; match: SportsRCMatch }[]> {
+  // Don't use &date= param — API returns 0 results with it. Fetch all upcoming then filter.
   const url = `${SPORTSRC_BASE}?type=matches&sport=${sport}`;
   console.log(`[SportSRC] Fetching: ${url}`);
   const res = await fetch(url, { headers: { "X-API-KEY": SPORTSRC_KEY } });
@@ -159,43 +153,42 @@ async function fetchSportMatches(sport: string): Promise<{ league: string; count
   const leagues: SportsRCLeague[] = json.data || [];
   const now = Date.now();
 
+  // Get today and tomorrow boundaries in UTC
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const tomorrowEnd = new Date(todayStart);
+  tomorrowEnd.setUTCDate(tomorrowEnd.getUTCDate() + 2); // include tomorrow
+
   const results: { league: string; country: string; match: SportsRCMatch }[] = [];
   for (const lg of leagues) {
     for (const m of lg.matches) {
-      // STRICT: only "notstarted" matches with future timestamp
+      // STRICT: only "notstarted" matches in the future
       if (m.status !== "notstarted") continue;
       if (!m.timestamp || m.timestamp <= now) continue;
-      // Reject if score is already set (safety check)
+      // Only today/tomorrow
+      if (m.timestamp > tomorrowEnd.getTime()) continue;
+      // Reject if score already set
       if (m.score?.current?.home > 0 || m.score?.current?.away > 0) continue;
       results.push({ league: lg.league.name, country: lg.league.country, match: m });
     }
   }
 
-  // Sort by timestamp ascending (soonest first)
   results.sort((a, b) => a.match.timestamp - b.match.timestamp);
   console.log(`[SportSRC] ${sport}: ${results.length} valid upcoming matches`);
   return results;
 }
 
-function mapSportKey(apiSport: string): string {
-  if (apiSport === "football") return "football";
-  if (apiSport === "tennis") return "tennis";
-  if (apiSport === "basketball") return "basketball";
-  return apiSport;
-}
-
 function convertToRow(item: { league: string; country: string; match: SportsRCMatch }, sport: string, isFree: boolean) {
   const m = item.match;
-  const sportKey = mapSportKey(sport);
   const fixtureId = hash(m.id);
   const homeTeam = m.teams.home.name;
   const awayTeam = m.teams.away.name;
   const kickoff = new Date(m.timestamp).toISOString();
-  const prediction = generatePrediction(homeTeam, awayTeam, fixtureId, sportKey);
+  const prediction = generatePrediction(homeTeam, awayTeam, fixtureId, sport);
 
   return {
     fixture_id: fixtureId,
-    sport: sportKey,
+    sport,
     league_name: item.league,
     league_country: item.country || null,
     home_team: homeTeam,
@@ -223,28 +216,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: meta } = await supabase.from("cache_metadata").select("*").eq("id", "api_football").single();
-    const today = formatDate(new Date());
-
-    // Cache check: 15 min freshness
-    if (meta?.last_fetched_at) {
-      const diffMinutes = (Date.now() - new Date(meta.last_fetched_at).getTime()) / 60000;
-      if (diffMinutes < 15) {
-        const { data: existing } = await supabase
-          .from("cached_matches")
-          .select("id")
-          .gte("kickoff", today)
-          .eq("status", "NS")
-          .limit(1);
-        if (existing && existing.length > 0) {
-          return new Response(
-            JSON.stringify({ message: "Cache is fresh", next_refresh_in: Math.ceil(15 - diffMinutes) }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        console.log("Cache fresh but empty — forcing refresh");
-      }
-    }
+    // NO CACHE COOLDOWN — always fetch fresh data from API
 
     // ─── FETCH ALL 3 SPORTS IN PARALLEL ──────────────────────────
     const [footballData, tennisData, basketballData] = await Promise.all([
@@ -254,7 +226,7 @@ Deno.serve(async (req) => {
     ]);
 
     // ─── SELECT TOP 3 FREE (1 per sport, fill gaps) ─────────────
-    const sportPools: { sport: string; data: typeof footballData }[] = [
+    const sportPools = [
       { sport: "football", data: footballData },
       { sport: "tennis", data: tennisData },
       { sport: "basketball", data: basketballData },
@@ -263,7 +235,7 @@ Deno.serve(async (req) => {
     const freeMatches: ReturnType<typeof convertToRow>[] = [];
     const usedIds = new Set<string>();
 
-    // First pass: take 1 from each sport that has data
+    // First pass: 1 from each sport
     for (const pool of sportPools) {
       if (pool.data.length > 0) {
         const item = pool.data[0];
@@ -272,7 +244,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Second pass: if we have < 3, fill from any sport with remaining matches
+    // Second pass: fill to 3 from any sport (no duplicates)
     if (freeMatches.length < 3) {
       for (const pool of sportPools) {
         for (const item of pool.data) {
@@ -285,9 +257,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Free matches selected: ${freeMatches.length}`);
-
-    // ─── ADD PREMIUM MATCHES (remaining) ─────────────────────────
+    // ─── PREMIUM MATCHES (remaining) ─────────────────────────────
     const allMatches = [...freeMatches];
     for (const pool of sportPools) {
       for (const item of pool.data) {
@@ -297,12 +267,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Total matches: ${allMatches.length} (${freeMatches.length} free)`);
+    console.log(`Total: ${allMatches.length} matches (${freeMatches.length} free). Sports: foot=${footballData.length} tennis=${tennisData.length} basket=${basketballData.length}`);
 
-    // ─── PURGE OLD + SAVE ────────────────────────────────────────
-    // Delete finished/old matches, keep unplayed future ones from previous fetches
-    await supabase.from("cached_matches").delete().lt("kickoff", today);
-    // Also delete matches that are now in the past
+    // ─── PURGE past matches, SAVE new ones ───────────────────────
     await supabase.from("cached_matches").delete().lt("kickoff", new Date().toISOString());
 
     if (allMatches.length > 0) {
@@ -313,10 +280,11 @@ Deno.serve(async (req) => {
       }
     }
 
+    const today = new Date().toISOString().split("T")[0];
     await supabase.from("cache_metadata").upsert({
       id: "api_football",
       last_fetched_at: new Date().toISOString(),
-      request_count_today: (meta?.last_reset_date === today ? (meta?.request_count_today || 0) : 0) + 1,
+      request_count_today: 1,
       last_reset_date: today,
     });
 
@@ -325,11 +293,7 @@ Deno.serve(async (req) => {
         success: true,
         matches_count: allMatches.length,
         free_count: freeMatches.length,
-        sports: {
-          football: footballData.length,
-          tennis: tennisData.length,
-          basketball: basketballData.length,
-        },
+        sports: { football: footballData.length, tennis: tennisData.length, basketball: basketballData.length },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

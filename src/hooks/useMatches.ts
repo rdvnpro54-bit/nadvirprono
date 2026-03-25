@@ -9,21 +9,15 @@ const FINISHED_STATUSES = [
   "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED",
 ];
 
-/** Filter: only upcoming matches (not finished, kickoff in the future or live) */
+/** Only keep future, unfinished matches */
 function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
   const now = Date.now();
-
   return matches.filter(m => {
     const statusUp = m.status.toUpperCase();
     if (FINISHED_STATUSES.includes(statusUp)) return false;
-
-    // Exclude if scores are set (match already played)
     if (m.home_score !== null && m.away_score !== null) return false;
-
     const kickoff = new Date(m.kickoff).getTime();
-    // Exclude if kickoff was more than 3h ago (safety margin)
     if (kickoff + 3 * 60 * 60 * 1000 < now) return false;
-
     return true;
   });
 }
@@ -53,8 +47,8 @@ export function useMatches() {
       const deduplicated = deduplicateMatches(data as CachedMatch[]);
       return filterActiveMatches(deduplicated);
     },
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    staleTime: 30_000,       // 30s stale
+    refetchInterval: 60_000, // refresh every 60s
   });
 }
 
@@ -77,11 +71,12 @@ export function useTriggerFetch() {
   return useQuery({
     queryKey: ["trigger-fetch"],
     queryFn: async () => {
+      if (typeof document !== "undefined" && document.hidden) return null;
       const { data, error } = await supabase.functions.invoke("fetch-matches");
       if (error) throw error;
       return data;
     },
-    staleTime: 14 * 60 * 1000,
-    refetchInterval: 15 * 60 * 1000,
+    staleTime: 55_000,        // ~1 min
+    refetchInterval: 60_000,  // re-fetch API every 60s
   });
 }

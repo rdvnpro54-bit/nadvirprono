@@ -15,43 +15,40 @@ interface TopMatchesSectionProps {
 }
 
 /**
- * Selects up to 3 free matches: prioritize 1 Football + 1 Tennis + 1 Basketball
- * If a sport is missing, fill with the next available match from any sport.
+ * Select up to 3 free matches: prioritize 1 Football + 1 Tennis + 1 Basketball.
+ * If a sport is missing, fill with next available match (no duplicates).
  */
 function getTop3(matches: CachedMatch[]): CachedMatch[] {
   const free = matches.filter(m => m.is_free);
-  if (free.length > 0) {
-    // Try to get one from each sport
-    const sportOrder = ["football", "tennis", "basketball"];
-    const picked: CachedMatch[] = [];
-    const usedIds = new Set<string>();
+  const pool = free.length > 0 ? free : matches;
+  if (pool.length === 0) return [];
 
-    for (const sport of sportOrder) {
-      const match = free.find(m => m.sport?.toLowerCase() === sport && !usedIds.has(m.id));
-      if (match) {
-        picked.push(match);
-        usedIds.add(match.id);
-      }
+  const sportOrder = ["football", "tennis", "basketball"];
+  const picked: CachedMatch[] = [];
+  const usedIds = new Set<string>();
+
+  // 1st pass: one per sport
+  for (const sport of sportOrder) {
+    const match = pool.find(m => m.sport?.toLowerCase() === sport && !usedIds.has(m.id));
+    if (match) {
+      picked.push(match);
+      usedIds.add(match.id);
     }
-
-    // Fill remaining slots from any sport
-    if (picked.length < 3) {
-      for (const m of free) {
-        if (picked.length >= 3) break;
-        if (!usedIds.has(m.id)) {
-          picked.push(m);
-          usedIds.add(m.id);
-        }
-      }
-    }
-
-    return picked.slice(0, 3);
   }
 
-  // Fallback: pick top 3 by confidence
-  return [...matches]
-    .sort((a, b) => Math.max(b.pred_home_win, b.pred_away_win) - Math.max(a.pred_home_win, a.pred_away_win))
-    .slice(0, 3);
+  // 2nd pass: fill to 3 with remaining (no same fixture_id)
+  const usedFixtures = new Set(picked.map(m => m.fixture_id));
+  if (picked.length < 3) {
+    for (const m of pool) {
+      if (picked.length >= 3) break;
+      if (usedIds.has(m.id) || usedFixtures.has(m.fixture_id)) continue;
+      picked.push(m);
+      usedIds.add(m.id);
+      usedFixtures.add(m.fixture_id);
+    }
+  }
+
+  return picked.slice(0, 3);
 }
 
 export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps) {
@@ -106,8 +103,8 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
             </div>
           ) : (
             <div className="mx-auto max-w-2xl rounded-xl border border-border/50 bg-card/60 px-4 py-8 text-center">
-              <p className="text-sm font-medium text-foreground">Chargement des matchs en cours…</p>
-              <p className="mt-1 text-xs text-muted-foreground">Les prédictions IA arrivent, rafraîchissez dans quelques instants.</p>
+              <p className="text-sm font-medium text-foreground">Aucun match à venir pour aujourd'hui</p>
+              <p className="mt-1 text-xs text-muted-foreground">Les prédictions IA se mettent à jour automatiquement.</p>
             </div>
           )}
 
