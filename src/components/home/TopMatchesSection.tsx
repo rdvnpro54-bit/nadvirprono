@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MidnightCountdown } from "./MidnightCountdown";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TopMatchesSectionProps {
@@ -14,53 +14,52 @@ interface TopMatchesSectionProps {
   isLoading: boolean;
 }
 
+const TOP3_KEY = "pronosia_top3";
+
+interface StoredTop3 {
+  ids: string[];
+  date: string; // YYYY-MM-DD
+}
+
+function getTodayISO(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+}
+
 /**
- * Select up to 3 free matches with aiScore ≥ 75, sorted by aiScore DESC.
- * Prioritize 1 Football + 1 Tennis + 1 Basketball if available.
+ * TOP 3: Fixed for the entire day. Stored in localStorage.
+ * Select 3 matches with highest aiScore, lock them until midnight.
  */
-function getTop3(matches: CachedMatch[]): CachedMatch[] {
-  const free = matches.filter(m => m.is_free);
-  const pool = free.length > 0 ? free : matches;
-  if (pool.length === 0) return [];
+function useFixedTop3(matches: CachedMatch[] | undefined): CachedMatch[] {
+  return useMemo(() => {
+    if (!matches || matches.length === 0) return [];
+    const today = getTodayISO();
 
-  // Sort by aiScore DESC, then by confidence
-  const sorted = [...pool].sort((a, b) => {
-    const scoreA = (a as any).ai_score || 0;
-    const scoreB = (b as any).ai_score || 0;
-    if (scoreB !== scoreA) return scoreB - scoreA;
-    const confA = Math.max(Number(a.pred_home_win), Number(a.pred_away_win), Number(a.pred_draw));
-    const confB = Math.max(Number(b.pred_home_win), Number(b.pred_away_win), Number(b.pred_draw));
-    return confB - confA;
-  });
+    // Check stored top 3
+    try {
+      const stored = localStorage.getItem(TOP3_KEY);
+      if (stored) {
+        const parsed: StoredTop3 = JSON.parse(stored);
+        if (parsed.date === today && parsed.ids.length > 0) {
+          const found = parsed.ids
+            .map(id => matches.find(m => m.id === id))
+            .filter(Boolean) as CachedMatch[];
+          if (found.length > 0) return found;
+        }
+      }
+    } catch { /* ignore */ }
 
-  // Filter to aiScore ≥ 75 preferably
-  const highScore = sorted.filter(m => ((m as any).ai_score || 0) >= 75);
-  const source = highScore.length >= 3 ? highScore : sorted;
+    // New day → select top 3 by aiScore
+    const sorted = [...matches].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+    const top3 = sorted.slice(0, 3);
 
-  const sportOrder = ["football", "tennis", "basketball"];
-  const picked: CachedMatch[] = [];
-  const usedIds = new Set<string>();
-
-  for (const sport of sportOrder) {
-    const match = source.find(m => m.sport?.toLowerCase() === sport && !usedIds.has(m.id));
-    if (match) {
-      picked.push(match);
-      usedIds.add(match.id);
+    if (top3.length > 0) {
+      try {
+        localStorage.setItem(TOP3_KEY, JSON.stringify({ ids: top3.map(m => m.id), date: today }));
+      } catch { /* storage full */ }
     }
-  }
 
-  const usedFixtures = new Set(picked.map(m => m.fixture_id));
-  if (picked.length < 3) {
-    for (const m of source) {
-      if (picked.length >= 3) break;
-      if (usedIds.has(m.id) || usedFixtures.has(m.fixture_id)) continue;
-      picked.push(m);
-      usedIds.add(m.id);
-      usedFixtures.add(m.fixture_id);
-    }
-  }
-
-  return picked.slice(0, 3);
+    return top3;
+  }, [matches]);
 }
 
 function getScoreStyle(score: number) {
@@ -73,7 +72,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
-  const topMatches = matches ? getTop3(matches) : [];
+  const topMatches = useFixedTop3(matches);
 
   return (
     <motion.div
@@ -90,11 +89,11 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
                 <TooltipTrigger asChild>
                   <h2 className="font-display text-xl sm:text-2xl font-bold inline-flex items-center gap-2 cursor-help">
                     <Sparkles className="h-5 w-5 text-amber-400" />
-                    Sélection IA <span className="gradient-text">Ultra Filtrée</span>
+                    Top 3 du Jour <span className="gradient-text">IA</span>
                   </h2>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-[200px]">Basé sur 11 facteurs : forme, stats avancées, blessures, contexte, marché...</p>
+                  <p className="text-xs max-w-[200px]">Sélection fixe du jour basée sur le AI Score. Réinitialisée à minuit.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -112,7 +111,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
           ) : topMatches.length > 0 ? (
             <div className="mx-auto grid max-w-4xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {topMatches.map((m, i) => {
-                const aiScore = (m as any).ai_score || 0;
+                const aiScore = m.ai_score || 0;
                 return (
                   <motion.div
                     key={m.id}
@@ -134,7 +133,6 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
               <div className="text-3xl mb-2">⏳</div>
               <p className="text-xs sm:text-sm font-medium text-foreground">Analyse en cours…</p>
               <p className="mt-1 text-[10px] sm:text-xs text-muted-foreground">Notre IA scanne les prochains matchs. Les pronostics apparaîtront automatiquement.</p>
-              <p className="mt-2 text-[9px] sm:text-[10px] text-muted-foreground">🟢 Mise à jour automatique toutes les 5 minutes</p>
             </div>
           )}
 
