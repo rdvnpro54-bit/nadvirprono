@@ -173,7 +173,7 @@ const Index = () => {
               {[
                 { label: "Précision IA", value: precision, suffix: "%", icon: TrendingUp },
                 { label: "Matchs analysés", value: matchCount || 0, suffix: "", icon: BarChart3 },
-                { label: "Sports couverts", value: 12, suffix: "", icon: Star },
+                { label: "Sports couverts", value: 9, suffix: "", icon: Star },
                 { label: "ROI mensuel", value: 14, suffix: "%", icon: Shield, prefix: "+" },
               ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
                 <ScrollSection key={label} delay={i * 0.08}>
