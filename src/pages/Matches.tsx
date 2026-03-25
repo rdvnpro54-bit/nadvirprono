@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, RefreshCw, Loader2, AlertCircle, Clock } from "lucide-react";
+import { TrendingUp, Search, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { CooldownTimer } from "@/components/matches/CooldownTimer";
+import { LiveUpdateBanner } from "@/components/home/LiveUpdateBanner";
 
 type Confidence = "SAFE" | "MODÉRÉ" | "RISQUÉ";
 
