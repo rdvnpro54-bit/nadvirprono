@@ -5,8 +5,7 @@ import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, BarChart3 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { BarChart3 } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
 import { StatsGrid } from "@/components/results/StatsGrid";
@@ -15,20 +14,36 @@ function groupByDay(results: MatchResult[]): { label: string; results: MatchResu
   const now = new Date();
   const today = now.toDateString();
   const yesterday = new Date(now.getTime() - 86400000).toDateString();
+  const weekAgo = new Date(now.getTime() - 7 * 86400000);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
 
   const groups: Record<string, MatchResult[]> = {};
   for (const r of results) {
     const d = new Date(r.kickoff);
     let label: string;
-    if (d.toDateString() === today) label = "Aujourd'hui";
-    else if (d.toDateString() === yesterday) label = "Hier";
+    if (d.toDateString() === today) label = "📅 Aujourd'hui";
+    else if (d.toDateString() === yesterday) label = "📅 Hier";
+    else if (d >= weekAgo) label = "📅 Cette semaine";
+    else if (d >= twoWeeksAgo) label = "📅 Semaine dernière";
     else label = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
     if (!groups[label]) groups[label] = [];
     groups[label].push(r);
   }
 
-  return Object.entries(groups).map(([label, results]) => ({ label, results }));
+  // Sort groups: today first, then yesterday, etc.
+  const order = ["📅 Aujourd'hui", "📅 Hier", "📅 Cette semaine", "📅 Semaine dernière"];
+  const entries = Object.entries(groups);
+  entries.sort((a, b) => {
+    const ai = order.indexOf(a[0]);
+    const bi = order.indexOf(b[0]);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return 0;
+  });
+
+  return entries.map(([label, results]) => ({ label, results }));
 }
 
 function filterResults(results: MatchResult[], sport: string, status: string, period: string): MatchResult[] {
@@ -66,6 +81,16 @@ export default function Resultats() {
   );
   const grouped = useMemo(() => groupByDay(filteredResults), [filteredResults]);
 
+  // Console diagnostics
+  useMemo(() => {
+    if (!results) return;
+    const wins = results.filter(r => r.result === "win").length;
+    const losses = results.filter(r => r.result === "loss").length;
+    console.log(`[PRONOSIA] ━━━ Résultats ━━━`);
+    console.log(`[PRONOSIA] Total résultats: ${results.length} | Gagnés: ${wins} | Perdus: ${losses}`);
+    console.log(`[PRONOSIA] Winrate: ${results.length > 0 ? Math.round((wins / results.length) * 100) : 0}%`);
+  }, [results]);
+
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Navbar />
@@ -87,7 +112,7 @@ export default function Resultats() {
           <div className="mt-10 text-center rounded-xl border bg-card p-8">
             <div className="text-3xl mb-3">📊</div>
             <p className="text-sm font-semibold">Aucun résultat disponible</p>
-            <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront automatiquement après chaque match.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront automatiquement après chaque match terminé avec des scores réels.</p>
           </div>
         ) : (
           <Tabs defaultValue="history" className="mt-4">
@@ -95,21 +120,6 @@ export default function Resultats() {
               <TabsTrigger value="history" className="text-[11px] sm:text-xs">📋 Historique</TabsTrigger>
               <TabsTrigger value="overview" className="text-[11px] sm:text-xs">📊 Vue globale</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="overview" className="mt-4 space-y-6">
-              {monthStats && monthStats.total > 0 && (
-                <StatsGrid stats={monthStats} title="Ce mois-ci" icon={Trophy} />
-              )}
-              {allStats && (
-                <StatsGrid stats={allStats} title="Tous les pronostics" icon={BarChart3} />
-              )}
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-card p-3 sm:p-4 text-center">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  📊 Statistiques calculées automatiquement à partir des résultats réels.
-                  <br />Aucune manipulation. Mise fixe de 10€ par pronostic. Cotes estimées.
-                </p>
-              </motion.div>
-            </TabsContent>
 
             <TabsContent value="history" className="mt-4 space-y-4">
               <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
@@ -135,6 +145,21 @@ export default function Resultats() {
                   <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="overview" className="mt-4 space-y-6">
+              {monthStats && monthStats.total > 0 && (
+                <StatsGrid stats={monthStats} title="Ce mois-ci" icon={BarChart3} />
+              )}
+              {allStats && (
+                <StatsGrid stats={allStats} title="Tous les pronostics" icon={BarChart3} />
+              )}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-card p-3 sm:p-4 text-center">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  📊 Statistiques calculées automatiquement à partir des résultats réels.
+                  <br />Aucune manipulation. Mise fixe de 10€ par pronostic. Cotes estimées.
+                </p>
+              </motion.div>
             </TabsContent>
           </Tabs>
         )}

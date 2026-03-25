@@ -3,8 +3,9 @@ import { Flame, Shield, Brain, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
 import { type CachedMatch } from "@/hooks/useMatches";
+import { useTopPick, getMatchStatus } from "@/hooks/useMatchLifecycle";
 import { motion, useInView } from "framer-motion";
-import { useRef, useMemo } from "react";
+import { useRef } from "react";
 
 interface TopPickProps {
   matches: CachedMatch[] | undefined;
@@ -13,25 +14,16 @@ interface TopPickProps {
 export function TopPickSection({ matches }: TopPickProps) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
-
-  const topPick = useMemo(() => {
-    if (!matches || matches.length === 0) return null;
-    const free = matches.filter(m => m.is_free && m.pred_confidence !== "LOCKED");
-    if (free.length === 0) return null;
-    // Pick highest confidence
-    return free.reduce((best, m) => {
-      const confM = Math.max(Number(m.pred_home_win), Number(m.pred_away_win));
-      const confB = Math.max(Number(best.pred_home_win), Number(best.pred_away_win));
-      return confM > confB ? m : best;
-    });
-  }, [matches]);
+  const topPick = useTopPick(matches);
 
   if (!topPick) return null;
 
+  const status = getMatchStatus(topPick);
   const confidence = Math.max(Number(topPick.pred_home_win), Number(topPick.pred_away_win));
   const winner = topPick.pred_home_win >= topPick.pred_away_win ? topPick.home_team : topPick.away_team;
   const time = new Date(topPick.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const badgeLabel = topPick.pred_confidence === "SAFE" ? "SAFE BET 💎" : "TOP PICK 🔥";
+  const isLive = status === "live";
 
   return (
     <motion.div
@@ -48,7 +40,7 @@ export function TopPickSection({ matches }: TopPickProps) {
                 <Flame className="h-5 w-5 text-primary" /> TOP PICK DU JOUR
               </h2>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Sélectionné parmi +{matches?.length || 100} matchs analysés
+                Verrouillé pour la journée • Sélectionné parmi +{matches?.length || 100} matchs
               </p>
             </div>
 
@@ -58,7 +50,16 @@ export function TopPickSection({ matches }: TopPickProps) {
                 whileHover={{ scale: 1.02 }}
               >
                 {/* Badge */}
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  {isLive && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-destructive/20 border border-destructive/30 px-2 py-0.5 text-[10px] font-bold text-destructive badge-pulse">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive/60" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
+                      </span>
+                      LIVE
+                    </span>
+                  )}
                   <span className="inline-flex items-center gap-1 rounded-full bg-primary/20 border border-primary/30 px-2 py-0.5 text-[10px] font-bold text-primary badge-pulse">
                     {badgeLabel}
                   </span>
@@ -103,8 +104,8 @@ export function TopPickSection({ matches }: TopPickProps) {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">⏰ Heure</span>
-                    <span className="text-xs font-medium">{time}</span>
+                    <span className="text-xs text-muted-foreground">{isLive ? "🔴 En cours" : "⏰ Heure"}</span>
+                    <span className="text-xs font-medium">{isLive ? "LIVE" : time}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">🎯 Score prédit</span>
