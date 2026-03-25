@@ -775,6 +775,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Trigger AI prediction for new matches ───────────────
+    // Fire-and-forget call to ai-predict for matches without AI analysis
+    try {
+      const aiPredictUrl = `${supabaseUrl}/functions/v1/ai-predict?batch=10&offset=0`;
+      fetch(aiPredictUrl, {
+        method: "GET",
+        headers: { "apikey": supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      }).catch(() => {}); // fire and forget
+      console.log(`[AI] Triggered ai-predict for new matches`);
+    } catch { /* ignore */ }
+
     // ─── Update metadata ─────────────────────────────────────
     const apiCallsThisCycle = Object.keys(ESPN_LEAGUES).length + 2;
     await supabase.from("cache_metadata").upsert({
@@ -784,14 +795,12 @@ Deno.serve(async (req) => {
       last_reset_date: iso,
     });
 
-    console.log(`[DONE] Counts: ${JSON.stringify(sportResults)}. Free: ${freeIds.size}. AI: ${aiCount}. Fallback: ${fallbackCount}. Requests today: ${requestCount + apiCallsThisCycle}`);
+    console.log(`[DONE] Counts: ${JSON.stringify(sportResults)}. Free: ${freeIds.size}. Requests today: ${requestCount + apiCallsThisCycle}`);
 
     return new Response(JSON.stringify({
       success: true,
       matches_count: rows.length,
       free_count: freeIds.size,
-      ai_predictions: aiCount,
-      fallback_predictions: fallbackCount,
       sport_counts: sportResults,
       requests_today: requestCount + apiCallsThisCycle,
     }), {
