@@ -132,7 +132,7 @@ const Index = () => {
             transition={{ delay: 0.7 }}
           >
             <Link to="/matches">
-              <Button size="lg" className="btn-glow gap-2 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
+              <Button size="lg" className="btn-glow btn-shimmer gap-2 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
                 <Brain className="h-4 w-4" /> Voir les pronostics
               </Button>
             </Link>
