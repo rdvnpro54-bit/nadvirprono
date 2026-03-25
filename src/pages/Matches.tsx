@@ -96,10 +96,10 @@ export default function Matches() {
             <Lock className="h-5 w-5 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[11px] sm:text-sm font-semibold text-foreground">
-                🔓 Accès limité — Passe Premium pour débloquer toutes les prédictions
+                🔓 Accès limité — Passe Premium pour toutes les prédictions et analyses complètes
               </p>
               <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
-                💎 3 pronostics gratuits par jour • Reste verrouillé sans Premium
+                3 pronostics gratuits par jour • Analyses détaillées réservées Premium
               </p>
             </div>
             <Link to="/pricing">
