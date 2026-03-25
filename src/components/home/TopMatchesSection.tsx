@@ -16,20 +16,39 @@ interface TopMatchesSectionProps {
 
 /**
  * Selects up to 3 free matches: prioritize 1 Football + 1 Tennis + 1 Basketball
- * but ALWAYS returns at least what's available (never empty if data exists)
+ * If a sport is missing, fill with the next available match from any sport.
  */
 function getTop3(matches: CachedMatch[]): CachedMatch[] {
   const free = matches.filter(m => m.is_free);
   if (free.length > 0) {
-    const sportOrder = ["football", "tennis", "nba", "basketball"];
-    return [...free].sort((a, b) => {
-      const idxA = sportOrder.indexOf(a.sport?.toLowerCase() || "");
-      const idxB = sportOrder.indexOf(b.sport?.toLowerCase() || "");
-      return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
-    }).slice(0, 3);
+    // Try to get one from each sport
+    const sportOrder = ["football", "tennis", "basketball"];
+    const picked: CachedMatch[] = [];
+    const usedIds = new Set<string>();
+
+    for (const sport of sportOrder) {
+      const match = free.find(m => m.sport?.toLowerCase() === sport && !usedIds.has(m.id));
+      if (match) {
+        picked.push(match);
+        usedIds.add(match.id);
+      }
+    }
+
+    // Fill remaining slots from any sport
+    if (picked.length < 3) {
+      for (const m of free) {
+        if (picked.length >= 3) break;
+        if (!usedIds.has(m.id)) {
+          picked.push(m);
+          usedIds.add(m.id);
+        }
+      }
+    }
+
+    return picked.slice(0, 3);
   }
 
-  // Fallback: pick best 3 from all matches
+  // Fallback: pick top 3 by confidence
   return [...matches]
     .sort((a, b) => Math.max(b.pred_home_win, b.pred_away_win) - Math.max(a.pred_home_win, a.pred_away_win))
     .slice(0, 3);

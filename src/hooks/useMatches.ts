@@ -9,7 +9,24 @@ const FINISHED_STATUSES = [
   "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED",
 ];
 
-const LIVE_STATUSES = ["LIVE", "1H", "2H", "HT", "ET", "BT", "P"];
+/** Filter: only upcoming matches (not finished, kickoff in the future or live) */
+function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
+  const now = Date.now();
+
+  return matches.filter(m => {
+    const statusUp = m.status.toUpperCase();
+    if (FINISHED_STATUSES.includes(statusUp)) return false;
+
+    // Exclude if scores are set (match already played)
+    if (m.home_score !== null && m.away_score !== null) return false;
+
+    const kickoff = new Date(m.kickoff).getTime();
+    // Exclude if kickoff was more than 3h ago (safety margin)
+    if (kickoff + 3 * 60 * 60 * 1000 < now) return false;
+
+    return true;
+  });
+}
 
 function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
   const map = new Map<number, CachedMatch>();
@@ -22,46 +39,13 @@ function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
   return Array.from(map.values());
 }
 
-/** Filter: only upcoming or live matches (today + tomorrow for J+1 fallback) */
-function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
-  const now = Date.now();
-  const todayStr = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split("T")[0];
-
-  return matches.filter(m => {
-    const statusUp = m.status.toUpperCase();
-    if (FINISHED_STATUSES.includes(statusUp)) return false;
-
-    // Exclude if scores are set and not live
-    if (m.home_score !== null && m.away_score !== null && !LIVE_STATUSES.includes(statusUp)) return false;
-
-    const kickoff = new Date(m.kickoff);
-    const kickoffStr = kickoff.toISOString().split("T")[0];
-
-    // Allow today + tomorrow (J+1)
-    if (kickoffStr < todayStr) return false;
-    if (kickoffStr > tomorrowStr) return false;
-
-    if (LIVE_STATUSES.includes(statusUp)) return true;
-
-    // Scheduled: only if kickoff hasn't passed by more than 3h
-    if (kickoff.getTime() + 3 * 60 * 60 * 1000 < now) return false;
-
-    return true;
-  });
-}
-
 export function useMatches() {
   return useQuery({
     queryKey: ["cached-matches"],
     queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("cached_matches")
         .select("*")
-        .gte("kickoff", today)
         .order("kickoff", { ascending: true });
 
       if (error) throw error;
