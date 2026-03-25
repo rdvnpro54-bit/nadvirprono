@@ -9,6 +9,7 @@ import { BarChart3, TrendingUp } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
 import { StatsGrid } from "@/components/results/StatsGrid";
+import { ProfitChart } from "@/components/results/ProfitChart";
 
 function groupByDay(results: MatchResult[]): { label: string; results: MatchResult[] }[] {
   const now = new Date();
