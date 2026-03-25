@@ -3,9 +3,9 @@ import { useState, useEffect, useCallback, createContext, useContext, useRef } f
 // ─── Time-based baseline ───────────────────────────────────────
 function getHourBaseline(): { min: number; max: number } {
   const hour = new Date().getHours();
-  if (hour >= 0 && hour < 8) return { min: 20, max: 120 };
-  if (hour >= 8 && hour < 18) return { min: 80, max: 300 };
-  return { min: 200, max: 800 }; // 18h–23h
+  if (hour >= 0 && hour < 8) return { min: 200, max: 400 };
+  if (hour >= 8 && hour < 18) return { min: 300, max: 600 };
+  return { min: 400, max: 900 }; // 18h–23h
 }
 
 function lerp(a: number, b: number, t: number): number {
