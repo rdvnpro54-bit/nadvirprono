@@ -53,32 +53,20 @@ function useFixedTop3(matches: CachedMatch[] | undefined): CachedMatch[] {
     const freeMatches = matches.filter(m => m.is_free);
     if (freeMatches.length === 0) return [];
 
-    const sorted = [...freeMatches].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+    // Sort by confidence (highest pred_home_win or pred_away_win) then ai_score
+    const sorted = [...freeMatches].sort((a, b) => {
+      const confA = Math.max(Number(a.pred_home_win) || 0, Number(a.pred_away_win) || 0);
+      const confB = Math.max(Number(b.pred_home_win) || 0, Number(b.pred_away_win) || 0);
+      // Prefer SAFE confidence first
+      const rankA = a.pred_confidence === "SAFE" ? 3 : a.pred_confidence === "MODÉRÉ" ? 2 : 1;
+      const rankB = b.pred_confidence === "SAFE" ? 3 : b.pred_confidence === "MODÉRÉ" ? 2 : 1;
+      if (rankA !== rankB) return rankB - rankA;
+      if (confA !== confB) return confB - confA;
+      return (b.ai_score || 0) - (a.ai_score || 0);
+    });
 
-    // Priority: 1 football, 1 tennis, 1 basketball
-    const sportOrder = ["football", "tennis", "basketball"];
-    const picked: CachedMatch[] = [];
-    const usedIds = new Set<string>();
-
-    for (const sport of sportOrder) {
-      const match = sorted.find(m => m.sport?.toLowerCase() === sport && !usedIds.has(m.id));
-      if (match) {
-        picked.push(match);
-        usedIds.add(match.id);
-      }
-    }
-
-    // Fill remaining slots from best available (any sport)
-    if (picked.length < 3) {
-      for (const m of sorted) {
-        if (picked.length >= 3) break;
-        if (usedIds.has(m.id)) continue;
-        picked.push(m);
-        usedIds.add(m.id);
-      }
-    }
-
-    const top3 = picked.slice(0, 3);
+    // Pick top 2 highest confidence matches
+    const top3 = sorted.slice(0, 2);
 
     if (top3.length > 0) {
       try {
