@@ -76,7 +76,7 @@ export function useTriggerFetch() {
       if (error) throw error;
       return data;
     },
-    staleTime: 55_000,        // ~1 min
-    refetchInterval: 60_000,  // re-fetch API every 60s
+    staleTime: 110_000,        // ~2 min
+    refetchInterval: 120_000,  // re-fetch API every 2 min
   });
 }

@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
         success: true,
         matches_count: allMatches.length,
         free_count: freeMatches.length,
-        sports: { football: footballData.length, tennis: tennisData.length, basketball: basketballData.length },
+        sports: Object.fromEntries(sportPools.map(p => [p.sport, p.data.length])),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
