@@ -5,7 +5,7 @@ import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, TrendingUp } from "lucide-react";
+import { BarChart3, Trophy, Flame, ChevronDown } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
 import { StatsGrid } from "@/components/results/StatsGrid";
@@ -32,7 +32,6 @@ function groupByDay(results: MatchResult[]): { label: string; results: MatchResu
     groups[label].push(r);
   }
 
-  // Sort groups: today first, then yesterday, etc.
   const order = ["📅 Aujourd'hui", "📅 Hier", "📅 Cette semaine", "📅 Semaine dernière"];
   const entries = Object.entries(groups);
   entries.sort((a, b) => {
@@ -70,17 +69,39 @@ function filterResults(results: MatchResult[], sport: string, status: string, pe
   return filtered;
 }
 
+/** Get top performances: high confidence wins sorted by probability */
+function getTopPerformances(results: MatchResult[]): MatchResult[] {
+  return results
+    .filter(r => r.result === "win" && Math.max(r.pred_home_win, r.pred_away_win) >= 60)
+    .sort((a, b) => Math.max(b.pred_home_win, b.pred_away_win) - Math.max(a.pred_home_win, a.pred_away_win))
+    .slice(0, 12);
+}
+
 export default function Resultats() {
   const { allStats, topPickStats, monthStats, results, isLoading } = useResultStats();
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("all");
   const [period, setPeriod] = useState("all");
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const filteredResults = useMemo(
     () => (results ? filterResults(results, sport, status, period) : []),
     [results, sport, status, period]
   );
   const grouped = useMemo(() => groupByDay(filteredResults), [filteredResults]);
+
+  const topPerformances = useMemo(
+    () => (results ? getTopPerformances(results) : []),
+    [results]
+  );
+
+  const highConfStats = useMemo(() => {
+    if (!results) return null;
+    const hc = results.filter(r => Math.max(r.pred_home_win, r.pred_away_win) >= 60 && (r.result === "win" || r.result === "loss"));
+    const wins = hc.filter(r => r.result === "win").length;
+    const total = hc.length;
+    return { wins, total, winrate: total > 0 ? Math.round((wins / total) * 100) : 0 };
+  }, [results]);
 
   // Console diagnostics
   useMemo(() => {
@@ -116,54 +137,116 @@ export default function Resultats() {
             <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront automatiquement après chaque match terminé avec des scores réels.</p>
           </div>
         ) : (
-          <Tabs defaultValue="history" className="mt-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="history" className="text-[11px] sm:text-xs">📋 Historique</TabsTrigger>
-              <TabsTrigger value="overview" className="text-[11px] sm:text-xs">📊 Vue globale</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="history" className="mt-4 space-y-4">
-              <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
-
-              <p className="text-[10px] text-muted-foreground">
-                {filteredResults.length} pronostic{filteredResults.length !== 1 ? "s" : ""} affiché{filteredResults.length !== 1 ? "s" : ""}
-                {filteredResults.length !== (results?.length ?? 0) && ` sur ${results?.length}`}
-              </p>
-
-              {grouped.length > 0 ? (
-                grouped.map(group => (
-                  <div key={group.label} className="space-y-2">
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">
-                      {group.label}
-                    </h3>
-                    {group.results.map((r, i) => (
-                      <ResultCard key={r.id} result={r} index={i} />
-                    ))}
+          <div className="mt-4 space-y-6">
+            {/* TOP PERFORMANCES SECTION */}
+            {topPerformances.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1">
+                    <Flame className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-bold text-primary">Top performances IA</span>
                   </div>
-                ))
-              ) : (
-                <div className="text-center rounded-xl border bg-card p-8">
-                  <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
+                  {highConfStats && highConfStats.total > 0 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {highConfStats.winrate}% de réussite sur {highConfStats.total} pronostics haute confiance
+                    </span>
+                  )}
                 </div>
-              )}
-            </TabsContent>
 
-            <TabsContent value="overview" className="mt-4 space-y-6">
-              {results && <ProfitChart results={results} />}
-              {monthStats && monthStats.total > 0 && (
-                <StatsGrid stats={monthStats} title="Ce mois-ci" icon={BarChart3} />
-              )}
-              {allStats && (
-                <StatsGrid stats={allStats} title="Tous les pronostics" icon={BarChart3} />
-              )}
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-card p-3 sm:p-4 text-center">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  📊 Statistiques calculées automatiquement à partir des résultats réels.
-                  <br />Aucune manipulation. Mise fixe de 10€ par pronostic. Cotes estimées.
+                <div className="rounded-xl border-2 border-primary/20 bg-gradient-to-b from-primary/5 to-transparent p-3 space-y-2">
+                  {topPerformances.map((r, i) => (
+                    <ResultCard key={r.id} result={r} index={i} />
+                  ))}
+                </div>
+              </motion.section>
+            )}
+
+            {/* TABS: Historique + Vue globale */}
+            <Tabs defaultValue="history">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="history" className="text-[11px] sm:text-xs">📋 Historique complet</TabsTrigger>
+                <TabsTrigger value="overview" className="text-[11px] sm:text-xs">📊 Vue globale</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="history" className="mt-4 space-y-4">
+                <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
+
+                <p className="text-[10px] text-muted-foreground">
+                  {filteredResults.length} pronostic{filteredResults.length !== 1 ? "s" : ""} affiché{filteredResults.length !== 1 ? "s" : ""}
+                  {filteredResults.length !== (results?.length ?? 0) && ` sur ${results?.length}`}
+                  {" "}— gagnés et perdus inclus
                 </p>
-              </motion.div>
-            </TabsContent>
-          </Tabs>
+
+                {grouped.length > 0 ? (
+                  <>
+                    {grouped.map(group => (
+                      <div key={group.label} className="space-y-2">
+                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">
+                          {group.label}
+                        </h3>
+                        {group.results.map((r, i) => (
+                          <ResultCard key={r.id} result={r} index={i} />
+                        ))}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div className="text-center rounded-xl border bg-card p-8">
+                    <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="overview" className="mt-4 space-y-6">
+                {results && <ProfitChart results={results} />}
+
+                {/* High confidence stats */}
+                {highConfStats && highConfStats.total > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border border-primary/20 bg-primary/5 p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Trophy className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-bold">Pronostics Haute Confiance (≥60%)</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div>
+                        <p className="text-lg font-bold text-primary">{highConfStats.winrate}%</p>
+                        <p className="text-[10px] text-muted-foreground">Winrate</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-green-500">{highConfStats.wins}</p>
+                        <p className="text-[10px] text-muted-foreground">Gagnés</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold">{highConfStats.total}</p>
+                        <p className="text-[10px] text-muted-foreground">Total</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {monthStats && monthStats.total > 0 && (
+                  <StatsGrid stats={monthStats} title="Ce mois-ci" icon={BarChart3} />
+                )}
+                {allStats && (
+                  <StatsGrid stats={allStats} title="Tous les pronostics" icon={BarChart3} />
+                )}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-card p-3 sm:p-4 text-center">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    📊 Statistiques calculées automatiquement à partir des résultats réels.
+                    <br />Aucune manipulation. Mise fixe de 10€ par pronostic. Cotes estimées.
+                  </p>
+                </motion.div>
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
       </div>
     </div>
