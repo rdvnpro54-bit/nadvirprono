@@ -52,6 +52,7 @@ function AnimatedRoutes() {
         <Route path="/compte" element={<PageWrapper><Compte /></PageWrapper>} />
         <Route path="/success" element={<PageWrapper><Success /></PageWrapper>} />
         <Route path="/admin" element={<PageWrapper><Admin /></PageWrapper>} />
+        <Route path="/resultats" element={<PageWrapper><Resultats /></PageWrapper>} />
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
     </AnimatePresence>
