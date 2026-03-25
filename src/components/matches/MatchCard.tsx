@@ -69,19 +69,21 @@ function Countdown({ kickoff }: { kickoff: string }) {
   );
 }
 
-function UserActivity({ fixtureId }: { fixtureId: number }) {
-  const base = useMemo(() => (fixtureId % 500) + 120, [fixtureId]);
-  const [count, setCount] = useState(base);
+function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }) {
+  const { getMatchCount } = useGlobalActivity();
+  const [count, setCount] = useState(() => getMatchCount(fixtureId, sport));
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCount(prev => {
-        const delta = Math.floor(Math.random() * 7) - 3; // -3 to +3
-        return Math.max(base - 30, Math.min(base + 50, prev + delta));
-      });
-    }, 10000 + Math.random() * 10000); // 10-20s
-    return () => clearInterval(interval);
-  }, [base]);
+    const tick = () => {
+      setCount(getMatchCount(fixtureId, sport));
+    };
+    const schedule = () => {
+      const delay = 10000 + Math.random() * 10000;
+      return setTimeout(() => { tick(); timerId = schedule(); }, delay);
+    };
+    let timerId = schedule();
+    return () => clearTimeout(timerId);
+  }, [fixtureId, sport, getMatchCount]);
 
   return (
     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -91,6 +93,7 @@ function UserActivity({ fixtureId }: { fixtureId: number }) {
       </span>
       {count} analysent
     </span>
+  );
   );
 }
 
