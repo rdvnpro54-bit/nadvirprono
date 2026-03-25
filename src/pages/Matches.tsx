@@ -15,17 +15,8 @@ type Confidence = "SAFE" | "MODÉRÉ" | "RISQUÉ";
 const sportFilters = [
   { value: "all", label: "Tous", emoji: "🏆" },
   { value: "football", label: "Football", emoji: "⚽" },
+  { value: "tennis", label: "Tennis", emoji: "🎾" },
   { value: "basketball", label: "Basket", emoji: "🏀" },
-  { value: "nba", label: "NBA", emoji: "🏀" },
-  { value: "nfl", label: "NFL", emoji: "🏈" },
-  { value: "baseball", label: "Baseball", emoji: "⚾" },
-  { value: "hockey", label: "Hockey", emoji: "🏒" },
-  { value: "handball", label: "Handball", emoji: "🤾" },
-  { value: "volleyball", label: "Volley", emoji: "🏐" },
-  { value: "mma", label: "MMA", emoji: "🥊" },
-  { value: "formula1", label: "F1", emoji: "🏎️" },
-  { value: "rugby", label: "Rugby", emoji: "🏉" },
-  { value: "afl", label: "AFL", emoji: "🏉" },
 ];
 
 const confidenceFilters: { value: Confidence | "all"; label: string }[] = [
