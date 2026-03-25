@@ -91,9 +91,8 @@ export default function Resultats() {
           </div>
         ) : (
           <Tabs defaultValue="overview" className="mt-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="overview" className="text-[11px] sm:text-xs">📊 Vue globale</TabsTrigger>
-              <TabsTrigger value="toppicks" className="text-[11px] sm:text-xs">💎 Top Picks</TabsTrigger>
               <TabsTrigger value="history" className="text-[11px] sm:text-xs">📋 Historique</TabsTrigger>
             </TabsList>
 
