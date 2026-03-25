@@ -131,7 +131,7 @@ export default function Resultats() {
           <div className="mt-6 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
           </div>
-        ) : !allStats || allStats.total === 0 ? (
+        ) : !results || results.length === 0 ? (
           <div className="mt-10 text-center rounded-xl border bg-card p-8">
             <div className="text-3xl mb-3">📊</div>
             <p className="text-sm font-semibold">Aucun résultat disponible</p>
