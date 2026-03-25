@@ -93,7 +93,7 @@ export default function Resultats() {
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("high_conf");
   const [period, setPeriod] = useState("all");
-  const [showAllResults, setShowAllResults] = useState(false);
+  
 
   // Show ALL results — no filtering by tier
   const displayResults = useMemo(() => {
