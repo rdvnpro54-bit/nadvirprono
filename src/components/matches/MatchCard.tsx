@@ -134,12 +134,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </span>
             <div className="flex items-center gap-1.5">
               {match.pred_value_bet && !locked && (
-                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary badge-pulse">
                   <TrendingUp className="h-2.5 w-2.5" /> Value
                 </span>
               )}
               {match.pred_value_bet && locked && (
-                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary badge-pulse">
                   ⚡ Value
                 </span>
               )}
