@@ -3,6 +3,7 @@ import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brai
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { TopMatchesSection } from "@/components/home/TopMatchesSection";
+import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
