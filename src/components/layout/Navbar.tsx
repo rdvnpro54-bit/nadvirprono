@@ -1,8 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { Home, Search, Star, User, Zap } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const desktopNav = [
   { label: "Accueil", path: "/" },
@@ -20,22 +20,19 @@ const mobileNav = [
 
 export function Navbar() {
   const location = useLocation();
+  const { user, isPremium } = useAuth();
 
   return (
     <>
-      {/* Desktop header */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/90 backdrop-blur-xl">
         <div className="container flex h-14 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
               <span className="text-lg font-bold text-primary">P</span>
             </div>
-            <span className="font-display text-lg font-bold tracking-tight">
-              Pronosia
-            </span>
+            <span className="font-display text-lg font-bold tracking-tight">Pronosia</span>
           </Link>
 
-          {/* Desktop nav */}
           <div className="hidden items-center gap-1 md:flex">
             {desktopNav.map((item) => (
               <Link
@@ -54,14 +51,31 @@ export function Navbar() {
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
-            <Link to="/login">
-              <Button variant="ghost" size="sm" className="text-xs">Connexion</Button>
-            </Link>
-            <Link to="/pricing">
-              <Button size="sm" className="gap-1.5 text-xs">
-                <Zap className="h-3.5 w-3.5" /> Premium
-              </Button>
-            </Link>
+            {user ? (
+              <>
+                {isPremium && (
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+                    PREMIUM
+                  </span>
+                )}
+                <Link to="/compte">
+                  <Button variant="ghost" size="sm" className="text-xs gap-1.5">
+                    <User className="h-3.5 w-3.5" /> Compte
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" size="sm" className="text-xs">Connexion</Button>
+                </Link>
+                <Link to="/pricing">
+                  <Button size="sm" className="gap-1.5 text-xs">
+                    <Zap className="h-3.5 w-3.5" /> Premium
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
