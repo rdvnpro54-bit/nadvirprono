@@ -49,7 +49,12 @@ function groupByDay(results: MatchResult[]): { label: string; results: MatchResu
 function filterResults(results: MatchResult[], sport: string, status: string, period: string): MatchResult[] {
   let filtered = results;
   if (sport !== "all") filtered = filtered.filter(r => r.sport === sport);
-  if (status !== "all") filtered = filtered.filter(r => r.result === status);
+  if (status === "win") filtered = filtered.filter(r => r.result === "win");
+  else if (status === "loss") filtered = filtered.filter(r => r.result === "loss");
+  else if (status === "high_conf") filtered = filtered.filter(r => {
+    const maxProb = Math.max(r.pred_home_win, r.pred_away_win);
+    return maxProb >= 60 || r.predicted_confidence === "SAFE";
+  });
   if (period !== "all") {
     const now = new Date();
     const today = now.toDateString();
