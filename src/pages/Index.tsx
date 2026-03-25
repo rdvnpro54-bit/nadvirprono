@@ -3,6 +3,7 @@ import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brai
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { TopMatchesSection } from "@/components/home/TopMatchesSection";
+import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
@@ -112,6 +113,15 @@ const Index = () => {
           >
             <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
             <span>Données temps réel • Mis à jour toutes les 15 min</span>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+            className="mt-4"
+          >
+            <GlobalActivityBanner />
           </motion.div>
 
           <motion.div
