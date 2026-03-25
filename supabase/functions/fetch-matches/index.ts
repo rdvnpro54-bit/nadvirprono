@@ -168,6 +168,7 @@ Be rigorous and realistic. Do NOT inflate confidence. Use all 11 analysis dimens
         tool_choice: { type: "function", function: { name: "predict_matches" } },
       }),
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errText = await response.text();
