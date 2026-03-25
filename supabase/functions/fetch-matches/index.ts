@@ -218,19 +218,20 @@ Deno.serve(async (req) => {
 
     // NO CACHE COOLDOWN — always fetch fresh data from API
 
-    // ─── FETCH ALL 3 SPORTS IN PARALLEL ──────────────────────────
-    const [footballData, tennisData, basketballData] = await Promise.all([
-      fetchSportMatches("football"),
-      fetchSportMatches("tennis"),
-      fetchSportMatches("basketball"),
-    ]);
+    // ─── FETCH ALL SPORTS IN PARALLEL (priority + fallback) ─────
+    const allSports = ["football", "tennis", "basketball", "hockey", "baseball", "american_football", "handball", "rugby"];
+    const allResults = await Promise.all(allSports.map(s => fetchSportMatches(s).then(data => ({ sport: s, data }))));
 
-    // ─── SELECT TOP 3 FREE (1 per sport, fill gaps) ─────────────
-    const sportPools = [
-      { sport: "football", data: footballData },
-      { sport: "tennis", data: tennisData },
-      { sport: "basketball", data: basketballData },
-    ];
+    const sportPools = allResults.filter(p => p.data.length > 0);
+    // Sort: priority sports first (football, tennis, basketball), then fallbacks
+    const priorityOrder = ["football", "tennis", "basketball"];
+    sportPools.sort((a, b) => {
+      const ai = priorityOrder.indexOf(a.sport);
+      const bi = priorityOrder.indexOf(b.sport);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    console.log(`[SportSRC] Available sports: ${sportPools.map(p => `${p.sport}(${p.data.length})`).join(", ") || "NONE"}`);
 
     const freeMatches: ReturnType<typeof convertToRow>[] = [];
     const usedIds = new Set<string>();
@@ -267,7 +268,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Total: ${allMatches.length} matches (${freeMatches.length} free). Sports: foot=${footballData.length} tennis=${tennisData.length} basket=${basketballData.length}`);
+    console.log(`Total: ${allMatches.length} matches (${freeMatches.length} free)`);
 
     // ─── PURGE past matches, SAVE new ones ───────────────────────
     await supabase.from("cached_matches").delete().lt("kickoff", new Date().toISOString());
@@ -293,7 +294,7 @@ Deno.serve(async (req) => {
         success: true,
         matches_count: allMatches.length,
         free_count: freeMatches.length,
-        sports: { football: footballData.length, tennis: tennisData.length, basketball: basketballData.length },
+        sports: Object.fromEntries(sportPools.map(p => [p.sport, p.data.length])),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
