@@ -71,7 +71,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
             </div>
-          ) : (
+          ) : hasStrictTop3 ? (
             <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {topMatches.map((m, i) => (
                 <motion.div
@@ -82,11 +82,16 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
                   className="group"
                   whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
                 >
-                  <div className="transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/10 rounded-xl">
+                  <div className="rounded-xl transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/10">
                     <MatchCard match={m} index={i} />
                   </div>
                 </motion.div>
               ))}
+            </div>
+          ) : (
+            <div className="mx-auto max-w-2xl rounded-xl border border-border/50 bg-card/60 px-4 py-8 text-center">
+              <p className="text-sm font-medium text-foreground">Aucun match disponible pour le moment</p>
+              <p className="mt-1 text-xs text-muted-foreground">Aucun Top 3 valide n'est affiché tant que Football, Tennis et Basketball ne sont pas tous disponibles aujourd'hui.</p>
             </div>
           )}
 
