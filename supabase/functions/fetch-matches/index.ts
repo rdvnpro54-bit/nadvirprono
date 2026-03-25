@@ -363,12 +363,12 @@ Deno.serve(async (req) => {
 
     const [footMatches, tennisMatches, basketMatches] = await Promise.all([
       fetchFootball(),
-      // TENNIS: SofaScore (primary) → fallback to empty
+      // TENNIS: SofaScore (primary) → keep existing cache if API blocked
       (async () => {
         const matches = await fetchSofaScore("tennis", iso);
         if (matches.length > 0) return matches;
-        console.log(`[FALLBACK] SofaScore tennis 0 for today`);
-        return [];
+        console.log(`[TENNIS] SofaScore unavailable, keeping existing tennis cache`);
+        return []; // Existing tennis entries in cached_matches will be preserved
       })(),
       // BASKETBALL: ESPN (primary) + SofaScore (fallback)
       (async () => {
