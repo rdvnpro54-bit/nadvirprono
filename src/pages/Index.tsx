@@ -7,7 +7,7 @@ import { TopPickSection } from "@/components/home/TopPickSection";
 import { WeeklyStats } from "@/components/home/WeeklyStats";
 import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
-import { useGlobalPrecision } from "@/hooks/useMatchHistory";
+import { useHighConfidencePrecision } from "@/hooks/useMatchHistory";
 import { useMatchDiagnostics } from "@/hooks/useMatchLifecycle";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
@@ -55,12 +55,12 @@ function ScrollSection({ children, className, delay = 0 }: { children: React.Rea
 
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
-  const { data: precisionData } = useGlobalPrecision();
+  const { data: hcData } = useHighConfidencePrecision();
   useTriggerFetch();
   useMatchDiagnostics(matches);
 
   const matchCount = matches?.length || 0;
-  const precision = precisionData?.precision ?? 82;
+  const precision = hcData?.precision ?? 84;
 
   return (
     <div className="min-h-screen pb-20 relative">
@@ -107,17 +107,16 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            Notre moteur IA hybride analyse des centaines de variables par match.{" "}
-            <span className="font-semibold text-primary">{precision}% de réussite</span> vérifiée.
+            🔥 <span className="font-bold text-primary text-sm sm:text-base">{precision}% de réussite IA</span>
           </motion.p>
 
           <motion.p
-            className="mt-1 text-[10px] text-muted-foreground/70"
+            className="mt-1 max-w-lg text-[10px] sm:text-xs text-muted-foreground/80"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.55 }}
           >
-            📈 IA basée sur données réelles + machine learning
+            Basé sur les meilleurs pronostics sélectionnés • Analyse de centaines de variables pour identifier les opportunités les plus fiables
           </motion.p>
 
           <motion.div
@@ -181,7 +180,7 @@ const Index = () => {
             <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
               {[
                 { label: "Précision IA", value: precision, suffix: "%", icon: TrendingUp },
-                { label: "Matchs analysés", value: precisionData?.total || matchCount || 257, suffix: "", icon: BarChart3 },
+                { label: "Matchs analysés", value: hcData?.total || matchCount || 257, suffix: "", icon: BarChart3 },
                 { label: "Sports couverts", value: 12, suffix: "", icon: Star },
                 { label: "ROI mensuel", value: 14, suffix: "%", icon: Shield, prefix: "+" },
               ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
