@@ -151,7 +151,7 @@ export default function Resultats() {
             Résultats <span className="gradient-text">IA</span>
           </h1>
           <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
-            Performances vérifiables • Sélection ELITE & STRONG par défaut
+            Performances vérifiables • Tous les résultats
           </p>
         </motion.div>
 
