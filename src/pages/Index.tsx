@@ -10,7 +10,42 @@ import { Skeleton } from "@/components/ui/skeleton";
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
   useTriggerFetch();
-  const topMatches = matches?.filter(m => m.is_free).slice(0, 3) || [];
+  const topMatches = (() => {
+    const free = matches?.filter(m => m.is_free) || [];
+    const bySport = new Map<string, typeof free>();
+    for (const m of free) {
+      const sport = m.sport || "football";
+      if (!bySport.has(sport)) bySport.set(sport, []);
+      bySport.get(sport)!.push(m);
+    }
+    // Pick best match per sport (highest home_win or away_win + confidence)
+    const confScore = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
+    const bestPerSport = [...bySport.entries()].map(([sport, ms]) => {
+      const sorted = ms.sort((a, b) => {
+        const scoreA = Math.max(a.pred_home_win, a.pred_away_win) + confScore(a.pred_confidence) * 10;
+        const scoreB = Math.max(b.pred_home_win, b.pred_away_win) + confScore(b.pred_confidence) * 10;
+        return scoreB - scoreA;
+      });
+      return { sport, match: sorted[0] };
+    });
+    // Prioritize major sports
+    const priority = ["football", "nba", "nfl", "nhl", "mma", "mlb", "f1", "handball", "rugby", "volleyball", "afl", "basketball"];
+    bestPerSport.sort((a, b) => {
+      const ia = priority.indexOf(a.sport.toLowerCase());
+      const ib = priority.indexOf(b.sport.toLowerCase());
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    const result = bestPerSport.slice(0, 3).map(x => x.match);
+    // Fallback: if < 3 sports, fill from remaining free matches (no duplicates)
+    if (result.length < 3) {
+      const ids = new Set(result.map(m => m.id));
+      for (const m of free) {
+        if (result.length >= 3) break;
+        if (!ids.has(m.id)) { result.push(m); ids.add(m.id); }
+      }
+    }
+    return result;
+  })();
 
   return (
     <div className="min-h-screen bg-background pb-20">
