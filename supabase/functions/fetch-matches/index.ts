@@ -659,9 +659,9 @@ Deno.serve(async (req) => {
         kickoff: new Date(m.timestamp).toISOString(),
       }));
 
-      // Process in batches of 15 to avoid token limits
-      for (let i = 0; i < matchesForAI.length; i += 15) {
-        const batch = matchesForAI.slice(i, i + 15);
+      // Process in batches of 8 to avoid timeouts
+      for (let i = 0; i < matchesForAI.length; i += 8) {
+        const batch = matchesForAI.slice(i, i + 8);
         const batchPredictions = await generateAIPredictions(batch);
         for (const [k, v] of batchPredictions) aiPredictions.set(k, v);
         console.log(`[AI] Batch ${Math.floor(i / 15) + 1}: ${batchPredictions.size}/${batch.length} predictions`);
