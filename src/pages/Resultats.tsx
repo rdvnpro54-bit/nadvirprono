@@ -127,7 +127,7 @@ export default function Resultats() {
             Résultats <span className="gradient-text">IA</span>
           </h1>
           <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
-            Performances réelles • Transparence totale • Mise fixe 10€/match
+            Sélection IA optimisée • Analyse basée sur les meilleures opportunités
           </p>
         </motion.div>
 
