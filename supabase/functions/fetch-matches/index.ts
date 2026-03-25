@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Total: ${allMatches.length} matches (${freeMatches.length} free). Sports: foot=${footballData.length} tennis=${tennisData.length} basket=${basketballData.length}`);
+    console.log(`Total: ${allMatches.length} matches (${freeMatches.length} free)`);
 
     // ─── PURGE past matches, SAVE new ones ───────────────────────
     await supabase.from("cached_matches").delete().lt("kickoff", new Date().toISOString());
