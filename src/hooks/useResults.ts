@@ -71,12 +71,15 @@ export function useAllResults() {
   return useQuery({
     queryKey: ["all-results"],
     queryFn: async () => {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
       const { data, error } = await supabase
         .from("match_results")
         .select("*")
         .not("result", "is", null)
-        .order("kickoff", { ascending: false })
-        .limit(200);
+        .gte("kickoff", sevenDaysAgo.toISOString())
+        .order("kickoff", { ascending: false });
       if (error) throw error;
       return data as MatchResult[];
     },
