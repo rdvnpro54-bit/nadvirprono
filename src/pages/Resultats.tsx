@@ -5,7 +5,7 @@ import { useResultStats } from "@/hooks/useResults";
 import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Flame, Lock, Crown, Sparkles, Zap, Eye, TrendingUp } from "lucide-react";
+import { Flame, Lock, Crown, Sparkles, Zap, TrendingUp } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
 import { Button } from "@/components/ui/button";
