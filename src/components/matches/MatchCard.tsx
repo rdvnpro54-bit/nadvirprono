@@ -181,10 +181,10 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
           {/* AI PREDICTION — UNLOCKED */}
           {!locked && (
-            <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-sm font-bold text-primary">
+            <div className="mt-2.5 rounded-lg border border-primary/20 bg-primary/5 p-2 sm:p-2.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+                <span className="text-[12px] sm:text-sm font-bold text-primary truncate">
                   🔥 IA : {getPredictionText(match)}
                 </span>
               </div>
