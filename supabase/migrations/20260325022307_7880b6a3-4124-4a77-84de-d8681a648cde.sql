@@ -1,0 +1,1 @@
+UPDATE public.cache_metadata SET last_fetched_at = NULL WHERE id = 'api_football';
