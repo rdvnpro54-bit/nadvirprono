@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
-import { Lock, TrendingUp, Clock, Wifi, Star, Users, Dribbble, Swords, Car, Bike, Trophy, Dumbbell, CircleDot, CheckCircle2, XCircle, type LucideIcon } from "lucide-react";
+import { Lock, TrendingUp, Clock, Wifi, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useGlobalActivity } from "@/components/home/ActivityProvider";
 
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
@@ -28,11 +28,10 @@ const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
 
 function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string | null; isFav: boolean; side: "home" | "away" }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  const hasLogo = !!logo;
 
   return (
     <div className={cn("flex items-center gap-2", side === "home" ? "flex-row-reverse" : "flex-row")}>
-      {hasLogo ? (
+      {logo ? (
         <img src={logo} alt="" className="h-7 w-7 object-contain" loading="lazy" />
       ) : (
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
@@ -74,12 +73,9 @@ function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }
   const [count, setCount] = useState(() => getMatchCount(fixtureId, sport));
 
   useEffect(() => {
-    const tick = () => {
-      setCount(getMatchCount(fixtureId, sport));
-    };
     const schedule = () => {
       const delay = 10000 + Math.random() * 10000;
-      return setTimeout(() => { tick(); timerId = schedule(); }, delay);
+      return setTimeout(() => { setCount(getMatchCount(fixtureId, sport)); timerId = schedule(); }, delay);
     };
     let timerId = schedule();
     return () => clearTimeout(timerId);
@@ -96,24 +92,24 @@ function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }
   );
 }
 
+/** Get the AI prediction winner text */
+function getPredictionText(match: CachedMatch): string {
+  if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) {
+    return "Match nul probable";
+  }
+  const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
+  const winPct = Math.max(match.pred_home_win, match.pred_away_win);
+  // Short name
+  const shortName = winner.length > 20 ? winner.split(" ").slice(0, 2).join(" ") : winner;
+  return `${shortName} gagne`;
+}
+
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
   const [isFav, setIsFav] = useState(false);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const fav = match.pred_home_win >= match.pred_away_win ? "home" : "away";
-  const isLive = match.status === "1H" || match.status === "2H" || match.status === "HT" || match.status === "ET";
-  const isFinished = match.status === "FT" || match.status === "AET" || match.status === "PEN";
-
-  // Check prediction result for finished matches
-  const predictionResult = (() => {
-    if (!isFinished || match.home_score === null || match.away_score === null) return null;
-    const predictedHome = match.pred_home_win > match.pred_away_win;
-    const actualHome = match.home_score > match.away_score;
-    const isDraw = match.home_score === match.away_score;
-    if (isDraw) return null; // Draw = inconclusive
-    return predictedHome === actualHome ? "correct" : "incorrect";
-  })();
-
-  // Consistent logo display: all logos or all initials
+  const isLive = ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
+  const confidence = Math.max(Number(match.pred_home_win), Number(match.pred_away_win), Number(match.pred_draw));
   const bothLogos = !!match.home_logo && !!match.away_logo;
 
   const handleFav = (e: React.MouseEvent) => {
@@ -133,8 +129,8 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
           "glass-card match-card-hover p-3.5 group relative overflow-hidden",
           locked && "opacity-60"
         )}>
-          {/* Top row: league, badges, fav */}
-          <div className="flex items-center justify-between mb-2.5">
+          {/* Top row: league + badges */}
+          <div className="flex items-center justify-between mb-2">
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
               {(() => {
                 const sportKey = (match.sport || "football").toLowerCase();
@@ -147,8 +143,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   </span>
                 );
               })()}
-              {match.league_country && <span className="font-medium">{match.league_country}</span>}
-              <span className="opacity-50">•</span>
               <span className="truncate">{match.league_name}</span>
             </span>
             <div className="flex items-center gap-1.5">
@@ -169,14 +163,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
           {/* Teams row */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex-1">
-              <TeamDisplay
-                name={match.home_team}
-                logo={bothLogos ? match.home_logo : null}
-                isFav={fav === "home"}
-                side="home"
-              />
+              <TeamDisplay name={match.home_team} logo={bothLogos ? match.home_logo : null} isFav={fav === "home"} side="home" />
             </div>
-            <div className="flex flex-col items-center gap-0.5 min-w-[60px]">
+            <div className="flex flex-col items-center gap-0.5 min-w-[50px]">
               {isLive ? (
                 <span className="flex items-center gap-1 text-[11px] text-success font-bold">
                   <Wifi className="h-3 w-3 animate-pulse" /> LIVE
@@ -189,29 +178,61 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   <Countdown kickoff={match.kickoff} />
                 </div>
               )}
-              {!locked && (
-                <span className="text-base font-bold font-display text-foreground">
-                  {isLive && match.home_score !== null ? (
-                    <>{match.home_score} - {match.away_score}</>
-                  ) : (
-                    <>{match.pred_score_home} - {match.pred_score_away}</>
-                  )}
-                </span>
-              )}
+              <span className="text-[10px] text-muted-foreground">VS</span>
             </div>
             <div className="flex-1">
-              <TeamDisplay
-                name={match.away_team}
-                logo={bothLogos ? match.away_logo : null}
-                isFav={fav === "away"}
-                side="away"
-              />
+              <TeamDisplay name={match.away_team} logo={bothLogos ? match.away_logo : null} isFav={fav === "away"} side="away" />
             </div>
           </div>
 
-          {/* Bottom: probabilities + user activity */}
+          {/* ═══ AI PREDICTION — THE MAIN PRODUCT ═══ */}
           {!locked && (
-            <div className="mt-2.5">
+            <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+              {/* #1: AI Prediction Winner */}
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm font-bold text-primary">
+                  🔥 IA : {getPredictionText(match)}
+                </span>
+              </div>
+
+              {/* #2: Confidence % */}
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">Confiance IA :</span>
+                <span className="text-[11px] font-bold text-foreground">{confidence}%</span>
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-primary"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${confidence}%` }}
+                    transition={{ duration: 0.8, delay: (index || 0) * 0.1 }}
+                  />
+                </div>
+              </div>
+
+              {/* #3: Predicted Score */}
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">🎯 Score prédit :</span>
+                <span className="text-[11px] font-bold text-foreground">
+                  {match.pred_score_home} - {match.pred_score_away}
+                </span>
+              </div>
+
+              {/* #4: Live Score — small and discrete, only if live */}
+              {isLive && match.home_score !== null && (
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] text-success/70">📡 Live :</span>
+                  <span className="text-[10px] font-medium text-success">
+                    {match.home_score} - {match.away_score}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Probability bar + activity */}
+          {!locked && (
+            <div className="mt-2">
               <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
                 <div className="bg-primary transition-all" style={{ width: `${match.pred_home_win}%` }} />
                 <div className="bg-muted-foreground/30 transition-all" style={{ width: `${match.pred_draw}%` }} />
@@ -225,22 +246,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
           )}
 
-          {/* Prediction result for finished matches */}
-          {!locked && isFinished && predictionResult && (
-            <div className={cn(
-              "mt-2 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold",
-              predictionResult === "correct"
-                ? "bg-success/10 text-success"
-                : "bg-destructive/10 text-destructive"
-            )}>
-              {predictionResult === "correct" ? (
-                <><CheckCircle2 className="h-3.5 w-3.5" /> Prédiction correcte — Score : {match.home_score}-{match.away_score}</>
-              ) : (
-                <><XCircle className="h-3.5 w-3.5" /> Prédiction incorrecte — Score : {match.home_score}-{match.away_score}</>
-              )}
-            </div>
-          )}
-
           {/* Lock overlay */}
           {locked && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm rounded-xl">
@@ -250,8 +255,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
             </div>
           )}
-
-          {/* No separate GRATUIT badge — free matches are identified by context */}
         </div>
       </Link>
     </motion.div>
