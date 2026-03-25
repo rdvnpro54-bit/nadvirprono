@@ -10,9 +10,8 @@ const corsHeaders = {
 const SPORTSRC_BASE = "https://api.sportsrc.org/v2/";
 const SPORTSRC_KEY = "8d44848359af5c9ea4c13a11aa996811";
 
-const LIVESCORE_BASE = "https://livescore6.p.rapidapi.com";
-const LIVESCORE_HOST = "livescore6.p.rapidapi.com";
-const LIVESCORE_KEY = "ed7d112361mshf3c802ed9cfa89ep1465e2jsnde5590455f30";
+// ESPN hidden API (free, no key needed)
+const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports";
 
 // ─── UTILS ───────────────────────────────────────────────────────────
 function hash(str: string): number {
@@ -27,12 +26,12 @@ function seeded(seed: number, offset = 0): number {
 function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
 
 /** Get today's date in Europe/Paris timezone */
-function getTodayParis(): { dateSportSRC: string; dateLiveScore: string } {
+function getTodayParis(): { iso: string; espn: string } {
   const now = new Date();
   const parisStr = now.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }); // YYYY-MM-DD
   return {
-    dateSportSRC: parisStr,
-    dateLiveScore: parisStr.replace(/-/g, ""),
+    iso: parisStr,
+    espn: parisStr.replace(/-/g, ""), // YYYYMMDD
   };
 }
 
@@ -147,13 +146,13 @@ interface NormalizedMatch {
   homeLogo: string | null;
   awayLogo: string | null;
   timestamp: number;
-  source: "sportsrc" | "livescore";
+  source: "sportsrc" | "espn";
 }
 
-// ─── FETCH FROM SPORTSRC (FOOTBALL ONLY) ────────────────────────────
-async function fetchSportsRC(dateSportSRC: string): Promise<NormalizedMatch[]> {
-  const url = `${SPORTSRC_BASE}?type=matches&sport=football&status=upcoming&date=${dateSportSRC}`;
-  console.log(`[API: SportSRC] FOOT - ${dateSportSRC} - fetching upcoming`);
+// ─── FETCH FROM SPORTSRC (FOOTBALL PRIMARY) ─────────────────────────
+async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
+  const url = `${SPORTSRC_BASE}?type=matches&sport=football&status=upcoming&date=${dateISO}`;
+  console.log(`[API: SportSRC] FOOT - ${dateISO} - fetching upcoming`);
   try {
     const res = await fetch(url, { headers: { "X-API-KEY": SPORTSRC_KEY } });
     if (!res.ok) { console.error(`[SportSRC] football error: ${res.status}`); return []; }
@@ -165,7 +164,6 @@ async function fetchSportsRC(dateSportSRC: string): Promise<NormalizedMatch[]> {
     for (const lg of leagues) {
       for (const m of (lg.matches || [])) {
         if (m.status !== "notstarted") continue;
-        // SportSRC timestamps can be in seconds or milliseconds
         const rawTs = m.timestamp || 0;
         const ts = rawTs < 1e12 ? rawTs * 1000 : rawTs;
         if (!ts || ts <= now) continue;
@@ -185,7 +183,7 @@ async function fetchSportsRC(dateSportSRC: string): Promise<NormalizedMatch[]> {
       }
     }
     results.sort((a, b) => a.timestamp - b.timestamp);
-    console.log(`[API: SportSRC] FOOT - ${dateSportSRC} - ${results.length} upcoming matches`);
+    console.log(`[API: SportSRC] FOOT - ${dateISO} - ${results.length} upcoming matches`);
     return results;
   } catch (e) {
     console.error(`[SportSRC] football fetch error:`, e);
@@ -193,93 +191,100 @@ async function fetchSportsRC(dateSportSRC: string): Promise<NormalizedMatch[]> {
   }
 }
 
-// ─── FETCH FROM LIVESCORE (MULTI-SPORTS) ────────────────────────────
-const LIVESCORE_CATEGORY_MAP: Record<string, string> = {
-  football: "soccer",
-  tennis: "tennis",
-  basketball: "basketball",
+// ─── FETCH FROM ESPN (FREE, NO KEY) ─────────────────────────────────
+// ESPN sport/league paths
+const ESPN_SPORT_MAP: Record<string, { path: string; label: string }[]> = {
+  football: [
+    { path: "soccer/eng.1", label: "Premier League" },
+    { path: "soccer/esp.1", label: "La Liga" },
+    { path: "soccer/ger.1", label: "Bundesliga" },
+    { path: "soccer/ita.1", label: "Serie A" },
+    { path: "soccer/fra.1", label: "Ligue 1" },
+    { path: "soccer/uefa.champions", label: "Champions League" },
+    { path: "soccer/uefa.europa", label: "Europa League" },
+  ],
+  tennis: [
+    { path: "tennis/atp", label: "ATP" },
+    { path: "tennis/wta", label: "WTA" },
+  ],
+  basketball: [
+    { path: "basketball/nba", label: "NBA" },
+    { path: "basketball/wnba", label: "WNBA" },
+    { path: "basketball/mens-college-basketball", label: "NCAA" },
+  ],
 };
 
-async function fetchLiveScore(sport: string, dateLiveScore: string): Promise<NormalizedMatch[]> {
-  const category = LIVESCORE_CATEGORY_MAP[sport];
-  if (!category) return [];
+async function fetchESPN(sport: string, dateESPN: string): Promise<NormalizedMatch[]> {
+  const leagues = ESPN_SPORT_MAP[sport];
+  if (!leagues) return [];
 
-  const url = `${LIVESCORE_BASE}/matches/v2/list-by-date?Category=${category}&Date=${dateLiveScore}&Timezone=1`;
-  console.log(`[API: LiveScore] ${sport.toUpperCase()} - ${dateLiveScore} - fetching`);
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "x-rapidapi-host": LIVESCORE_HOST,
-        "x-rapidapi-key": LIVESCORE_KEY,
-      },
-    });
-    if (!res.ok) { console.error(`[LiveScore] ${sport} error: ${res.status}`); return []; }
-    const json = await res.json();
+  const now = Date.now();
+  const allResults: NormalizedMatch[] = [];
 
-    const now = Date.now();
-    const results: NormalizedMatch[] = [];
-
-    // LiveScore response: Stages[] -> Events[]
-    const stages = json.Stages || [];
-    for (const stage of stages) {
-      const leagueName = stage.Snm || stage.Cnm || "Unknown League";
-      const country = stage.Cnm || "";
-      const events = stage.Events || [];
+  // Fetch all leagues in parallel
+  const fetches = leagues.map(async (league) => {
+    const url = `${ESPN_BASE}/${league.path}/scoreboard?dates=${dateESPN}`;
+    console.log(`[API: ESPN] ${sport.toUpperCase()} - ${league.label} - ${dateESPN} - fetching`);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        const body = await res.text();
+        console.error(`[ESPN] ${sport}/${league.label} error: ${res.status} - ${body.slice(0, 200)}`);
+        return [];
+      }
+      const json = await res.json();
+      const events = json.events || [];
+      const results: NormalizedMatch[] = [];
 
       for (const evt of events) {
-        // Filter: only "not started" events
-        // Eps = "NS" or status codes: 1 = not started
-        const eps = (evt.Eps || "").toString().toUpperCase();
-        const isNotStarted = eps === "NS" || eps === "1" || eps === "" || eps === "SCH";
-        if (!isNotStarted) continue;
+        // Only "pre" status (not started)
+        const status = evt.status?.type?.state;
+        const statusDetail = evt.status?.type?.name;
+        if (status !== "pre") continue; // skip in-progress and post
 
-        // Parse time: Esd is in format "20260325120000" (YYYYMMDDHHmmss)
-        const esd = evt.Esd?.toString() || "";
-        if (esd.length < 12) continue;
-        const year = esd.slice(0, 4);
-        const month = esd.slice(4, 6);
-        const day = esd.slice(6, 8);
-        const hour = esd.slice(8, 10);
-        const min = esd.slice(10, 12);
-        const eventTs = new Date(`${year}-${month}-${day}T${hour}:${min}:00+01:00`).getTime();
-        if (isNaN(eventTs) || eventTs <= now) continue;
+        const eventDate = evt.date ? new Date(evt.date).getTime() : 0;
+        if (!eventDate || eventDate <= now) continue;
 
-        // Check date is today
-        const eventDate = `${year}${month}${day}`;
-        if (eventDate !== dateLiveScore) continue;
+        // Verify it's today
+        const evtDay = new Date(eventDate).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }).replace(/-/g, "");
+        if (evtDay !== dateESPN) continue;
 
-        // Skip if scores exist
-        if ((evt.Tr1 !== undefined && evt.Tr1 !== null && evt.Tr1 !== "") ||
-            (evt.Tr2 !== undefined && evt.Tr2 !== null && evt.Tr2 !== "")) continue;
+        const competitors = evt.competitions?.[0]?.competitors || [];
+        const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
+        const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
 
-        const homeTeam = evt.T1?.[0]?.Nm || "Team A";
-        const awayTeam = evt.T2?.[0]?.Nm || "Team B";
-        const homeLogo = evt.T1?.[0]?.Img ? `https://lsm-static-prod.livescore.com/medium/${evt.T1[0].Img}` : null;
-        const awayLogo = evt.T2?.[0]?.Img ? `https://lsm-static-prod.livescore.com/medium/${evt.T2[0].Img}` : null;
+        if (!home || !away) continue;
 
         results.push({
-          id: `ls_${evt.Eid}`,
+          id: `espn_${evt.id}`,
           sport,
-          league: leagueName,
-          country,
-          homeTeam,
-          awayTeam,
-          homeLogo,
-          awayLogo,
-          timestamp: eventTs,
-          source: "livescore",
+          league: league.label,
+          country: "",
+          homeTeam: home.team?.displayName || home.team?.name || "Team A",
+          awayTeam: away.team?.displayName || away.team?.name || "Team B",
+          homeLogo: home.team?.logo || null,
+          awayLogo: away.team?.logo || null,
+          timestamp: eventDate,
+          source: "espn",
         });
 
-        console.log(`[API: LiveScore] ${sport.toUpperCase()} - ${year}-${month}-${day} ${hour}:${min} - ${homeTeam} vs ${awayTeam} - upcoming`);
+        console.log(`[API: ESPN] ${sport.toUpperCase()} - ${new Date(eventDate).toISOString().slice(0, 16)} - ${home.team?.displayName} vs ${away.team?.displayName} - upcoming`);
       }
+      return results;
+    } catch (e) {
+      console.error(`[ESPN] ${sport}/${league.label} fetch error:`, e);
+      return [];
     }
-    results.sort((a, b) => a.timestamp - b.timestamp);
-    console.log(`[API: LiveScore] ${sport.toUpperCase()} - ${dateLiveScore} - ${results.length} upcoming matches`);
-    return results;
-  } catch (e) {
-    console.error(`[LiveScore] ${sport} fetch error:`, e);
-    return [];
+  });
+
+  const allFetched = await Promise.all(fetches);
+  for (const results of allFetched) {
+    allResults.push(...results);
   }
+
+  allResults.sort((a, b) => a.timestamp - b.timestamp);
+  console.log(`[API: ESPN] ${sport.toUpperCase()} - ${dateESPN} - ${allResults.length} total upcoming`);
+  return allResults;
 }
 
 // ─── CONVERT TO DB ROW ──────────────────────────────────────────────
@@ -318,30 +323,30 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { dateSportSRC, dateLiveScore } = getTodayParis();
-    console.log(`[FETCH] Date Paris: ${dateSportSRC} / ${dateLiveScore}`);
+    const { iso, espn: dateESPN } = getTodayParis();
+    console.log(`[FETCH] Date Paris: ${iso} / ${dateESPN}`);
 
     // ─── FETCH ALL SPORTS IN PARALLEL ────────────────────────────
-    // Football: SportSRC primary, LiveScore fallback
-    // Tennis: LiveScore
-    // Basketball: LiveScore
-    const [footballSRC, tennisLS, basketLS] = await Promise.all([
-      fetchSportsRC(dateSportSRC),
-      fetchLiveScore("tennis", dateLiveScore),
-      fetchLiveScore("basketball", dateLiveScore),
+    // Football: SportSRC primary, ESPN fallback
+    // Tennis: ESPN (free, no key)
+    // Basketball: ESPN (free, no key)
+    const [footballSRC, tennisESPN, basketESPN] = await Promise.all([
+      fetchSportsRC(iso),
+      fetchESPN("tennis", dateESPN),
+      fetchESPN("basketball", dateESPN),
     ]);
 
-    // Football fallback to LiveScore if SportSRC returns nothing
+    // Football: use SportSRC, fallback to ESPN
     let footballMatches = footballSRC;
     if (footballMatches.length === 0) {
-      console.log(`[FALLBACK] SportSRC returned 0 football, trying LiveScore...`);
-      footballMatches = await fetchLiveScore("football", dateLiveScore);
+      console.log(`[FALLBACK] SportSRC returned 0 football, trying ESPN...`);
+      footballMatches = await fetchESPN("football", dateESPN);
     }
 
     const sportPools: { sport: string; data: NormalizedMatch[] }[] = [
       { sport: "football", data: footballMatches },
-      { sport: "tennis", data: tennisLS },
-      { sport: "basketball", data: basketLS },
+      { sport: "tennis", data: tennisESPN },
+      { sport: "basketball", data: basketESPN },
     ].filter(p => p.data.length > 0);
 
     console.log(`Available sports: ${sportPools.map(p => `${p.sport}(${p.data.length})`).join(", ") || "NONE"}`);
@@ -350,13 +355,12 @@ Deno.serve(async (req) => {
     const freeRows: ReturnType<typeof convertNormalizedToRow>[] = [];
     const usedIds = new Set<string>();
 
-    // Priority: pick 1 from each sport (football, tennis, basketball)
     const priorityOrder = ["football", "tennis", "basketball"];
     for (const sportName of priorityOrder) {
       if (freeRows.length >= 3) break;
       const pool = sportPools.find(p => p.sport === sportName);
       if (!pool || pool.data.length === 0) continue;
-      const item = pool.data[0]; // closest in time
+      const item = pool.data[0];
       freeRows.push(convertNormalizedToRow(item, true));
       usedIds.add(item.id);
       console.log(`[FREE] ${sportName} - ${item.homeTeam} vs ${item.awayTeam} (${item.source})`);
@@ -404,7 +408,7 @@ Deno.serve(async (req) => {
       id: "api_football",
       last_fetched_at: now.toISOString(),
       request_count_today: 1,
-      last_reset_date: dateSportSRC,
+      last_reset_date: iso,
     });
 
     return new Response(
