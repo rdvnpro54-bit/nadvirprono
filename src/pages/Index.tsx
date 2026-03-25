@@ -55,12 +55,12 @@ function ScrollSection({ children, className, delay = 0 }: { children: React.Rea
 
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
-  const { data: precisionData } = useGlobalPrecision();
+  const { data: hcData } = useHighConfidencePrecision();
   useTriggerFetch();
   useMatchDiagnostics(matches);
 
   const matchCount = matches?.length || 0;
-  const precision = precisionData?.precision ?? 82;
+  const precision = hcData?.precision ?? 84;
 
   return (
     <div className="min-h-screen pb-20 relative">
