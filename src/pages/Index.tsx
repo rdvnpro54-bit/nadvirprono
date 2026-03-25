@@ -3,6 +3,8 @@ import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brai
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { TopMatchesSection } from "@/components/home/TopMatchesSection";
+import { TopPickSection } from "@/components/home/TopPickSection";
+import { WeeklyStats } from "@/components/home/WeeklyStats";
 import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { useGlobalPrecision } from "@/hooks/useMatchHistory";
@@ -154,6 +156,18 @@ const Index = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* TOP PICK DU JOUR */}
+      <TopPickSection matches={matches} />
+
+      {/* Weekly Stats */}
+      <ScrollSection>
+        <section className="border-t border-border/30 py-6 sm:py-8">
+          <div className="container px-3 sm:px-4">
+            <WeeklyStats />
+          </div>
+        </section>
+      </ScrollSection>
 
       {/* Top 3 */}
       <TopMatchesSection matches={matches} isLoading={isLoading} />

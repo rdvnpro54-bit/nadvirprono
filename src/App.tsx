@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ActivityProvider } from "@/components/home/ActivityProvider";
 import { SmartNotifications } from "@/components/home/SmartNotifications";
+import { usePresenceTracker } from "@/hooks/usePresenceTracker";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -36,6 +37,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 
 function AnimatedRoutes() {
   const location = useLocation();
+  usePresenceTracker();
 
   return (
     <AnimatePresence mode="wait">
