@@ -1,7 +1,7 @@
 import { Target, BarChart3 } from "lucide-react";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
-import { useGlobalPrecision, useTodayWinrate } from "@/hooks/useMatchHistory";
+import { useHighConfidencePrecision, useTodayWinrate } from "@/hooks/useMatchHistory";
 
 function AnimatedPercent({ value, inView }: { value: number; inView: boolean }) {
   const [count, setCount] = useState(0);
