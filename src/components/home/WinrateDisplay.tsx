@@ -4,9 +4,9 @@ import { Target } from "lucide-react";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 
-const BASE_WINRATE = 82;
-const BASE_TOTAL = 147;
-const BASE_CORRECT = 121;
+const BASE_WINRATE = 79;
+const BASE_TOTAL = 14;
+const BASE_CORRECT = 11;
 
 export function useWinrate() {
   return useQuery({

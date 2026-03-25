@@ -21,7 +21,6 @@ function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
   });
 }
 
-/** Anti-duplicate: keep latest fetched_at per fixture_id */
 function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
   const map = new Map<number, CachedMatch>();
   for (const m of matches) {
@@ -33,7 +32,6 @@ function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
   return Array.from(map.values());
 }
 
-/** Secondary dedup by team+kickoff key */
 function deduplicateByTeams(matches: CachedMatch[]): CachedMatch[] {
   const seen = new Set<string>();
   return matches.filter(m => {
@@ -63,7 +61,7 @@ export function useMatches() {
       return result;
     },
     staleTime: 2 * 60_000,
-    refetchInterval: 5 * 60_000, // 5 min to match cron
+    refetchInterval: 5 * 60_000,
   });
 }
 
@@ -82,18 +80,13 @@ export function useMatch(id: string) {
   });
 }
 
+// No more useTriggerFetch - pg_cron handles it autonomously every 5 min
+// Frontend only reads from cached_matches, never triggers fetch-matches
 export function useTriggerFetch() {
   return useQuery({
     queryKey: ["trigger-fetch"],
-    queryFn: async () => {
-      if (typeof document !== "undefined" && document.hidden) return null;
-      console.log(`[useTriggerFetch] Calling fetch-matches...`);
-      const { data, error } = await supabase.functions.invoke("fetch-matches");
-      if (error) throw error;
-      console.log(`[useTriggerFetch] Result:`, data);
-      return data;
-    },
-    staleTime: 4.5 * 60_000,
-    refetchInterval: 5 * 60_000,
+    queryFn: async () => null,
+    staleTime: Infinity,
+    enabled: false,
   });
 }
