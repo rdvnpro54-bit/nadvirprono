@@ -157,7 +157,8 @@ export default function MatchDetail() {
 
         {/* Header card with teams */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-3">
+          {/* League + time + live */}
+          <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
               {match.league_country && <span className="font-medium">{match.league_country} • </span>}
               {match.league_name}
@@ -168,11 +169,16 @@ export default function MatchDetail() {
                   🔴 LIVE
                 </span>
               )}
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Users className="h-3 w-3" /> {userCount} analysent
-              </span>
               {!isLocked && <ConfidenceBadge confidence={match.pred_confidence as any} size="lg" />}
             </div>
+          </div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[9px] sm:text-[10px] text-muted-foreground">
+              ⏰ {new Date(match.kickoff).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} à {new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <span className="flex items-center gap-1 text-[9px] sm:text-[10px] text-muted-foreground">
+              <Users className="h-3 w-3" /> {userCount} analysent
+            </span>
           </div>
 
           <div className="flex items-center justify-between gap-3 sm:gap-4">
