@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
-import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain } from "lucide-react";
+import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { TopMatchesSection } from "@/components/home/TopMatchesSection";
 import { TopPickSection } from "@/components/home/TopPickSection";
-import { WeeklyStats } from "@/components/home/WeeklyStats";
 import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { useHighConfidencePrecision } from "@/hooks/useMatchHistory";
@@ -62,6 +61,9 @@ const Index = () => {
   const matchCount = matches?.length || 0;
   const precision = hcData?.precision ?? 84;
 
+  // Count ELITE matches
+  const eliteCount = matches?.filter(m => (m as any).ai_score >= 80).length || 0;
+
   return (
     <div className="min-h-screen pb-20 relative">
       <div className="particles-bg" />
@@ -80,7 +82,7 @@ const Index = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <Zap className="h-3 w-3" /> IA Prédictive de Nouvelle Génération
+            <Sparkles className="h-3 w-3" /> Sélection Intelligente • IA Nouvelle Génération
           </motion.span>
 
           <motion.h1
@@ -107,16 +109,18 @@ const Index = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
-            🔥 <span className="font-bold text-primary text-sm sm:text-base">{precision}% de réussite IA</span>
+            <span className="inline-flex items-center gap-1.5 font-bold text-primary text-sm sm:text-base">
+              <Sparkles className="h-4 w-4" /> {precision}% de réussite sur les matchs ELITE
+            </span>
           </motion.p>
 
           <motion.p
-            className="mt-1 max-w-lg text-[10px] sm:text-xs text-muted-foreground/80"
+            className="mt-1.5 max-w-lg text-[10px] sm:text-xs text-muted-foreground/80"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.55 }}
           >
-            Basé sur les meilleurs pronostics sélectionnés • Analyse de centaines de variables pour identifier les opportunités les plus fiables
+            Notre IA sélectionne uniquement les opportunités les plus fiables parmi des centaines de matchs analysés
           </motion.p>
 
           <motion.div
@@ -128,6 +132,15 @@ const Index = () => {
             <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
             <span>Données temps réel • Mis à jour toutes les 15 min</span>
           </motion.div>
+
+          <motion.p
+            className="mt-1.5 text-[9px] text-muted-foreground/60 max-w-xs"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.62 }}
+          >
+            Les performances affichées concernent uniquement les matchs sélectionnés par l'IA (AI Score élevé)
+          </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -158,12 +171,11 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Top 3 GRATUITS — visible immédiatement sans scroll */}
+      {/* Top 3 GRATUITS */}
       <TopMatchesSection matches={matches} isLoading={isLoading} />
 
-      {/* TOP PICK DU JOUR — après les Top 3 sur mobile */}
+      {/* TOP PICK DU JOUR */}
       <TopPickSection matches={matches} />
-
 
       {/* Animated Stats */}
       <ScrollSection>
@@ -171,16 +183,16 @@ const Index = () => {
           <div className="container px-3 sm:px-4">
             <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
               {[
-                { label: "Précision IA", value: precision, suffix: "%", icon: TrendingUp },
+                { label: "Précision ELITE", value: precision, suffix: "%", icon: Sparkles },
                 { label: "Matchs analysés", value: matchCount || 0, suffix: "", icon: BarChart3 },
-                { label: "Sports couverts", value: 9, suffix: "", icon: Star },
-                { label: "ROI mensuel", value: 14, suffix: "%", icon: Shield, prefix: "+" },
-              ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
+                { label: "Sports couverts", value: 12, suffix: "", icon: Star },
+                { label: "Matchs ELITE", value: eliteCount, suffix: "", icon: Zap },
+              ].map(({ label, value, suffix, icon: Icon }, i) => (
                 <ScrollSection key={label} delay={i * 0.08}>
                   <div className="glass-card match-card-hover flex flex-col items-center gap-1 sm:gap-1.5 p-2.5 sm:p-3">
                     <Icon className="h-4 w-4 text-primary" />
                     <span className="font-display text-lg sm:text-xl font-bold">
-                      {prefix || ""}<AnimatedNumber value={Math.floor(value)} suffix={suffix} />
+                      <AnimatedNumber value={Math.floor(value)} suffix={suffix} />
                     </span>
                     <span className="text-[9px] sm:text-[10px] text-muted-foreground">{label}</span>
                   </div>
@@ -200,12 +212,12 @@ const Index = () => {
             </h2>
             <div className="mx-auto grid max-w-4xl gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { icon: Brain, title: "IA Hybride Multi-Sport", desc: "Moteur de pondération dynamique adaptatif selon la qualité et la disponibilité des données." },
-                { icon: Shield, title: "Confiance Calibrée", desc: "SAFE, MODÉRÉ ou RISQUÉ. La confiance diminue automatiquement si les données sont insuffisantes." },
+                { icon: Brain, title: "IA Multi-Dimension", desc: "11 facteurs analysés : forme, xG, blessures, H2H, fatigue, marché, contexte et plus encore." },
+                { icon: Sparkles, title: "Sélection ELITE", desc: "Seuls les matchs avec un AI Score élevé sont mis en avant. Qualité > quantité." },
                 { icon: TrendingUp, title: "Value Bets", desc: "Détection automatique des cotes sous-évaluées par les bookmakers." },
                 { icon: BarChart3, title: "12 Sports", desc: "Football, NBA, NFL, MMA, Hockey, F1, Handball, Rugby, Volleyball, Baseball, AFL et Basketball." },
-                { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 15 minutes. Pronostics toujours frais." },
-                { icon: Star, title: `${precision}% de Réussite`, desc: "Performance IA vérifiable. Historique transparent et accessible." },
+                { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 15 minutes. Opportunités détectées automatiquement." },
+                { icon: Shield, title: `${precision}% de Réussite`, desc: "Performance vérifiable sur les matchs ELITE. Historique transparent et accessible." },
               ].map(({ icon: Icon, title, desc }, i) => (
                 <ScrollSection key={title} delay={i * 0.08}>
                   <div className="glass-card match-card-hover p-4 sm:p-5">
@@ -234,8 +246,13 @@ const Index = () => {
               <Zap className="mx-auto h-7 w-7 sm:h-8 sm:w-8 text-primary mb-3" />
               <h2 className="font-display text-lg sm:text-xl font-bold">Passe à Premium</h2>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
-                Débloque toutes les prédictions, analyses complètes et matchs haute confiance.
+                Accès prioritaire aux matchs ELITE uniquement. Analyses complètes et prédictions avancées.
               </p>
+              <div className="mt-3 space-y-1.5 text-[10px] text-muted-foreground">
+                <p>✔ +{matchCount} matchs analysés aujourd'hui</p>
+                <p>✔ IA basée sur 11 dimensions réelles</p>
+                <p>✔ Sélection automatique des meilleurs matchs</p>
+              </div>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
                 <Link to="/pricing">
                   <Button className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20 btn-shimmer">
@@ -243,6 +260,7 @@ const Index = () => {
                   </Button>
                 </Link>
               </div>
+              <p className="mt-3 text-[9px] text-warning font-medium">⏳ Les meilleurs matchs sont limités chaque jour</p>
             </motion.div>
           </div>
         </section>

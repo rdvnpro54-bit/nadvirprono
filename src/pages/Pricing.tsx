@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Zap, Clock, Loader2, Lock } from "lucide-react";
+import { CheckCircle, Zap, Clock, Loader2, Lock, Sparkles, Shield, Brain } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -34,19 +34,16 @@ export default function Pricing() {
     }
     setLoadingPlan(planKey);
     try {
-      // Ensure we have a valid session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error("Session expirée, reconnecte-toi");
         navigate("/login");
         return;
       }
-      console.log("[CHECKOUT] Starting checkout for plan:", planKey, "priceId:", priceId);
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { priceId },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      console.log("[CHECKOUT] Response:", data, "Error:", error);
       if (error) throw error;
       if (data?.url) {
         window.location.href = data.url;
@@ -54,7 +51,6 @@ export default function Pricing() {
         throw new Error("URL de paiement manquante");
       }
     } catch (err: any) {
-      console.error("[CHECKOUT] Error:", err);
       toast.error(err.message || "Erreur lors du paiement. Réessaie.");
     } finally {
       setLoadingPlan(null);
@@ -64,7 +60,7 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Navbar />
-      <div className="container max-w-3xl pt-20 pb-16">
+      <div className="container max-w-3xl pt-20 pb-16 px-3 sm:px-4">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="text-center">
           <h1 className="font-display text-3xl font-extrabold sm:text-4xl">
             Débloquez <span className="gradient-text">Pronosia</span> Premium
@@ -77,10 +73,36 @@ export default function Pricing() {
           </div>
         </motion.div>
 
-        {/* Not logged in — big CTA block */}
+        {/* Proof block */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mt-6 rounded-xl border border-border/50 bg-card/60 p-4 sm:p-5"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <Brain className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-[11px] sm:text-xs text-muted-foreground">✔ IA basée sur <strong className="text-foreground">11 dimensions réelles</strong></span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+              <span className="text-[11px] sm:text-xs text-muted-foreground">✔ Sélection automatique des <strong className="text-foreground">meilleurs matchs</strong></span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <Shield className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span className="text-[11px] sm:text-xs text-muted-foreground">✔ Accès prioritaire aux matchs <strong className="text-foreground">ELITE</strong></span>
+            </div>
+          </div>
+          <p className="mt-3 text-center text-[9px] text-warning font-medium">
+            ⏳ Les meilleurs matchs sont limités chaque jour — ne manquez pas les opportunités ELITE
+          </p>
+        </motion.div>
+
+        {/* Not logged in */}
         {!user && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="mt-8 rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 text-center">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+            className="mt-6 rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
               <Lock className="h-6 w-6 text-primary" />
             </div>
@@ -97,7 +119,7 @@ export default function Pricing() {
           </motion.div>
         )}
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {/* Free */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card flex flex-col p-6">
             <h2 className="font-display text-lg font-bold">Gratuit</h2>
@@ -151,7 +173,14 @@ export default function Pricing() {
             <p className="mt-0.5 text-xs text-muted-foreground">30 jours d'accès</p>
             <p className="mt-4 font-display text-3xl font-extrabold">29,90€<span className="text-sm font-normal text-muted-foreground">/mois</span></p>
             <ul className="mt-5 flex-1 space-y-2.5 text-xs">
-              {["Tout l'accès Hebdo", "Alertes personnalisées", "Matchs haute confiance", "Filtres avancés", "Support prioritaire", "Économisez 40%"].map(f => (
+              {[
+                "Tout l'accès Hebdo",
+                "Matchs ELITE en priorité",
+                "Résultats & statistiques IA",
+                "Filtres avancés",
+                "Support prioritaire",
+                "Économisez 40%",
+              ].map(f => (
                 <li key={f} className="flex items-start gap-2">
                   <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> {f}
                 </li>
@@ -175,8 +204,8 @@ export default function Pricing() {
           <h2 className="mb-6 text-center font-display text-xl font-bold">Questions Fréquentes</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {[
-              { q: "Comment fonctionne l'IA ?", a: "Notre moteur hybride combine pondération dynamique, normalisation 0→1 et features sport-spécifiques pour analyser chaque match." },
-              { q: "Taux de réussite ?", a: "82% de réussite globale, avec confiance calibrée selon la qualité des données." },
+              { q: "Comment fonctionne l'IA ?", a: "Notre moteur analyse 11 dimensions : forme récente, H2H, xG, blessures, contexte, fatigue, conditions, marché et plus encore." },
+              { q: "Taux de réussite ?", a: "84% de réussite sur les matchs ELITE sélectionnés par l'IA, avec confiance calibrée selon la qualité des données." },
               { q: "Annulation possible ?", a: "Oui, sans engagement. Annulez à tout moment depuis votre compte." },
               { q: "Paiement sécurisé ?", a: "Stripe gère tous les paiements. Vos données bancaires ne transitent jamais par nos serveurs." },
             ].map(({ q, a }) => (
