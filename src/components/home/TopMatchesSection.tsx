@@ -27,7 +27,8 @@ function getTodayISO(): string {
 
 /**
  * TOP 3: Fixed for the entire day. Stored in localStorage.
- * Select 3 matches with highest aiScore, lock them until midnight.
+ * ONLY free matches. Priority: 1 football + 1 tennis + 1 basketball.
+ * If a sport is missing, fill with duplicates from available sports.
  */
 function useFixedTop3(matches: CachedMatch[] | undefined): CachedMatch[] {
   return useMemo(() => {
@@ -48,9 +49,36 @@ function useFixedTop3(matches: CachedMatch[] | undefined): CachedMatch[] {
       }
     } catch { /* ignore */ }
 
-    // New day → select top 3 by aiScore
-    const sorted = [...matches].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
-    const top3 = sorted.slice(0, 3);
+    // ONLY free matches for Top 3
+    const freeMatches = matches.filter(m => m.is_free);
+    if (freeMatches.length === 0) return [];
+
+    const sorted = [...freeMatches].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+
+    // Priority: 1 football, 1 tennis, 1 basketball
+    const sportOrder = ["football", "tennis", "basketball"];
+    const picked: CachedMatch[] = [];
+    const usedIds = new Set<string>();
+
+    for (const sport of sportOrder) {
+      const match = sorted.find(m => m.sport?.toLowerCase() === sport && !usedIds.has(m.id));
+      if (match) {
+        picked.push(match);
+        usedIds.add(match.id);
+      }
+    }
+
+    // Fill remaining slots from best available (any sport)
+    if (picked.length < 3) {
+      for (const m of sorted) {
+        if (picked.length >= 3) break;
+        if (usedIds.has(m.id)) continue;
+        picked.push(m);
+        usedIds.add(m.id);
+      }
+    }
+
+    const top3 = picked.slice(0, 3);
 
     if (top3.length > 0) {
       try {
