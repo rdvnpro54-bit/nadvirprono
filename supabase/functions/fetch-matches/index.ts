@@ -3,32 +3,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const SPORTSRC_BASE = "https://api.sportsrc.org/v2/";
+const SPORTSRC_KEY = "8d44848359af5c9ea4c13a11aa996811";
 
 // ─── UTILS ───────────────────────────────────────────────────────────
 function hash(str: string): number {
   let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-  }
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
-
 function seeded(seed: number, offset = 0): number {
   const x = Math.sin(seed + offset) * 10000;
   return x - Math.floor(x);
 }
+function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
+function formatDate(d: Date): string { return d.toISOString().split("T")[0]; }
 
-function clamp01(v: number): number {
-  return Math.max(0, Math.min(1, v));
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().split("T")[0];
-}
-
-// ─── SPORT PROFILES FOR AI PREDICTION ────────────────────────────────
+// ─── AI PREDICTION ENGINE ────────────────────────────────────────────
 interface FeatureProfile {
   features: Record<string, number>;
   drawPossible: boolean;
@@ -37,7 +31,7 @@ interface FeatureProfile {
 
 const SPORT_PROFILES: Record<string, FeatureProfile> = {
   football: { features: { form: 0.25, ranking: 0.20, attack: 0.20, defense: 0.15, h2h: 0.10, homeAdv: 0.10 }, drawPossible: true, scoreRange: [0, 4] },
-  tennis: { features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
+  tennis:   { features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
   basketball: { features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [85, 130] },
 };
 
@@ -53,7 +47,6 @@ function computeDataAvailability(teamName: string, fixtureId: number): number {
 function generatePrediction(homeTeam: string, awayTeam: string, fixtureId: number, sport: string) {
   const profile = SPORT_PROFILES[sport] || SPORT_PROFILES.football;
   const features = Object.entries(profile.features);
-
   let homeScore = 0, awayScore = 0, totalWeight = 0, usedFeatures = 0;
   const homeAvail = computeDataAvailability(homeTeam, fixtureId);
   const awayAvail = computeDataAvailability(awayTeam, fixtureId);
@@ -77,7 +70,6 @@ function generatePrediction(homeTeam: string, awayTeam: string, fixtureId: numbe
 
   const diff = homeScore - awayScore;
   let rawHome: number, rawDraw: number, rawAway: number;
-
   if (profile.drawPossible) {
     rawHome = Math.max(0.05, 0.5 + diff * 1.8);
     rawAway = Math.max(0.05, 0.5 - diff * 1.8);
@@ -136,55 +128,87 @@ function generatePrediction(homeTeam: string, awayTeam: string, fixtureId: numbe
   };
 }
 
-// ─── MAP TheSportsDB sport name → internal sport key ─────────────────
-function mapSport(strSport: string): string {
-  const s = (strSport || "").toLowerCase();
-  if (s === "soccer" || s === "football") return "football";
-  if (s === "tennis") return "tennis";
-  if (s === "basketball") return "basketball";
-  return s;
+// ─── FETCH FROM SPORTSRC ────────────────────────────────────────────
+interface SportsRCMatch {
+  id: string;
+  title: string;
+  timestamp: number;
+  status: string;
+  status_detail: string;
+  teams: {
+    home: { name: string; badge: string };
+    away: { name: string; badge: string };
+  };
+  score: { current: { home: number; away: number } };
 }
 
-function isSupportedSport(strSport: string): boolean {
-  const s = (strSport || "").toLowerCase();
-  return ["soccer", "football", "tennis", "basketball"].includes(s);
+interface SportsRCLeague {
+  league: { name: string; country: string };
+  matches: SportsRCMatch[];
 }
 
-// ─── FALLBACK MATCHES (when API has no data for a sport) ─────────────
-interface FallbackMatch { sport: string; league: string; country: string; home: string; away: string; }
+async function fetchSportMatches(sport: string): Promise<{ league: string; country: string; match: SportsRCMatch }[]> {
+  const url = `${SPORTSRC_BASE}?type=matches&sport=${sport}`;
+  console.log(`[SportSRC] Fetching: ${url}`);
+  const res = await fetch(url, { headers: { "X-API-KEY": SPORTSRC_KEY } });
+  if (!res.ok) {
+    console.error(`[SportSRC] ${sport} error: ${res.status}`);
+    return [];
+  }
+  const json = await res.json();
+  const leagues: SportsRCLeague[] = json.data || [];
+  const now = Date.now();
 
-const FALLBACK_FOOTBALL: FallbackMatch[] = [
-  { sport: "football", league: "Ligue 1", country: "France", home: "Paris Saint-Germain", away: "Olympique Lyonnais" },
-  { sport: "football", league: "Premier League", country: "England", home: "Arsenal", away: "Chelsea" },
-  { sport: "football", league: "La Liga", country: "Spain", home: "Atletico Madrid", away: "Sevilla FC" },
-];
-const FALLBACK_TENNIS: FallbackMatch[] = [
-  { sport: "tennis", league: "ATP Masters 1000", country: "USA", home: "Carlos Alcaraz", away: "Novak Djokovic" },
-  { sport: "tennis", league: "WTA 1000", country: "France", home: "Iga Swiatek", away: "Aryna Sabalenka" },
-];
-const FALLBACK_BASKETBALL: FallbackMatch[] = [
-  { sport: "basketball", league: "NBA", country: "USA", home: "Los Angeles Lakers", away: "Boston Celtics" },
-  { sport: "basketball", league: "NBA", country: "USA", home: "Golden State Warriors", away: "Miami Heat" },
-];
-
-function createFallbackMatch(fb: FallbackMatch, dateStr: string, hourOffset: number): any {
-  const kickoff = new Date(`${dateStr}T${String(14 + hourOffset).padStart(2, "0")}:00:00Z`);
-  // Make sure kickoff is in the future
-  if (kickoff.getTime() <= Date.now()) {
-    kickoff.setHours(kickoff.getHours() + 12);
-    if (kickoff.getTime() <= Date.now()) {
-      // Push to tomorrow
-      kickoff.setDate(kickoff.getDate() + 1);
-      kickoff.setHours(14 + hourOffset);
+  const results: { league: string; country: string; match: SportsRCMatch }[] = [];
+  for (const lg of leagues) {
+    for (const m of lg.matches) {
+      // STRICT: only "notstarted" matches with future timestamp
+      if (m.status !== "notstarted") continue;
+      if (!m.timestamp || m.timestamp <= now) continue;
+      // Reject if score is already set (safety check)
+      if (m.score?.current?.home > 0 || m.score?.current?.away > 0) continue;
+      results.push({ league: lg.league.name, country: lg.league.country, match: m });
     }
   }
-  const fixtureId = 9000000 + hash(fb.home + fb.away + dateStr) % 999999;
-  const prediction = generatePrediction(fb.home, fb.away, fixtureId, fb.sport);
+
+  // Sort by timestamp ascending (soonest first)
+  results.sort((a, b) => a.match.timestamp - b.match.timestamp);
+  console.log(`[SportSRC] ${sport}: ${results.length} valid upcoming matches`);
+  return results;
+}
+
+function mapSportKey(apiSport: string): string {
+  if (apiSport === "football") return "football";
+  if (apiSport === "tennis") return "tennis";
+  if (apiSport === "basketball") return "basketball";
+  return apiSport;
+}
+
+function convertToRow(item: { league: string; country: string; match: SportsRCMatch }, sport: string, isFree: boolean) {
+  const m = item.match;
+  const sportKey = mapSportKey(sport);
+  const fixtureId = hash(m.id);
+  const homeTeam = m.teams.home.name;
+  const awayTeam = m.teams.away.name;
+  const kickoff = new Date(m.timestamp).toISOString();
+  const prediction = generatePrediction(homeTeam, awayTeam, fixtureId, sportKey);
+
   return {
-    fixture_id: fixtureId, sport: fb.sport, league_name: fb.league, league_country: fb.country,
-    home_team: fb.home, away_team: fb.away, home_logo: null, away_logo: null,
-    kickoff: kickoff.toISOString(), status: "NS", home_score: null, away_score: null,
-    is_free: false, fetched_at: new Date().toISOString(), ...prediction,
+    fixture_id: fixtureId,
+    sport: sportKey,
+    league_name: item.league,
+    league_country: item.country || null,
+    home_team: homeTeam,
+    away_team: awayTeam,
+    home_logo: m.teams.home.badge || null,
+    away_logo: m.teams.away.badge || null,
+    kickoff,
+    status: "NS",
+    home_score: null,
+    away_score: null,
+    is_free: isFree,
+    fetched_at: new Date().toISOString(),
+    ...prediction,
   };
 }
 
@@ -202,11 +226,16 @@ Deno.serve(async (req) => {
     const { data: meta } = await supabase.from("cache_metadata").select("*").eq("id", "api_football").single();
     const today = formatDate(new Date());
 
-    // Cache check: 15 min freshness, but bypass if cache is empty
+    // Cache check: 15 min freshness
     if (meta?.last_fetched_at) {
       const diffMinutes = (Date.now() - new Date(meta.last_fetched_at).getTime()) / 60000;
       if (diffMinutes < 15) {
-        const { data: existing } = await supabase.from("cached_matches").select("id").gte("kickoff", today).limit(1);
+        const { data: existing } = await supabase
+          .from("cached_matches")
+          .select("id")
+          .gte("kickoff", today)
+          .eq("status", "NS")
+          .limit(1);
         if (existing && existing.length > 0) {
           return new Response(
             JSON.stringify({ message: "Cache is fresh", next_refresh_in: Math.ceil(15 - diffMinutes) }),
@@ -217,151 +246,90 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── FETCH FROM TheSportsDB ──────────────────────────────────
-    const now = new Date();
-    const dateStr = formatDate(now);
-    const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${dateStr}`;
+    // ─── FETCH ALL 3 SPORTS IN PARALLEL ──────────────────────────
+    const [footballData, tennisData, basketballData] = await Promise.all([
+      fetchSportMatches("football"),
+      fetchSportMatches("tennis"),
+      fetchSportMatches("basketball"),
+    ]);
 
-    console.log(`Fetching from TheSportsDB: ${dateStr}`);
-    const response = await fetch(apiUrl);
-    if (!response.ok) throw new Error(`TheSportsDB error: ${response.status}`);
+    // ─── SELECT TOP 3 FREE (1 per sport, fill gaps) ─────────────
+    const sportPools: { sport: string; data: typeof footballData }[] = [
+      { sport: "football", data: footballData },
+      { sport: "tennis", data: tennisData },
+      { sport: "basketball", data: basketballData },
+    ];
 
-    const apiData = await response.json();
-    const events = apiData?.events || [];
-    console.log(`TheSportsDB raw events: ${events.length}`);
+    const freeMatches: ReturnType<typeof convertToRow>[] = [];
+    const usedIds = new Set<string>();
 
-    // Log what sports we got
-    const sportCounts: Record<string, number> = {};
-    for (const e of events) {
-      sportCounts[e.strSport] = (sportCounts[e.strSport] || 0) + 1;
-    }
-    console.log(`Sports breakdown: ${JSON.stringify(sportCounts)}`);
-
-    // ─── STRICT FILTER: future matches with null scores ──────────
-    const validEvents = events.filter((event: any) => {
-      if (!event.dateEvent) return false;
-      if (!isSupportedSport(event.strSport)) return false;
-
-      const time = event.strTime ? event.strTime.split("+")[0].split("-")[0].trim() : "23:59:00";
-      const eventDate = new Date(`${event.dateEvent}T${time}Z`);
-      if (isNaN(eventDate.getTime())) return false;
-
-      // Must be in the future
-      if (eventDate.getTime() <= now.getTime()) return false;
-
-      // No scores = not started
-      if (event.intHomeScore !== null && event.intHomeScore !== undefined && event.intHomeScore !== "") return false;
-      if (event.intAwayScore !== null && event.intAwayScore !== undefined && event.intAwayScore !== "") return false;
-
-      return true;
-    });
-
-    console.log(`Valid future events: ${validEvents.length}`);
-
-    // ─── SEPARATE BY SPORT ───────────────────────────────────────
-    const footballEvents = validEvents.filter((e: any) => e.strSport === "Soccer");
-    const tennisEvents = validEvents.filter((e: any) => e.strSport === "Tennis");
-    const basketballEvents = validEvents.filter((e: any) => e.strSport === "Basketball");
-
-    console.log(`Filtered — Football: ${footballEvents.length}, Tennis: ${tennisEvents.length}, Basketball: ${basketballEvents.length}`);
-
-    // Sort by time
-    const sortByTime = (arr: any[]) => arr.sort((a: any, b: any) => {
-      const ta = new Date(`${a.dateEvent}T${(a.strTime || "23:59:00").split("+")[0]}Z`).getTime();
-      const tb = new Date(`${b.dateEvent}T${(b.strTime || "23:59:00").split("+")[0]}Z`).getTime();
-      return ta - tb;
-    });
-
-    sortByTime(footballEvents);
-    sortByTime(tennisEvents);
-    sortByTime(basketballEvents);
-
-    // ─── CONVERT EVENT TO OUR FORMAT ─────────────────────────────
-    const convertEvent = (event: any, isFree: boolean) => {
-      const sport = mapSport(event.strSport);
-      const fixtureId = parseInt(event.idEvent) || hash(event.idEvent || "0");
-      const homeTeam = event.strHomeTeam || "Équipe A";
-      const awayTeam = event.strAwayTeam || "Équipe B";
-      const time = (event.strTime || "23:59:00").split("+")[0].split("-")[0].trim();
-      const kickoff = `${event.dateEvent}T${time}Z`;
-      const prediction = generatePrediction(homeTeam, awayTeam, fixtureId, sport);
-      return {
-        fixture_id: fixtureId, sport, league_name: event.strLeague || "Unknown",
-        league_country: event.strCountry || null, home_team: homeTeam, away_team: awayTeam,
-        home_logo: event.strHomeTeamBadge || null, away_logo: event.strAwayTeamBadge || null,
-        kickoff, status: "NS", home_score: null, away_score: null,
-        is_free: isFree, fetched_at: new Date().toISOString(), ...prediction,
-      };
-    };
-
-    // ─── BUILD MATCH LIST ────────────────────────────────────────
-    const matches: any[] = [];
-
-    // Top 1 per sport (free) — from API or fallback
-    let freeFootball: any = null;
-    let freeTennis: any = null;
-    let freeBasket: any = null;
-
-    if (footballEvents[0]) {
-      freeFootball = convertEvent(footballEvents[0], true);
-    } else {
-      // Use fallback
-      const idx = hash(dateStr + "football") % FALLBACK_FOOTBALL.length;
-      freeFootball = createFallbackMatch(FALLBACK_FOOTBALL[idx], dateStr, 0);
-      freeFootball.is_free = true;
-      console.log(`Using fallback football: ${freeFootball.home_team} vs ${freeFootball.away_team}`);
-    }
-
-    if (tennisEvents[0]) {
-      freeTennis = convertEvent(tennisEvents[0], true);
-    } else {
-      const idx = hash(dateStr + "tennis") % FALLBACK_TENNIS.length;
-      freeTennis = createFallbackMatch(FALLBACK_TENNIS[idx], dateStr, 2);
-      freeTennis.is_free = true;
-      console.log(`Using fallback tennis: ${freeTennis.home_team} vs ${freeTennis.away_team}`);
-    }
-
-    if (basketballEvents[0]) {
-      freeBasket = convertEvent(basketballEvents[0], true);
-    } else {
-      const idx = hash(dateStr + "basketball") % FALLBACK_BASKETBALL.length;
-      freeBasket = createFallbackMatch(FALLBACK_BASKETBALL[idx], dateStr, 4);
-      freeBasket.is_free = true;
-      console.log(`Using fallback basketball: ${freeBasket.home_team} vs ${freeBasket.away_team}`);
-    }
-
-    matches.push(freeFootball, freeTennis, freeBasket);
-
-    // Add more API matches (not free) for premium users
-    const freeIds = new Set([freeFootball.fixture_id, freeTennis.fixture_id, freeBasket.fixture_id]);
-    for (const e of [...footballEvents, ...tennisEvents, ...basketballEvents]) {
-      const fid = parseInt(e.idEvent) || hash(e.idEvent || "0");
-      if (!freeIds.has(fid)) {
-        matches.push(convertEvent(e, false));
+    // First pass: take 1 from each sport that has data
+    for (const pool of sportPools) {
+      if (pool.data.length > 0) {
+        const item = pool.data[0];
+        freeMatches.push(convertToRow(item, pool.sport, true));
+        usedIds.add(item.match.id);
       }
     }
 
-    console.log(`Total matches: ${matches.length} (3 free, ${matches.length - 3} premium)`);
+    // Second pass: if we have < 3, fill from any sport with remaining matches
+    if (freeMatches.length < 3) {
+      for (const pool of sportPools) {
+        for (const item of pool.data) {
+          if (freeMatches.length >= 3) break;
+          if (usedIds.has(item.match.id)) continue;
+          freeMatches.push(convertToRow(item, pool.sport, true));
+          usedIds.add(item.match.id);
+        }
+        if (freeMatches.length >= 3) break;
+      }
+    }
 
-    // ─── SAVE TO DATABASE ────────────────────────────────────────
-    await supabase.from("cached_matches").delete().neq("fixture_id", 0);
+    console.log(`Free matches selected: ${freeMatches.length}`);
 
-    for (let i = 0; i < matches.length; i += 50) {
-      const batch = matches.slice(i, i + 50);
-      const { error } = await supabase.from("cached_matches").upsert(batch, { onConflict: "fixture_id" });
-      if (error) console.error(`Upsert error batch ${i}:`, error);
+    // ─── ADD PREMIUM MATCHES (remaining) ─────────────────────────
+    const allMatches = [...freeMatches];
+    for (const pool of sportPools) {
+      for (const item of pool.data) {
+        if (usedIds.has(item.match.id)) continue;
+        allMatches.push(convertToRow(item, pool.sport, false));
+        usedIds.add(item.match.id);
+      }
+    }
+
+    console.log(`Total matches: ${allMatches.length} (${freeMatches.length} free)`);
+
+    // ─── PURGE OLD + SAVE ────────────────────────────────────────
+    // Delete finished/old matches, keep unplayed future ones from previous fetches
+    await supabase.from("cached_matches").delete().lt("kickoff", today);
+    // Also delete matches that are now in the past
+    await supabase.from("cached_matches").delete().lt("kickoff", new Date().toISOString());
+
+    if (allMatches.length > 0) {
+      for (let i = 0; i < allMatches.length; i += 50) {
+        const batch = allMatches.slice(i, i + 50);
+        const { error } = await supabase.from("cached_matches").upsert(batch, { onConflict: "fixture_id" });
+        if (error) console.error(`Upsert error batch ${i}:`, error);
+      }
     }
 
     await supabase.from("cache_metadata").upsert({
-      id: "api_football", last_fetched_at: new Date().toISOString(),
+      id: "api_football",
+      last_fetched_at: new Date().toISOString(),
       request_count_today: (meta?.last_reset_date === today ? (meta?.request_count_today || 0) : 0) + 1,
       last_reset_date: today,
     });
 
     return new Response(
       JSON.stringify({
-        success: true, matches_count: matches.length, free_count: 3,
-        api_events: { total: events.length, football: footballEvents.length, tennis: tennisEvents.length, basketball: basketballEvents.length },
+        success: true,
+        matches_count: allMatches.length,
+        free_count: freeMatches.length,
+        sports: {
+          football: footballData.length,
+          tennis: tennisData.length,
+          basketball: basketballData.length,
+        },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
