@@ -8,13 +8,17 @@ import { useState, useEffect, useMemo } from "react";
 
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   football: { icon: Dribbble, label: "Football" },
+  tennis: { icon: CircleDot, label: "Tennis" },
   nba: { icon: Trophy, label: "NBA" },
   basketball: { icon: Trophy, label: "Basketball" },
   nfl: { icon: Swords, label: "NFL" },
   nhl: { icon: Swords, label: "NHL" },
+  hockey: { icon: Swords, label: "Hockey" },
   mma: { icon: Dumbbell, label: "MMA" },
   mlb: { icon: Trophy, label: "MLB" },
+  baseball: { icon: Trophy, label: "Baseball" },
   f1: { icon: Car, label: "F1" },
+  formula1: { icon: Car, label: "F1" },
   handball: { icon: Dribbble, label: "Handball" },
   rugby: { icon: Dribbble, label: "Rugby" },
   volleyball: { icon: Dribbble, label: "Volleyball" },
