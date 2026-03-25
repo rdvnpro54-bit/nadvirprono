@@ -546,30 +546,9 @@ Deno.serve(async (req) => {
 
     const matches: any[] = [...processedFootballMatches];
 
-    // ─── ADD MULTI-SPORT SIMULATED MATCHES (STRICT TODAY/LIVE ONLY) ───
-    for (const dateStr of dates) {
-      const simulatedRaw = generateMultiSportMatches(dateStr);
-      for (const sim of simulatedRaw) {
-        const prediction = generateHybridPrediction(
-          sim.home_team,
-          sim.away_team,
-          sim.fixture_id,
-          sim.sport as SportType,
-          sim.league_name,
-        );
-
-        const simulatedMatch = {
-          ...sim,
-          is_free: false,
-          fetched_at: new Date().toISOString(),
-          ...prediction,
-        };
-
-        if (isDisplayableMatch(simulatedMatch, now)) {
-          matches.push(simulatedMatch);
-        }
-      }
-    }
+    // ─── API-ONLY: no simulated fallback data ───────────────────
+    // If the API does not return valid matches, we keep the result empty.
+    // We never invent or reuse stale simulated matches.
 
     console.log(`Total valid matches after strict filtering: ${matches.length}`);
 
