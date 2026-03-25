@@ -22,6 +22,7 @@ function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
   });
 }
 
+/** Anti-duplicate: keep latest fetched_at per fixture_id */
 function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
   const map = new Map<number, CachedMatch>();
   for (const m of matches) {
@@ -31,6 +32,17 @@ function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
     }
   }
   return Array.from(map.values());
+}
+
+/** Secondary dedup by team+kickoff key */
+function deduplicateByTeams(matches: CachedMatch[]): CachedMatch[] {
+  const seen = new Set<string>();
+  return matches.filter(m => {
+    const key = `${m.home_team.toLowerCase()}_${m.away_team.toLowerCase()}_${m.kickoff}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function useMatches() {
@@ -44,11 +56,15 @@ export function useMatches() {
 
       if (error) throw error;
 
-      const deduplicated = deduplicateMatches(data as CachedMatch[]);
-      return filterActiveMatches(deduplicated);
+      let result = deduplicateMatches(data as CachedMatch[]);
+      result = deduplicateByTeams(result);
+      result = filterActiveMatches(result);
+
+      console.log(`[useMatches] ${data?.length} raw → ${result.length} after dedup+filter`);
+      return result;
     },
-    staleTime: 30 * 60_000,        // 30 min stale
-    refetchInterval: 60 * 60_000,  // refresh every 1 hour
+    staleTime: 2 * 60_000,           // 2 min stale
+    refetchInterval: 3 * 60_000,     // refresh every 3 min
   });
 }
 
@@ -72,11 +88,13 @@ export function useTriggerFetch() {
     queryKey: ["trigger-fetch"],
     queryFn: async () => {
       if (typeof document !== "undefined" && document.hidden) return null;
+      console.log(`[useTriggerFetch] Calling fetch-matches...`);
       const { data, error } = await supabase.functions.invoke("fetch-matches");
       if (error) throw error;
+      console.log(`[useTriggerFetch] Result:`, data);
       return data;
     },
-    staleTime: 55 * 60_000,        // ~55 min
-    refetchInterval: 60 * 60_000,  // re-fetch API every 1 hour
+    staleTime: 2.5 * 60_000,        // ~2.5 min
+    refetchInterval: 3 * 60_000,     // trigger every 3 min (rotation)
   });
 }
