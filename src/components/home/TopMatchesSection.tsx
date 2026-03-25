@@ -109,7 +109,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
                   </h2>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-xs max-w-[200px]">Sélection fixe du jour basée sur le AI Score. Réinitialisée à minuit.</p>
+                  <p className="text-xs max-w-[200px]">Les 2 matchs les plus sûrs du jour. Réinitialisés à minuit.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
