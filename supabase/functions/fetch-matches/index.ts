@@ -633,52 +633,8 @@ Deno.serve(async (req) => {
     }
     console.log(`[DEDUP] ${allRaw.length} → ${deduped.length}`);
 
-    // ─── Check which matches already have AI predictions in cache ─
-    const existingFixtureIds = new Set<number>();
-    const { data: existingMatches } = await supabase
-      .from("cached_matches")
-      .select("fixture_id, pred_analysis")
-      .in("fixture_id", deduped.map(m => hash(m.id)));
-    if (existingMatches) {
-      for (const em of existingMatches) {
-        // Only skip if the match already has a real AI analysis (not fallback)
-        if (em.pred_analysis && !em.pred_analysis.startsWith("Analyse basée sur le modèle statistique")) {
-          existingFixtureIds.add(em.fixture_id);
-        }
-      }
-    }
-
-    // Only request AI predictions for matches without AI analysis
-    const newMatches = deduped.filter(m => !existingFixtureIds.has(hash(m.id)));
-    console.log(`[AI] ${newMatches.length} matches need AI predictions (${existingFixtureIds.size} already have AI)`);
-
-    // ─── Generate AI predictions ─────────────────────────────
-    let aiPredictions = new Map<number, AIPrediction>();
-    if (newMatches.length > 0) {
-      const matchesForAI = newMatches.map(m => ({
-        fixtureId: hash(m.id),
-        homeTeam: m.homeTeam,
-        awayTeam: m.awayTeam,
-        sport: m.sport,
-        league: m.league,
-        kickoff: new Date(m.timestamp).toISOString(),
-      }));
-
-      // Process only first 20 matches with AI to stay within timeout
-      const aiSlice = matchesForAI.slice(0, 20);
-      if (aiSlice.length > 0) {
-        const batchPredictions = await generateAIPredictions(aiSlice);
-        for (const [k, v] of batchPredictions) aiPredictions.set(k, v);
-        console.log(`[AI] Got ${batchPredictions.size}/${aiSlice.length} AI predictions (${matchesForAI.length - aiSlice.length} will use fallback)`);
-      }
-    }
-
-    // ─── Convert to rows (AI prediction or fallback) ─────────
-    const rows = deduped.map(m => {
-      const fixtureId = hash(m.id);
-      const aiPred = aiPredictions.get(fixtureId);
-      return toRow(m, false, aiPred);
-    });
+    // ─── Convert to rows (fallback predictions initially) ─────
+    const rows = deduped.map(m => toRow(m, false));
 
     const aiCount = Array.from(aiPredictions.keys()).length;
     const fallbackCount = rows.length - aiCount;
