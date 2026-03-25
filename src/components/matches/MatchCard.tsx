@@ -205,14 +205,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
           )}
 
-          {/* Free badge */}
-          {match.is_free && !locked && (
-            <div className="absolute top-2 right-2">
-              <span className="rounded-full bg-success/20 px-1.5 py-0.5 text-[10px] font-bold text-success">
-                GRATUIT
-              </span>
-            </div>
-          )}
+          {/* No separate GRATUIT badge — free matches are identified by context */}
         </div>
       </Link>
     </motion.div>

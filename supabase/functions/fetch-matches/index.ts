@@ -20,7 +20,6 @@ function seeded(seed: number, offset = 0): number {
   return x - Math.floor(x);
 }
 
-/** Clamp value between 0 and 1 */
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
 }
@@ -40,7 +39,6 @@ const ALLOWED_SPORTS: SportType[] = [
 
 function detectSport(leagueName: string, leagueCountry: string | null): SportType {
   const name = (leagueName || "").toLowerCase();
-  const country = (leagueCountry || "").toLowerCase();
   if (/nba|ncaa basketball|euroleague|acb|bbl basketball/i.test(name)) return "nba";
   if (/nfl|ncaa football|super bowl/i.test(name)) return "nfl";
   if (/afl|australian football/i.test(name)) return "afl";
@@ -57,11 +55,8 @@ function detectSport(leagueName: string, leagueCountry: string | null): SportTyp
 
 // ─── SPORT-SPECIFIC FEATURE PROFILES ─────────────────────────────────
 interface FeatureProfile {
-  /** Feature names and their base weight (must sum to ~1) */
   features: Record<string, number>;
-  /** Whether draws are common */
   drawPossible: boolean;
-  /** Typical total goals/points range [min, max] for score gen */
   scoreRange: [number, number];
 }
 
@@ -128,6 +123,95 @@ const SPORT_PROFILES: Record<SportType, FeatureProfile> = {
   },
 };
 
+// ─── MULTI-SPORT SIMULATED DATA ──────────────────────────────────────
+interface SimulatedTeam {
+  name: string;
+  logo: string | null;
+}
+
+interface SimulatedFixture {
+  sport: SportType;
+  league: string;
+  country: string;
+  home: SimulatedTeam;
+  away: SimulatedTeam;
+}
+
+const MULTI_SPORT_DATA: SimulatedFixture[] = [
+  // NBA
+  { sport: "nba", league: "NBA", country: "USA", home: { name: "Los Angeles Lakers", logo: null }, away: { name: "Boston Celtics", logo: null } },
+  { sport: "nba", league: "NBA", country: "USA", home: { name: "Golden State Warriors", logo: null }, away: { name: "Miami Heat", logo: null } },
+  { sport: "nba", league: "NBA", country: "USA", home: { name: "Milwaukee Bucks", logo: null }, away: { name: "Denver Nuggets", logo: null } },
+  { sport: "nba", league: "NBA", country: "USA", home: { name: "Phoenix Suns", logo: null }, away: { name: "Dallas Mavericks", logo: null } },
+  { sport: "nba", league: "NBA", country: "USA", home: { name: "Philadelphia 76ers", logo: null }, away: { name: "New York Knicks", logo: null } },
+  // NFL
+  { sport: "nfl", league: "NFL", country: "USA", home: { name: "Kansas City Chiefs", logo: null }, away: { name: "San Francisco 49ers", logo: null } },
+  { sport: "nfl", league: "NFL", country: "USA", home: { name: "Dallas Cowboys", logo: null }, away: { name: "Philadelphia Eagles", logo: null } },
+  { sport: "nfl", league: "NFL", country: "USA", home: { name: "Buffalo Bills", logo: null }, away: { name: "Baltimore Ravens", logo: null } },
+  // NHL
+  { sport: "hockey", league: "NHL", country: "USA", home: { name: "Edmonton Oilers", logo: null }, away: { name: "Florida Panthers", logo: null } },
+  { sport: "hockey", league: "NHL", country: "USA", home: { name: "NY Rangers", logo: null }, away: { name: "Colorado Avalanche", logo: null } },
+  { sport: "hockey", league: "NHL", country: "Canada", home: { name: "Toronto Maple Leafs", logo: null }, away: { name: "Boston Bruins", logo: null } },
+  // MLB
+  { sport: "baseball", league: "MLB", country: "USA", home: { name: "Los Angeles Dodgers", logo: null }, away: { name: "New York Yankees", logo: null } },
+  { sport: "baseball", league: "MLB", country: "USA", home: { name: "Houston Astros", logo: null }, away: { name: "Atlanta Braves", logo: null } },
+  // MMA
+  { sport: "mma", league: "UFC 315", country: "USA", home: { name: "Jon Jones", logo: null }, away: { name: "Tom Aspinall", logo: null } },
+  { sport: "mma", league: "UFC Fight Night", country: "USA", home: { name: "Islam Makhachev", logo: null }, away: { name: "Charles Oliveira", logo: null } },
+  { sport: "mma", league: "UFC Fight Night", country: "USA", home: { name: "Alex Pereira", logo: null }, away: { name: "Magomed Ankalaev", logo: null } },
+  // Formula 1
+  { sport: "formula1", league: "F1 Grand Prix", country: "World", home: { name: "Max Verstappen", logo: null }, away: { name: "Lewis Hamilton", logo: null } },
+  { sport: "formula1", league: "F1 Grand Prix", country: "World", home: { name: "Charles Leclerc", logo: null }, away: { name: "Lando Norris", logo: null } },
+  // Handball
+  { sport: "handball", league: "EHF Champions League", country: "Europe", home: { name: "FC Barcelona HB", logo: null }, away: { name: "THW Kiel", logo: null } },
+  { sport: "handball", league: "Starligue", country: "France", home: { name: "PSG Handball", logo: null }, away: { name: "Montpellier HB", logo: null } },
+  // Rugby
+  { sport: "rugby", league: "Six Nations", country: "Europe", home: { name: "France XV", logo: null }, away: { name: "Ireland XV", logo: null } },
+  { sport: "rugby", league: "Top 14", country: "France", home: { name: "Stade Toulousain", logo: null }, away: { name: "Racing 92", logo: null } },
+  // Volleyball
+  { sport: "volleyball", league: "CEV Champions League", country: "Europe", home: { name: "Trentino Volley", logo: null }, away: { name: "Zenit Kazan", logo: null } },
+  { sport: "volleyball", league: "Ligue A", country: "France", home: { name: "Tours VB", logo: null }, away: { name: "Paris Volley", logo: null } },
+  // AFL
+  { sport: "afl", league: "AFL Premiership", country: "Australia", home: { name: "Collingwood Magpies", logo: null }, away: { name: "Brisbane Lions", logo: null } },
+  // Basketball (non-NBA)
+  { sport: "basketball", league: "Euroleague", country: "Europe", home: { name: "Real Madrid BC", logo: null }, away: { name: "Olympiacos BC", logo: null } },
+];
+
+function generateMultiSportMatches(baseDate: string): any[] {
+  const matches: any[] = [];
+  const day = new Date(baseDate);
+  
+  for (let i = 0; i < MULTI_SPORT_DATA.length; i++) {
+    const fixture = MULTI_SPORT_DATA[i];
+    // Spread matches across the day
+    const hour = 10 + Math.floor(seeded(hash(fixture.home.name + baseDate), i) * 14); // 10:00 - 23:59
+    const minute = Math.floor(seeded(hash(fixture.away.name + baseDate), i + 1) * 4) * 15; // 0, 15, 30, 45
+    
+    const kickoff = new Date(day);
+    kickoff.setUTCHours(hour, minute, 0, 0);
+    
+    // Generate a unique fixture_id based on deterministic hash
+    const fixtureId = 9000000 + hash(fixture.home.name + fixture.away.name + baseDate) % 999999;
+    
+    matches.push({
+      fixture_id: fixtureId,
+      sport: fixture.sport,
+      league_name: fixture.league,
+      league_country: fixture.country,
+      home_team: fixture.home.name,
+      away_team: fixture.away.name,
+      home_logo: fixture.home.logo,
+      away_logo: fixture.away.logo,
+      kickoff: kickoff.toISOString(),
+      status: "NS",
+      home_score: null,
+      away_score: null,
+    });
+  }
+  
+  return matches;
+}
+
 // ─── HYBRID AI ENGINE ────────────────────────────────────────────────
 
 interface PredictionResult {
@@ -144,28 +228,16 @@ interface PredictionResult {
   pred_analysis: string;
 }
 
-/**
- * Simulate a feature value for a team based on deterministic hashing.
- * Returns a value [0,1] representing normalized strength on that feature.
- */
 function simulateFeature(teamName: string, featureName: string, fixtureId: number): number {
   const seed = hash(teamName + featureName) + fixtureId;
-  // Use multiple hashes for smoother distribution
   const v1 = seeded(seed, 0);
   const v2 = seeded(seed, 7);
-  // Blend towards center with some variance → more realistic
   return clamp01(0.3 + (v1 * 0.4) + (v2 - 0.5) * 0.2);
 }
 
-/**
- * Count how many features have meaningful data (simulated availability).
- * In production this would check real data sources.
- */
 function computeDataAvailability(teamName: string, fixtureId: number, featureCount: number): number {
-  // Simulate: well-known teams (longer names, bigger leagues) have more data
   const nameFactor = clamp01(teamName.length / 20);
   const r = seeded(hash(teamName) + fixtureId, 99);
-  // Between 50% and 100% data availability
   return clamp01(0.5 + nameFactor * 0.3 + r * 0.2);
 }
 
@@ -179,7 +251,6 @@ function generateHybridPrediction(
   const profile = SPORT_PROFILES[sport];
   const features = Object.entries(profile.features);
 
-  // ── 1. Extract & normalize features for each team ──
   let homeScore = 0;
   let awayScore = 0;
   let totalWeight = 0;
@@ -192,13 +263,11 @@ function generateHybridPrediction(
     const homeVal = simulateFeature(homeTeam, featureName, fixtureId);
     const awayVal = simulateFeature(awayTeam, featureName, fixtureId);
 
-    // Dynamic weight adjustment based on data quality
     const dataQuality = (homeAvail + awayAvail) / 2;
     const featureAvailable = seeded(hash(featureName) + fixtureId, 42) < dataQuality;
 
-    if (!featureAvailable) continue; // skip missing data
+    if (!featureAvailable) continue;
 
-    // Adjust weight: reinforce strong signals, dampen weak/inconsistent ones
     const signalStrength = Math.abs(homeVal - awayVal);
     const adjustedWeight = baseWeight * (0.7 + signalStrength * 0.6);
 
@@ -208,7 +277,6 @@ function generateHybridPrediction(
     usedFeatures++;
   }
 
-  // Normalize scores
   if (totalWeight > 0) {
     homeScore /= totalWeight;
     awayScore /= totalWeight;
@@ -217,18 +285,14 @@ function generateHybridPrediction(
     awayScore = 0.5;
   }
 
-  // Home advantage boost
   homeScore *= 1.06;
 
-  // ── 2. Convert scores to probabilities ──
   const diff = homeScore - awayScore;
   let rawHome: number, rawDraw: number, rawAway: number;
 
   if (profile.drawPossible) {
-    // Sigmoid-like conversion with draw
     rawHome = 0.5 + diff * 1.8;
     rawAway = 0.5 - diff * 1.8;
-    // Draw probability inversely proportional to score difference
     rawDraw = Math.max(0.05, 0.30 - Math.abs(diff) * 2.5);
     rawHome = Math.max(0.05, rawHome);
     rawAway = Math.max(0.05, rawAway);
@@ -240,13 +304,11 @@ function generateHybridPrediction(
     rawAway = Math.max(0.05, rawAway);
   }
 
-  // Normalize to 100%
   const total = rawHome + rawDraw + rawAway;
   const predHome = Math.round((rawHome / total) * 100);
   const predDraw = Math.round((rawDraw / total) * 100);
   const predAway = 100 - predHome - predDraw;
 
-  // ── 3. Generate predicted scores ──
   const [minScore, maxScore] = profile.scoreRange;
   const range = maxScore - minScore;
   const homeStrength = homeScore / (homeScore + awayScore || 1);
@@ -259,16 +321,14 @@ function generateHybridPrediction(
     minScore + range * clamp01((1 - homeStrength) * 0.6 + seeded(baseSeed, 2) * 0.4)
   );
 
-  // ── 4. Over/Under & BTTS ──
   const totalExpected = predScoreHome + predScoreAway;
   const overLine = sport === "football" ? 2.5 : Math.round(totalExpected * 0.95);
   const overProb = Math.round(clamp01(0.3 + seeded(baseSeed, 3) * 0.4 + (totalExpected > overLine ? 0.15 : -0.1)) * 100);
   const bttsProb = Math.round(clamp01(0.25 + seeded(baseSeed, 4) * 0.35 + (predScoreHome > 0 && predScoreAway > 0 ? 0.2 : -0.1)) * 100);
 
-  // ── 5. Confidence based on data quality ──
   const dataCompleteness = usedFeatures / features.length;
   const avgAvailability = (homeAvail + awayAvail) / 2;
-  const signalConsistency = 1 - Math.abs(homeScore - awayScore) * 0.5; // closer = less certain
+  const signalConsistency = 1 - Math.abs(homeScore - awayScore) * 0.5;
   const maxProb = Math.max(predHome, predAway);
 
   const confidenceScore = clamp01(
@@ -283,13 +343,10 @@ function generateHybridPrediction(
   else if (confidenceScore >= 0.45 && maxProb >= 40) confidence = "MODÉRÉ";
   else confidence = "RISQUÉ";
 
-  // ── 6. Value bet detection ──
   const valueBet = confidenceScore >= 0.55 && maxProb >= 50 && seeded(baseSeed, 5) > 0.5;
 
-  // ── 7. Generate analysis text ──
   const fav = predHome >= predAway ? homeTeam : awayTeam;
   const underdog = predHome >= predAway ? awayTeam : homeTeam;
-  const featuresUsed = usedFeatures;
   const dataQualityLabel = dataCompleteness >= 0.8 ? "complètes" : dataCompleteness >= 0.5 ? "partielles" : "limitées";
 
   const sportFeatureText: Record<string, string> = {
@@ -308,10 +365,10 @@ function generateHybridPrediction(
   };
 
   const analyses = [
-    `Notre moteur IA a analysé ${featuresUsed} métriques clés (${sportFeatureText[sport] || "multi-facteurs"}). Données ${dataQualityLabel}. ${fav} présente un avantage statistique significatif face à ${underdog}. Confiance calibrée à ${confidence}.`,
-    `Analyse hybride multi-facteurs : ${featuresUsed} variables pondérées dynamiquement. Les indicateurs ${sportFeatureText[sport] || "de performance"} convergent en faveur de ${fav}. Qualité des données : ${dataQualityLabel}.`,
-    `Le réseau de pondération adaptatif détecte un signal fort pour ${fav}. ${featuresUsed} features analysées avec ajustement automatique selon la disponibilité des données (${dataQualityLabel}). Score de confiance IA : ${confidence}.`,
-    `Modèle prédictif basé sur ${featuresUsed} facteurs (${sportFeatureText[sport] || "performance globale"}). La pondération dynamique renforce les signaux fiables et réduit l'impact des données incertaines. Avantage détecté : ${fav}.`,
+    `Notre moteur IA a analysé ${usedFeatures} métriques clés (${sportFeatureText[sport] || "multi-facteurs"}). Données ${dataQualityLabel}. ${fav} présente un avantage statistique significatif face à ${underdog}. Confiance calibrée à ${confidence}.`,
+    `Analyse hybride multi-facteurs : ${usedFeatures} variables pondérées dynamiquement. Les indicateurs ${sportFeatureText[sport] || "de performance"} convergent en faveur de ${fav}. Qualité des données : ${dataQualityLabel}.`,
+    `Le réseau de pondération adaptatif détecte un signal fort pour ${fav}. ${usedFeatures} features analysées avec ajustement automatique selon la disponibilité des données (${dataQualityLabel}). Score de confiance IA : ${confidence}.`,
+    `Modèle prédictif basé sur ${usedFeatures} facteurs (${sportFeatureText[sport] || "performance globale"}). La pondération dynamique renforce les signaux fiables et réduit l'impact des données incertaines. Avantage détecté : ${fav}.`,
   ];
 
   const analysis = analyses[Math.floor(seeded(baseSeed, 6) * analyses.length)];
@@ -378,10 +435,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch today + next 3 days
+    // ─── FETCH FOOTBALL FROM API ────────────────────────────────
     const allFixtures: any[] = [];
     const dates: string[] = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 2; i++) { // today + tomorrow (save API calls)
       const d = new Date();
       d.setDate(d.getDate() + i);
       dates.push(formatDate(d));
@@ -410,10 +467,10 @@ Deno.serve(async (req) => {
       requestCount++;
     }
 
-    console.log(`Fetched ${allFixtures.length} fixtures across ${maxFetches} days`);
+    console.log(`Fetched ${allFixtures.length} football fixtures`);
 
-    // Process fixtures with hybrid AI engine
-    const matches = allFixtures.map((f: any) => {
+    // ─── PROCESS FOOTBALL FIXTURES ──────────────────────────────
+    const matches: any[] = allFixtures.map((f: any) => {
       const leagueName = f.league?.name || "Unknown";
       const leagueCountry = f.league?.country || null;
       const sport = detectSport(leagueName, leagueCountry);
@@ -445,29 +502,56 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Pick 3 free matches from diverse sports, prioritizing major sports
-    const sportPriority = ["football", "nba", "nfl", "nhl", "mma", "mlb", "f1", "handball", "rugby", "volleyball", "afl", "basketball"];
+    // ─── ADD MULTI-SPORT SIMULATED MATCHES ──────────────────────
+    // Generate multi-sport matches for today and tomorrow
+    for (const dateStr of dates) {
+      const simulatedRaw = generateMultiSportMatches(dateStr);
+      for (const sim of simulatedRaw) {
+        const prediction = generateHybridPrediction(
+          sim.home_team,
+          sim.away_team,
+          sim.fixture_id,
+          sim.sport as SportType,
+          sim.league_name,
+        );
+        matches.push({
+          ...sim,
+          is_free: false,
+          fetched_at: new Date().toISOString(),
+          ...prediction,
+        });
+      }
+    }
+
+    console.log(`Total matches (football + multi-sport): ${matches.length}`);
+
+    // ─── PICK 3 FREE MATCHES (DIVERSE SPORTS) ───────────────────
+    const sportPriority: SportType[] = ["football", "nba", "nfl", "hockey", "mma", "baseball", "formula1", "handball", "rugby", "volleyball", "afl", "basketball"];
     const confVal = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
+    
     const bySport = new Map<string, typeof matches>();
     for (const m of matches) {
       const s = m.sport || "football";
       if (!bySport.has(s)) bySport.set(s, []);
       bySport.get(s)!.push(m);
     }
+    
     // Best match per sport
     const bestPerSport = [...bySport.entries()].map(([sport, ms]) => {
-      ms.sort((a, b) => {
+      ms.sort((a: any, b: any) => {
         const sa = Math.max(a.pred_home_win, a.pred_away_win) + confVal(a.pred_confidence) * 10;
         const sb = Math.max(b.pred_home_win, b.pred_away_win) + confVal(b.pred_confidence) * 10;
         return sb - sa;
       });
       return { sport, match: ms[0] };
     });
+    
     bestPerSport.sort((a, b) => {
-      const ia = sportPriority.indexOf(a.sport.toLowerCase());
-      const ib = sportPriority.indexOf(b.sport.toLowerCase());
+      const ia = sportPriority.indexOf(a.sport as SportType);
+      const ib = sportPriority.indexOf(b.sport as SportType);
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
     });
+    
     // Mark top 3 (diverse sports) as free
     const freeIds = new Set<number>();
     for (const { match } of bestPerSport) {
@@ -485,6 +569,7 @@ Deno.serve(async (req) => {
       if (freeIds.has(m.fixture_id)) m.is_free = true;
     }
 
+    // ─── SAVE TO DATABASE ───────────────────────────────────────
     if (matches.length > 0) {
       await supabase.from("cached_matches").delete().neq("fixture_id", 0);
 
