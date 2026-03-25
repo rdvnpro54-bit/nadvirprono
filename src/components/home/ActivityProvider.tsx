@@ -3,9 +3,9 @@ import { useState, useEffect, useCallback, createContext, useContext, useRef } f
 // ─── Time-based baseline ───────────────────────────────────────
 function getHourBaseline(): { min: number; max: number } {
   const hour = new Date().getHours();
-  if (hour >= 0 && hour < 8) return { min: 20, max: 120 };
-  if (hour >= 8 && hour < 18) return { min: 80, max: 300 };
-  return { min: 200, max: 800 }; // 18h–23h
+  if (hour >= 0 && hour < 8) return { min: 200, max: 400 };
+  if (hour >= 8 && hour < 18) return { min: 300, max: 600 };
+  return { min: 400, max: 900 }; // 18h–23h
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -73,17 +73,18 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
     const seed = (fixtureId * 2654435761) >>> 0;
     const matchFactor = 0.3 + ((seed % 100) / 100) * 0.7; // 0.3–1.0
 
-    const base = Math.round(globalCount * 0.08 * sportMultiplier * matchFactor);
+    // Each match gets 15-35% of global, weighted by sport & match factor
+    const base = Math.round(globalCount * 0.25 * sportMultiplier * matchFactor);
 
     // Get or init stored count for smooth transitions
     const prev = matchCountsRef.current.get(fixtureId) ?? base;
-    const maxStep = Math.max(3, Math.round(base * 0.1));
+    const maxStep = Math.max(5, Math.round(base * 0.1));
     const diff = base - prev;
     const clamped = Math.abs(diff) > maxStep
       ? prev + Math.sign(diff) * maxStep
       : base;
 
-    const final = Math.max(5, clamped);
+    const final = Math.max(15, clamped);
     matchCountsRef.current.set(fixtureId, final);
     return final;
   }, [globalCount]);
