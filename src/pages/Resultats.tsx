@@ -4,12 +4,9 @@ import { useResultStats } from "@/hooks/useResults";
 import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Trophy, Flame, ChevronDown } from "lucide-react";
+import { Flame } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
-import { StatsGrid } from "@/components/results/StatsGrid";
-import { ProfitChart } from "@/components/results/ProfitChart";
 
 function groupByDay(results: MatchResult[]): { label: string; results: MatchResult[] }[] {
   const now = new Date();
@@ -83,11 +80,10 @@ function getTopPerformances(results: MatchResult[]): MatchResult[] {
 }
 
 export default function Resultats() {
-  const { allStats, topPickStats, monthStats, results, isLoading } = useResultStats();
+  const { results, isLoading } = useResultStats();
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("high_conf");
   const [period, setPeriod] = useState("all");
-  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const filteredResults = useMemo(
     () => (results ? filterResults(results, sport, status, period) : []),
@@ -135,7 +131,7 @@ export default function Resultats() {
           <div className="mt-6 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
           </div>
-        ) : !allStats || allStats.total === 0 ? (
+        ) : !results || results.length === 0 ? (
           <div className="mt-10 text-center rounded-xl border bg-card p-8">
             <div className="text-3xl mb-3">📊</div>
             <p className="text-sm font-semibold">Aucun résultat disponible</p>
@@ -170,87 +166,36 @@ export default function Resultats() {
               </motion.section>
             )}
 
-            {/* TABS: Historique + Vue globale */}
-            <Tabs defaultValue="history">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="history" className="text-[11px] sm:text-xs">📋 Historique complet</TabsTrigger>
-                <TabsTrigger value="overview" className="text-[11px] sm:text-xs">📊 Vue globale</TabsTrigger>
-              </TabsList>
+            {/* Historique complet */}
+            <div className="space-y-4">
+              <h2 className="text-sm font-bold">📋 Historique complet</h2>
+              <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
 
-              <TabsContent value="history" className="mt-4 space-y-4">
-                <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
+              <p className="text-[10px] text-muted-foreground">
+                {filteredResults.length} pronostic{filteredResults.length !== 1 ? "s" : ""} affiché{filteredResults.length !== 1 ? "s" : ""}
+                {filteredResults.length !== (results?.length ?? 0) && ` sur ${results?.length}`}
+                {" "}— gagnés et perdus inclus
+              </p>
 
-                <p className="text-[10px] text-muted-foreground">
-                  {filteredResults.length} pronostic{filteredResults.length !== 1 ? "s" : ""} affiché{filteredResults.length !== 1 ? "s" : ""}
-                  {filteredResults.length !== (results?.length ?? 0) && ` sur ${results?.length}`}
-                  {" "}— gagnés et perdus inclus
-                </p>
-
-                {grouped.length > 0 ? (
-                  <>
-                    {grouped.map(group => (
-                      <div key={group.label} className="space-y-2">
-                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">
-                          {group.label}
-                        </h3>
-                        {group.results.map((r, i) => (
-                          <ResultCard key={r.id} result={r} index={i} />
-                        ))}
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <div className="text-center rounded-xl border bg-card p-8">
-                    <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="overview" className="mt-4 space-y-6">
-                {results && <ProfitChart results={results} />}
-
-                {/* High confidence stats */}
-                {highConfStats && highConfStats.total > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-xl border border-primary/20 bg-primary/5 p-4"
-                  >
-                    <div className="flex items-center gap-2 mb-3">
-                      <Trophy className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-bold">Pronostics Haute Confiance (≥60%)</span>
+              {grouped.length > 0 ? (
+                <>
+                  {grouped.map(group => (
+                    <div key={group.label} className="space-y-2">
+                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">
+                        {group.label}
+                      </h3>
+                      {group.results.map((r, i) => (
+                        <ResultCard key={r.id} result={r} index={i} />
+                      ))}
                     </div>
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      <div>
-                        <p className="text-lg font-bold text-primary">{highConfStats.winrate}%</p>
-                        <p className="text-[10px] text-muted-foreground">Winrate</p>
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold text-primary">{highConfStats.wins}</p>
-                        <p className="text-[10px] text-muted-foreground">Gagnés</p>
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold">{highConfStats.total}</p>
-                        <p className="text-[10px] text-muted-foreground">Total</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {monthStats && monthStats.total > 0 && (
-                  <StatsGrid stats={monthStats} title="Ce mois-ci" icon={BarChart3} />
-                )}
-                {allStats && (
-                  <StatsGrid stats={allStats} title="Tous les pronostics" icon={BarChart3} />
-                )}
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-card p-3 sm:p-4 text-center">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
-                    📊 Statistiques calculées automatiquement à partir des résultats réels.
-                    <br />Aucune manipulation. Mise fixe de 10€ par pronostic. Cotes estimées.
-                  </p>
-                </motion.div>
-              </TabsContent>
-            </Tabs>
+                  ))}
+                </>
+              ) : (
+                <div className="text-center rounded-xl border bg-card p-8">
+                  <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
