@@ -191,7 +191,7 @@ const Index = () => {
                 { icon: Star, title: "82% de Réussite", desc: "Performance IA vérifiable. Historique transparent et accessible." },
               ].map(({ icon: Icon, title, desc }, i) => (
                 <ScrollSection key={title} delay={i * 0.08}>
-                  <div className="glass-card p-5 transition-all duration-200 hover:border-primary/30 hover:scale-[1.02] hover:shadow-md">
+                  <div className="glass-card match-card-hover p-5">
                     <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15">
                       <Icon className="h-4 w-4 text-primary" />
                     </div>
