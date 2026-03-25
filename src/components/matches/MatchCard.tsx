@@ -24,15 +24,15 @@ const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
 function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string | null; isFav: boolean; side: "home" | "away" }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className={cn("flex items-center gap-2", side === "home" ? "flex-row-reverse" : "flex-row")}>
+    <div className={cn("flex items-center gap-1.5 min-w-0", side === "home" ? "flex-row-reverse text-right" : "flex-row text-left")}>
       {logo ? (
-        <img src={logo} alt="" className="h-7 w-7 object-contain" loading="lazy" />
+        <img src={logo} alt="" className="h-6 w-6 shrink-0 object-contain" loading="lazy" />
       ) : (
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground">
           {initials}
         </div>
       )}
-      <p className={cn("text-sm font-semibold truncate max-w-[120px]", isFav && "text-primary")}>
+      <p className={cn("text-[13px] sm:text-sm font-semibold truncate max-w-[90px] sm:max-w-[120px]", isFav && "text-primary")}>
         {name}
       </p>
     </div>
@@ -113,7 +113,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
     >
       <Link to={locked ? "/pricing" : `/match/${match.id}`} className="block">
         <div className={cn(
-          "glass-card match-card-hover p-3.5 group relative overflow-hidden",
+          "glass-card match-card-hover p-3 sm:p-3.5 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
           locked && "opacity-80"
         )}>
           {/* Top row */}
@@ -155,18 +155,18 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
           </div>
 
           {/* Teams row */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex-1">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <TeamDisplay name={match.home_team} logo={bothLogos ? match.home_logo : null} isFav={!locked && fav === "home"} side="home" />
             </div>
-            <div className="flex flex-col items-center gap-0.5 min-w-[50px]">
+            <div className="flex flex-col items-center gap-0.5 shrink-0">
               {isLive ? (
-                <span className="flex items-center gap-1 text-[11px] text-success font-bold">
+                <span className="flex items-center gap-1 text-[11px] text-success font-bold whitespace-nowrap">
                   <Wifi className="h-3 w-3 animate-pulse" /> LIVE
                 </span>
               ) : (
                 <div className="flex flex-col items-center">
-                  <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground whitespace-nowrap">
                     <Clock className="h-3 w-3" /> {time}
                   </span>
                   <Countdown kickoff={match.kickoff} />
@@ -174,23 +174,23 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               )}
               <span className="text-[10px] text-muted-foreground">VS</span>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <TeamDisplay name={match.away_team} logo={bothLogos ? match.away_logo : null} isFav={!locked && fav === "away"} side="away" />
             </div>
           </div>
 
           {/* AI PREDICTION — UNLOCKED */}
           {!locked && (
-            <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-sm font-bold text-primary">
+            <div className="mt-2.5 rounded-lg border border-primary/20 bg-primary/5 p-2 sm:p-2.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
+                <span className="text-[12px] sm:text-sm font-bold text-primary truncate">
                   🔥 IA : {getPredictionText(match)}
                 </span>
               </div>
-              <div className="mt-1.5 flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">Confiance IA :</span>
-                <span className="text-[11px] font-bold text-foreground">{confidence}%</span>
+              <div className="mt-1.5 flex items-center gap-1.5 sm:gap-2">
+                <span className="text-[10px] sm:text-[11px] text-muted-foreground whitespace-nowrap">Confiance :</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-foreground">{confidence}%</span>
                 <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-primary"

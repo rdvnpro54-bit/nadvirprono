@@ -64,8 +64,8 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
-      <section className="border-t border-border/30 py-12">
-        <div className="container">
+      <section className="border-t border-border/30 py-8 sm:py-12 w-full max-w-full overflow-hidden">
+        <div className="container px-3 sm:px-4">
           <div className="mb-6 text-center">
             <h2 className="font-display text-2xl font-bold">
               🔥 Top 3 Pronostics <span className="gradient-text">du Jour</span>
@@ -79,13 +79,13 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
           </div>
 
           {isLoading ? (
-            <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-4xl gap-2.5 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
             </div>
           ) : topMatches.length > 0 ? (
-            <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-4xl gap-2.5 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {topMatches.map((m, i) => (
                 <motion.div
                   key={m.id}
