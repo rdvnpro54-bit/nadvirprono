@@ -64,8 +64,8 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
-      <section className="border-t border-border/30 py-12">
-        <div className="container">
+      <section className="border-t border-border/30 py-8 sm:py-12 w-full max-w-full overflow-hidden">
+        <div className="container px-3 sm:px-4">
           <div className="mb-6 text-center">
             <h2 className="font-display text-2xl font-bold">
               🔥 Top 3 Pronostics <span className="gradient-text">du Jour</span>
