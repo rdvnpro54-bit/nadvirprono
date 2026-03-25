@@ -24,15 +24,15 @@ const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
 function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string | null; isFav: boolean; side: "home" | "away" }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className={cn("flex items-center gap-2", side === "home" ? "flex-row-reverse" : "flex-row")}>
+    <div className={cn("flex items-center gap-1.5 min-w-0", side === "home" ? "flex-row-reverse text-right" : "flex-row text-left")}>
       {logo ? (
-        <img src={logo} alt="" className="h-7 w-7 object-contain" loading="lazy" />
+        <img src={logo} alt="" className="h-6 w-6 shrink-0 object-contain" loading="lazy" />
       ) : (
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground">
           {initials}
         </div>
       )}
-      <p className={cn("text-sm font-semibold truncate max-w-[120px]", isFav && "text-primary")}>
+      <p className={cn("text-[13px] sm:text-sm font-semibold truncate max-w-[90px] sm:max-w-[120px]", isFav && "text-primary")}>
         {name}
       </p>
     </div>
