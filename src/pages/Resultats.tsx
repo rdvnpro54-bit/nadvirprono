@@ -90,10 +90,10 @@ export default function Resultats() {
             <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront automatiquement après chaque match.</p>
           </div>
         ) : (
-          <Tabs defaultValue="overview" className="mt-4">
+          <Tabs defaultValue="history" className="mt-4">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="overview" className="text-[11px] sm:text-xs">📊 Vue globale</TabsTrigger>
               <TabsTrigger value="history" className="text-[11px] sm:text-xs">📋 Historique</TabsTrigger>
+              <TabsTrigger value="overview" className="text-[11px] sm:text-xs">📊 Vue globale</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 space-y-6">
