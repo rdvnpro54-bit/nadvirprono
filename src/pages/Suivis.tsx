@@ -199,14 +199,14 @@ export default function Suivis() {
               <Trophy className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-lg font-bold">Winrate IA : {stats.winrate}%</p>
+              <p className="text-lg font-bold">Précision IA : {stats.precision}%</p>
               <p className="text-xs text-muted-foreground">
                 {stats.wins} victoires • {stats.losses} défaites • {stats.total} prédictions
               </p>
             </div>
             <div className="flex items-center gap-1 text-primary">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-bold">{stats.winrate}%</span>
+              <span className="text-sm font-bold">{stats.precision}%</span>
             </div>
           </motion.div>
         )}

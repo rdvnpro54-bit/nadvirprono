@@ -107,17 +107,7 @@
     box-shadow: var(--shadow-glow);
   }
 
-  .safe-badge {
-    @apply bg-success/15 text-success border border-success/30;
-  }
-
-  .moderate-badge {
-    @apply bg-warning/15 text-warning border border-warning/30;
-  }
-
-  .risky-badge {
-    @apply bg-destructive/15 text-destructive border border-destructive/30;
-  }
+  /* Badge styles moved below with glow variants */
 
   .match-card-hover {
     @apply transition-all duration-300;
@@ -166,6 +156,39 @@
 
   @keyframes loadBar {
     from { width: 0%; }
+  }
+
+  /* Shimmer on probability bars */
+  .prob-bar-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .prob-bar-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.2), transparent);
+    animation: barShimmer 2s ease-in-out infinite;
+  }
+  @keyframes barShimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Badge glow variants */
+  .safe-badge {
+    @apply bg-success/15 text-success border border-success/30;
+    box-shadow: 0 0 8px hsl(145 80% 42% / 0.15);
+  }
+
+  .moderate-badge {
+    @apply bg-warning/15 text-warning border border-warning/30;
+    box-shadow: 0 0 8px hsl(38 92% 50% / 0.15);
+  }
+
+  .risky-badge {
+    @apply bg-destructive/15 text-destructive border border-destructive/30;
+    box-shadow: 0 0 8px hsl(0 72% 51% / 0.15);
   }
 
   /* Shimmer effect for CTA buttons */

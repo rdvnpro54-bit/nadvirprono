@@ -36,9 +36,10 @@ export function useMatchHistory() {
   });
 }
 
-export function useWinrateStats() {
+/** Global precision = all-time win rate from match_results */
+export function useGlobalPrecision() {
   return useQuery({
-    queryKey: ["winrate-stats"],
+    queryKey: ["global-precision"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("match_results")
@@ -50,13 +51,46 @@ export function useWinrateStats() {
       const losses = data.filter(r => r.result === "loss").length;
       const total = wins + losses;
 
-      // Base: 11 wins, 3 losses + actual DB results
+      // Seed: 11 wins, 3 losses from initial calibration
       const totalWins = 11 + wins;
       const totalMatches = 14 + total;
-      const winrate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 79;
+      const precision = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 79;
 
-      return { wins: totalWins, losses: 3 + losses, total: totalMatches, winrate };
+      return { wins: totalWins, losses: 3 + losses, total: totalMatches, precision };
     },
     staleTime: 5 * 60_000,
   });
+}
+
+/** Today's winrate = results from today only */
+export function useTodayWinrate() {
+  return useQuery({
+    queryKey: ["today-winrate"],
+    queryFn: async () => {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from("match_results")
+        .select("result, resolved_at")
+        .not("result", "is", null)
+        .gte("resolved_at", todayStart.toISOString());
+      if (error) throw error;
+
+      const wins = data.filter(r => r.result === "win").length;
+      const losses = data.filter(r => r.result === "loss").length;
+      const total = wins + losses;
+
+      if (total < 2) return null; // Not enough data for today
+
+      const winrate = Math.round((wins / total) * 100);
+      return { wins, losses, total, winrate };
+    },
+    staleTime: 2 * 60_000,
+  });
+}
+
+// Keep backward compat
+export function useWinrateStats() {
+  return useGlobalPrecision();
 }
