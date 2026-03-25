@@ -1,34 +1,26 @@
 import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
-import { Lock, TrendingUp, Clock, Wifi, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain } from "lucide-react";
+import { Lock, TrendingUp, Clock, Wifi, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useGlobalActivity } from "@/components/home/ActivityProvider";
+import { Button } from "@/components/ui/button";
 
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   football: { icon: Dribbble, label: "Football" },
   tennis: { icon: CircleDot, label: "Tennis" },
-  nba: { icon: Trophy, label: "NBA" },
   basketball: { icon: Trophy, label: "Basketball" },
+  nba: { icon: Trophy, label: "NBA" },
   nfl: { icon: Swords, label: "NFL" },
-  nhl: { icon: Swords, label: "NHL" },
   hockey: { icon: Swords, label: "Hockey" },
   mma: { icon: Dumbbell, label: "MMA" },
-  mlb: { icon: Trophy, label: "MLB" },
-  baseball: { icon: Trophy, label: "Baseball" },
   f1: { icon: Car, label: "F1" },
-  formula1: { icon: Car, label: "F1" },
-  handball: { icon: Dribbble, label: "Handball" },
-  rugby: { icon: Dribbble, label: "Rugby" },
-  volleyball: { icon: Dribbble, label: "Volleyball" },
-  afl: { icon: Dribbble, label: "AFL" },
 };
 
 function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string | null; isFav: boolean; side: "home" | "away" }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-
   return (
     <div className={cn("flex items-center gap-2", side === "home" ? "flex-row-reverse" : "flex-row")}>
       {logo ? (
@@ -47,20 +39,14 @@ function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string |
 
 function Countdown({ kickoff }: { kickoff: string }) {
   const [now, setNow] = useState(Date.now());
-
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
-
   const diff = new Date(kickoff).getTime() - now;
-  if (diff <= 0) return null;
-
+  if (diff <= 0 || diff > 24 * 3600000) return null;
   const hours = Math.floor(diff / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
-
-  if (hours > 24) return null;
-
   return (
     <span className="text-[10px] text-warning font-medium">
       dans {hours > 0 ? `${hours}h` : ""}{mins}min
@@ -71,7 +57,6 @@ function Countdown({ kickoff }: { kickoff: string }) {
 function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }) {
   const { getMatchCount } = useGlobalActivity();
   const [count, setCount] = useState(() => getMatchCount(fixtureId, sport));
-
   useEffect(() => {
     const schedule = () => {
       const delay = 10000 + Math.random() * 10000;
@@ -80,7 +65,6 @@ function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }
     let timerId = schedule();
     return () => clearTimeout(timerId);
   }, [fixtureId, sport, getMatchCount]);
-
   return (
     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
       <span className="relative flex h-2 w-2">
@@ -92,14 +76,12 @@ function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }
   );
 }
 
-/** Get the AI prediction winner text */
 function getPredictionText(match: CachedMatch): string {
   if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) {
     return "Match nul probable";
   }
+  // VALUE BET FIX: home > away → HOME wins, never inverted
   const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
-  const winPct = Math.max(match.pred_home_win, match.pred_away_win);
-  // Short name
   const shortName = winner.length > 20 ? winner.split(" ").slice(0, 2).join(" ") : winner;
   return `${shortName} gagne`;
 }
@@ -127,9 +109,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
       <Link to={locked ? "/pricing" : `/match/${match.id}`} className="block">
         <div className={cn(
           "glass-card match-card-hover p-3.5 group relative overflow-hidden",
-          locked && "opacity-60"
+          locked && "opacity-80"
         )}>
-          {/* Top row: league + badges */}
+          {/* Top row */}
           <div className="flex items-center justify-between mb-2">
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
               {(() => {
@@ -151,7 +133,13 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   <TrendingUp className="h-2.5 w-2.5" /> Value
                 </span>
               )}
-              <ConfidenceBadge confidence={match.pred_confidence as any} />
+              {/* Show value bet badge even when locked to tease */}
+              {match.pred_value_bet && locked && (
+                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                  ⚡ Value
+                </span>
+              )}
+              {!locked && <ConfidenceBadge confidence={match.pred_confidence as any} />}
               {!locked && (
                 <button onClick={handleFav} className="ml-0.5">
                   <Star className={cn("h-4 w-4 transition-colors", isFav ? "fill-warning text-warning" : "text-muted-foreground/40 hover:text-warning")} />
@@ -160,10 +148,10 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
           </div>
 
-          {/* Teams row */}
+          {/* Teams row - ALWAYS visible even when locked */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex-1">
-              <TeamDisplay name={match.home_team} logo={bothLogos ? match.home_logo : null} isFav={fav === "home"} side="home" />
+              <TeamDisplay name={match.home_team} logo={bothLogos ? match.home_logo : null} isFav={!locked && fav === "home"} side="home" />
             </div>
             <div className="flex flex-col items-center gap-0.5 min-w-[50px]">
               {isLive ? (
@@ -181,22 +169,19 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               <span className="text-[10px] text-muted-foreground">VS</span>
             </div>
             <div className="flex-1">
-              <TeamDisplay name={match.away_team} logo={bothLogos ? match.away_logo : null} isFav={fav === "away"} side="away" />
+              <TeamDisplay name={match.away_team} logo={bothLogos ? match.away_logo : null} isFav={!locked && fav === "away"} side="away" />
             </div>
           </div>
 
-          {/* ═══ AI PREDICTION — THE MAIN PRODUCT ═══ */}
+          {/* ═══ AI PREDICTION — UNLOCKED ═══ */}
           {!locked && (
             <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
-              {/* #1: AI Prediction Winner */}
               <div className="flex items-center gap-2">
                 <Brain className="h-4 w-4 text-primary shrink-0" />
                 <span className="text-sm font-bold text-primary">
                   🔥 IA : {getPredictionText(match)}
                 </span>
               </div>
-
-              {/* #2: Confidence % */}
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground">Confiance IA :</span>
                 <span className="text-[11px] font-bold text-foreground">{confidence}%</span>
@@ -209,16 +194,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   />
                 </div>
               </div>
-
-              {/* #3: Predicted Score */}
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground">🎯 Score prédit :</span>
                 <span className="text-[11px] font-bold text-foreground">
                   {match.pred_score_home} - {match.pred_score_away}
                 </span>
               </div>
-
-              {/* #4: Live Score — small and discrete, only if live */}
               {isLive && match.home_score !== null && (
                 <div className="mt-1 flex items-center gap-2">
                   <span className="text-[10px] text-success/70">📡 Live :</span>
@@ -230,7 +211,37 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
           )}
 
-          {/* Probability bar + activity */}
+          {/* ═══ LOCKED PREDICTION — PREMIUM TEASE ═══ */}
+          {locked && (
+            <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Lock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold text-muted-foreground">
+                  🔒 Prédiction IA verrouillée
+                </span>
+              </div>
+              {/* Probability bar teaser */}
+              <div className="flex h-1.5 overflow-hidden rounded-full bg-muted mb-2">
+                <div className="bg-primary/30 transition-all" style={{ width: `${match.pred_home_win}%` }} />
+                <div className="bg-muted-foreground/15 transition-all" style={{ width: `${match.pred_draw}%` }} />
+                <div className="bg-secondary/30 transition-all" style={{ width: `${match.pred_away_win}%` }} />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 mb-2.5">
+                <span>🏠 ???%</span>
+                <span>✈️ ???%</span>
+              </div>
+              <Link to="/pricing">
+                <Button size="sm" className="w-full gap-1.5 text-[11px]">
+                  <Zap className="h-3 w-3" /> Voir le prono → Premium
+                </Button>
+              </Link>
+              <p className="text-[9px] text-muted-foreground text-center mt-1.5">
+                Accède aux pronos + value bets en temps réel
+              </p>
+            </div>
+          )}
+
+          {/* Probability bar + activity — only unlocked */}
           {!locked && (
             <div className="mt-2">
               <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
@@ -239,19 +250,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                 <div className="bg-secondary transition-all" style={{ width: `${match.pred_away_win}%` }} />
               </div>
               <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>{match.pred_home_win}%</span>
+                <span>🏠 {match.pred_home_win}%</span>
                 <UserActivity fixtureId={match.fixture_id} sport={match.sport || "football"} />
-                <span>{match.pred_away_win}%</span>
-              </div>
-            </div>
-          )}
-
-          {/* Lock overlay */}
-          {locked && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm rounded-xl">
-              <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
-                <Lock className="h-5 w-5" />
-                <span className="text-[11px] font-semibold">🔒 Débloque avec Premium</span>
+                <span>✈️ {match.pred_away_win}%</span>
               </div>
             </div>
           )}
