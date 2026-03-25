@@ -15,7 +15,7 @@ export function ResultFilters({ sport, setSport, status, setStatus, period, setP
     <div className="flex items-center gap-2 flex-wrap">
       <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
       <Select value={sport} onValueChange={setSport}>
-        <SelectTrigger className="h-8 w-[110px] text-xs">
+        <SelectTrigger className="h-8 w-[120px] text-xs">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -23,6 +23,12 @@ export function ResultFilters({ sport, setSport, status, setStatus, period, setP
           <SelectItem value="football">⚽ Football</SelectItem>
           <SelectItem value="tennis">🎾 Tennis</SelectItem>
           <SelectItem value="basketball">🏀 Basketball</SelectItem>
+          <SelectItem value="hockey">🏒 Hockey</SelectItem>
+          <SelectItem value="baseball">⚾ Baseball</SelectItem>
+          <SelectItem value="nfl">🏈 NFL</SelectItem>
+          <SelectItem value="mma">🥊 MMA</SelectItem>
+          <SelectItem value="f1">🏎️ F1</SelectItem>
+          <SelectItem value="afl">🏉 AFL</SelectItem>
         </SelectContent>
       </Select>
       <Select value={status} onValueChange={setStatus}>
