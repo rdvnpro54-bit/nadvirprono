@@ -183,7 +183,57 @@ async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
   } catch (e) { console.error(`[SportSRC] error:`, e); return []; }
 }
 
-// ─── FETCH ESPN (FREE — ALL SPORTS) ─────────────────────────────────
+// ─── FETCH SOFASCORE (TENNIS — PRIMARY) ─────────────────────────────
+const SOFASCORE_BASE = "https://api.sofascore.com/api/v1/sport";
+
+async function fetchSofaScore(sport: string, dateISO: string): Promise<NormalizedMatch[]> {
+  const sportPath = sport === "tennis" ? "tennis" : "basketball";
+  const url = `${SOFASCORE_BASE}/${sportPath}/scheduled-events/${dateISO}`;
+  console.log(`[API: SofaScore] ${sport.toUpperCase()} - ${dateISO} - fetching`);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.sofascore.com/",
+        "Origin": "https://www.sofascore.com",
+      },
+    });
+    if (!res.ok) { console.error(`[SofaScore] ${sport} error: ${res.status}`); await res.text(); return []; }
+    const json = await res.json();
+    const events = json.events || [];
+    const now = Date.now();
+    const results: NormalizedMatch[] = [];
+    let count = 0;
+    for (const e of events) {
+      if (e.status?.type !== "notstarted") continue;
+      const ts = (e.startTimestamp || 0) * 1000;
+      if (!ts || ts <= now) continue;
+      // Skip doubles for tennis (keep singles only for cleaner cards)
+      const tournamentName = e.tournament?.name || "";
+      if (sport === "tennis" && tournamentName.toLowerCase().includes("doubles")) continue;
+      // Limit to top 30 per sport per day to avoid bloating the DB
+      if (count >= 30) break;
+      const homeTeam = e.homeTeam?.name || "Player A";
+      const awayTeam = e.awayTeam?.name || "Player B";
+      results.push({
+        id: `sofa_${e.id}`, sport,
+        league: tournamentName || "Unknown",
+        country: e.tournament?.category?.name || "",
+        homeTeam, awayTeam,
+        homeLogo: null, awayLogo: null,
+        timestamp: ts, source: "sofascore",
+      });
+      count++;
+    }
+    results.sort((a, b) => a.timestamp - b.timestamp);
+    console.log(`[API: SofaScore] ${sport.toUpperCase()} - ${results.length} upcoming`);
+    return results;
+  } catch (e) { console.error(`[SofaScore] ${sport} error:`, e); return []; }
+}
+
+// ─── FETCH ESPN (FREE — FOOTBALL & BASKETBALL FALLBACK) ─────────────
 const ESPN_LEAGUES: Record<string, { path: string; label: string }[]> = {
   football: [
     { path: "soccer/eng.1", label: "Premier League" },
@@ -192,10 +242,6 @@ const ESPN_LEAGUES: Record<string, { path: string; label: string }[]> = {
     { path: "soccer/ita.1", label: "Serie A" },
     { path: "soccer/fra.1", label: "Ligue 1" },
     { path: "soccer/uefa.champions", label: "Champions League" },
-  ],
-  tennis: [
-    { path: "tennis/atp", label: "ATP" },
-    { path: "tennis/wta", label: "WTA" },
   ],
   basketball: [
     { path: "basketball/nba", label: "NBA" },
@@ -218,12 +264,9 @@ async function fetchESPN(sport: string, dateCompact: string): Promise<Normalized
       const json = await res.json();
       const results: NormalizedMatch[] = [];
       for (const evt of (json.events || [])) {
-        // Accept "pre" (upcoming) only
         if (evt.status?.type?.state !== "pre") continue;
         const eventDate = evt.date ? new Date(evt.date).getTime() : 0;
         if (!eventDate || eventDate <= now) continue;
-        // DO NOT re-filter by Paris date — ESPN already filters by the date param
-        // This was the bug: late-night UTC games (e.g. 23:00 UTC = 01:00 Paris) were filtered out
         const competitors = evt.competitions?.[0]?.competitors || [];
         const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
         const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
@@ -320,16 +363,21 @@ Deno.serve(async (req) => {
 
     const [footMatches, tennisMatches, basketMatches] = await Promise.all([
       fetchFootball(),
-      // Fetch today + tomorrow for tennis/basket too
+      // TENNIS: SofaScore (primary) → keep existing cache if API blocked
       (async () => {
-        const [t1, t2] = await Promise.all([fetchESPN("tennis", compact), fetchESPN("tennis", tomorrowCompact)]);
-        const seen = new Set<string>();
-        return [...t1, ...t2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+        const matches = await fetchSofaScore("tennis", iso);
+        if (matches.length > 0) return matches;
+        console.log(`[TENNIS] SofaScore unavailable, keeping existing tennis cache`);
+        return []; // Existing tennis entries in cached_matches will be preserved
       })(),
+      // BASKETBALL: ESPN (primary) + SofaScore (fallback)
       (async () => {
         const [b1, b2] = await Promise.all([fetchESPN("basketball", compact), fetchESPN("basketball", tomorrowCompact)]);
         const seen = new Set<string>();
-        return [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+        const espnMatches = [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+        if (espnMatches.length > 0) return espnMatches;
+        console.log(`[FALLBACK] ESPN basketball 0 → trying SofaScore`);
+        return fetchSofaScore("basketball", iso);
       })(),
     ]);
 
