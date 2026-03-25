@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
-import { Lock, TrendingUp, Clock, Wifi, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap } from "lucide-react";
+import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
