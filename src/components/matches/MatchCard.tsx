@@ -255,14 +255,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                     {match.pred_score_home} - {match.pred_score_away}
                   </span>
                 </div>
-                {isLive && match.home_score !== null && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="text-[10px] text-success/70">📡 Live :</span>
-                    <span className="text-[10px] font-medium text-success">
-                      {match.home_score} - {match.away_score}
-                    </span>
-                  </div>
-                )}
               </div>
             )}
 
