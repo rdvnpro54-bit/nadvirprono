@@ -78,16 +78,6 @@ export function useMatch(id: string) {
   return useQuery({
     queryKey: ["cached-match", id],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("get-matches", {
-        headers: await getAuthHeaders(),
-        body: null,
-      });
-
-      if (error) throw error;
-
-      // The edge function supports ?id= but functions.invoke doesn't support query params easily
-      // So we fetch all and filter client-side, or use a different approach
-      // Let's call with the URL directly
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const authHeaders = await getAuthHeaders();
