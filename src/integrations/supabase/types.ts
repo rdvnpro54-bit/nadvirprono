@@ -149,6 +149,63 @@ export type Database = {
         }
         Relationships: []
       }
+      match_results: {
+        Row: {
+          actual_away_score: number | null
+          actual_home_score: number | null
+          away_team: string
+          created_at: string
+          fixture_id: number
+          home_team: string
+          id: string
+          kickoff: string
+          league_name: string
+          pred_away_win: number
+          pred_home_win: number
+          predicted_confidence: string
+          predicted_winner: string
+          resolved_at: string | null
+          result: string | null
+          sport: string
+        }
+        Insert: {
+          actual_away_score?: number | null
+          actual_home_score?: number | null
+          away_team: string
+          created_at?: string
+          fixture_id: number
+          home_team: string
+          id?: string
+          kickoff: string
+          league_name: string
+          pred_away_win?: number
+          pred_home_win?: number
+          predicted_confidence?: string
+          predicted_winner: string
+          resolved_at?: string | null
+          result?: string | null
+          sport?: string
+        }
+        Update: {
+          actual_away_score?: number | null
+          actual_home_score?: number | null
+          away_team?: string
+          created_at?: string
+          fixture_id?: number
+          home_team?: string
+          id?: string
+          kickoff?: string
+          league_name?: string
+          pred_away_win?: number
+          pred_home_win?: number
+          predicted_confidence?: string
+          predicted_winner?: string
+          resolved_at?: string | null
+          result?: string | null
+          sport?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           activated_by: string | null
@@ -181,6 +238,30 @@ export type Database = {
           is_premium?: boolean
           plan?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_favorites: {
+        Row: {
+          created_at: string
+          fixture_id: number
+          id: string
+          match_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fixture_id: number
+          id?: string
+          match_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fixture_id?: number
+          id?: string
+          match_id?: string
           user_id?: string
         }
         Relationships: []
