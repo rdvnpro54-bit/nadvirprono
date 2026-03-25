@@ -85,7 +85,7 @@ export default function Pricing() {
               <Lock className="h-6 w-6 text-primary" />
             </div>
             <h2 className="text-lg font-bold">Accédez à toutes les prédictions IA</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Créez un compte pour accéder aux analyses complètes et prédictions avancées</p>
+            <p className="mt-1 text-sm text-muted-foreground">Créez un compte pour débloquer les analyses complètes et prédictions avancées</p>
             <Link to="/login">
               <Button className="mt-4 h-11 px-8 text-sm font-bold gap-2 btn-shimmer">
                 Créer un compte gratuit
