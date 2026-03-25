@@ -94,7 +94,6 @@ function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }
       {count} analysent
     </span>
   );
-  );
 }
 
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
