@@ -1,10 +1,25 @@
 import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
-import { Lock, TrendingUp, Clock, Wifi, Star, Users } from "lucide-react";
+import { Lock, TrendingUp, Clock, Wifi, Star, Users, Dribbble, Swords, Car, Bike, Trophy, Dumbbell, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
+
+const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
+  football: { icon: Dribbble, label: "Football" },
+  nba: { icon: Trophy, label: "NBA" },
+  basketball: { icon: Trophy, label: "Basketball" },
+  nfl: { icon: Swords, label: "NFL" },
+  nhl: { icon: Swords, label: "NHL" },
+  mma: { icon: Dumbbell, label: "MMA" },
+  mlb: { icon: Trophy, label: "MLB" },
+  f1: { icon: Car, label: "F1" },
+  handball: { icon: Dribbble, label: "Handball" },
+  rugby: { icon: Dribbble, label: "Rugby" },
+  volleyball: { icon: Dribbble, label: "Volleyball" },
+  afl: { icon: Dribbble, label: "AFL" },
+};
 
 function TeamDisplay({ name, logo, isFav, side }: { name: string; logo: string | null; isFav: boolean; side: "home" | "away" }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
