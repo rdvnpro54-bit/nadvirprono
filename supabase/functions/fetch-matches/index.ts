@@ -419,42 +419,133 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Archive finished matches to match_results ───────────
-    const { data: existingMatches } = await supabase
+    // ─── Resolve finished matches with REAL scores ─────────
+    // Only archive matches that have been over for at least 3 hours (enough time for API to update)
+    const threeHoursAgo = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+    const { data: pendingMatches } = await supabase
       .from("cached_matches")
-      .select("fixture_id, sport, home_team, away_team, league_name, kickoff, pred_home_win, pred_away_win, pred_confidence, status")
-      .lt("kickoff", new Date().toISOString());
+      .select("fixture_id, sport, home_team, away_team, league_name, kickoff, pred_home_win, pred_away_win, pred_confidence, home_score, away_score, status")
+      .lt("kickoff", threeHoursAgo);
 
-    if (existingMatches && existingMatches.length > 0) {
-      const resultsToInsert = existingMatches.map(m => {
+    if (pendingMatches && pendingMatches.length > 0) {
+      // Try to fetch real scores from APIs for matches that don't have scores yet
+      const matchesNeedingScores = pendingMatches.filter(m => m.home_score == null || m.away_score == null);
+      const matchesWithScores = pendingMatches.filter(m => m.home_score != null && m.away_score != null);
+
+      // Fetch real finished scores from ESPN for football
+      const finishedScores = new Map<string, { homeScore: number; awayScore: number }>();
+
+      // Fetch finished football scores
+      try {
+        for (const lg of ESPN_LEAGUES.football) {
+          const url = `${ESPN_BASE}/${lg.path}/scoreboard?dates=${compact}`;
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const json = await res.json();
+          for (const evt of (json.events || [])) {
+            if (evt.status?.type?.state !== "post") continue;
+            const competitors = evt.competitions?.[0]?.competitors || [];
+            const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
+            const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
+            if (!home || !away) continue;
+            const homeScore = parseInt(home.score || "0");
+            const awayScore = parseInt(away.score || "0");
+            const key = `${(home.team?.displayName || "").toLowerCase().trim()}_${(away.team?.displayName || "").toLowerCase().trim()}`;
+            finishedScores.set(key, { homeScore, awayScore });
+          }
+        }
+      } catch (e) { console.error("[SCORES] ESPN football error:", e); }
+
+      // Fetch finished basketball scores
+      try {
+        for (const lg of ESPN_LEAGUES.basketball) {
+          const url = `${ESPN_BASE}/${lg.path}/scoreboard?dates=${compact}`;
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const json = await res.json();
+          for (const evt of (json.events || [])) {
+            if (evt.status?.type?.state !== "post") continue;
+            const competitors = evt.competitions?.[0]?.competitors || [];
+            const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
+            const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
+            if (!home || !away) continue;
+            const homeScore = parseInt(home.score || "0");
+            const awayScore = parseInt(away.score || "0");
+            const key = `${(home.team?.displayName || "").toLowerCase().trim()}_${(away.team?.displayName || "").toLowerCase().trim()}`;
+            finishedScores.set(key, { homeScore, awayScore });
+          }
+        }
+      } catch (e) { console.error("[SCORES] ESPN basketball error:", e); }
+
+      console.log(`[SCORES] Found ${finishedScores.size} real finished scores from ESPN`);
+
+      // Try to match cached matches with real scores
+      const resultsToInsert = [];
+
+      for (const m of matchesNeedingScores) {
+        const key = `${m.home_team.toLowerCase().trim()}_${m.away_team.toLowerCase().trim()}`;
+        const realScore = finishedScores.get(key);
+        if (realScore) {
+          const predictedWinner = Number(m.pred_home_win) >= Number(m.pred_away_win) ? m.home_team : m.away_team;
+          let actualWinner: string;
+          if (realScore.homeScore > realScore.awayScore) actualWinner = m.home_team;
+          else if (realScore.awayScore > realScore.homeScore) actualWinner = m.away_team;
+          else actualWinner = "draw";
+
+          const isWin = predictedWinner === actualWinner;
+          resultsToInsert.push({
+            fixture_id: m.fixture_id, sport: m.sport,
+            home_team: m.home_team, away_team: m.away_team,
+            league_name: m.league_name, kickoff: m.kickoff,
+            predicted_winner: predictedWinner, predicted_confidence: m.pred_confidence,
+            pred_home_win: m.pred_home_win, pred_away_win: m.pred_away_win,
+            actual_home_score: realScore.homeScore, actual_away_score: realScore.awayScore,
+            result: isWin ? "win" : "loss",
+            resolved_at: new Date().toISOString(),
+          });
+        }
+        // If no real score found → do NOT archive. Keep in cache and try next cycle.
+      }
+
+      // Also archive matches that already had scores in cached_matches
+      for (const m of matchesWithScores) {
         const predictedWinner = Number(m.pred_home_win) >= Number(m.pred_away_win) ? m.home_team : m.away_team;
-        const resultSeed = seeded(m.fixture_id, 77);
-        const isWin = resultSeed > 0.21; // ~79% win rate
-        return {
-          fixture_id: m.fixture_id,
-          sport: m.sport,
-          home_team: m.home_team,
-          away_team: m.away_team,
-          league_name: m.league_name,
-          kickoff: m.kickoff,
-          predicted_winner: predictedWinner,
-          predicted_confidence: m.pred_confidence,
-          pred_home_win: m.pred_home_win,
-          pred_away_win: m.pred_away_win,
+        let actualWinner: string;
+        if (m.home_score! > m.away_score!) actualWinner = m.home_team;
+        else if (m.away_score! > m.home_score!) actualWinner = m.away_team;
+        else actualWinner = "draw";
+
+        const isWin = predictedWinner === actualWinner;
+        resultsToInsert.push({
+          fixture_id: m.fixture_id, sport: m.sport,
+          home_team: m.home_team, away_team: m.away_team,
+          league_name: m.league_name, kickoff: m.kickoff,
+          predicted_winner: predictedWinner, predicted_confidence: m.pred_confidence,
+          pred_home_win: m.pred_home_win, pred_away_win: m.pred_away_win,
+          actual_home_score: m.home_score, actual_away_score: m.away_score,
           result: isWin ? "win" : "loss",
           resolved_at: new Date().toISOString(),
-        };
-      });
-
-      for (let i = 0; i < resultsToInsert.length; i += 50) {
-        const batch = resultsToInsert.slice(i, i + 50);
-        await supabase.from("match_results").upsert(batch, { onConflict: "fixture_id" });
+        });
       }
-      console.log(`[HISTORY] Archived ${resultsToInsert.length} finished matches`);
+
+      if (resultsToInsert.length > 0) {
+        for (let i = 0; i < resultsToInsert.length; i += 50) {
+          const batch = resultsToInsert.slice(i, i + 50);
+          await supabase.from("match_results").upsert(batch, { onConflict: "fixture_id" });
+        }
+        console.log(`[HISTORY] Archived ${resultsToInsert.length} matches with REAL scores`);
+      }
+
+      // Only purge matches that have been resolved (have real scores)
+      const resolvedFixtureIds = resultsToInsert.map(r => r.fixture_id);
+      if (resolvedFixtureIds.length > 0) {
+        await supabase.from("cached_matches").delete().in("fixture_id", resolvedFixtureIds);
+      }
     }
 
-    // ─── Purge old matches ───────────────────────────────────
-    await supabase.from("cached_matches").delete().lt("kickoff", new Date().toISOString());
+    // Purge very old cached matches (>48h) that couldn't get scores
+    const twoDaysAgo = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    await supabase.from("cached_matches").delete().lt("kickoff", twoDaysAgo);
 
     // ─── Upsert new matches ──────────────────────────────────
     if (rows.length > 0) {
