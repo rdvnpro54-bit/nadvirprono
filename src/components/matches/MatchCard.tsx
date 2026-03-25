@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useGlobalActivity } from "@/components/home/ActivityProvider";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites, useToggleFavorite } from "@/hooks/useFavorites";
 import { Button } from "@/components/ui/button";
 
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
@@ -80,14 +82,17 @@ function getPredictionText(match: CachedMatch): string {
   if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) {
     return "Match nul probable";
   }
-  // VALUE BET FIX: home > away → HOME wins, never inverted
   const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
   const shortName = winner.length > 20 ? winner.split(" ").slice(0, 2).join(" ") : winner;
   return `${shortName} gagne`;
 }
 
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
-  const [isFav, setIsFav] = useState(false);
+  const { user } = useAuth();
+  const { favorites } = useFavorites();
+  const toggleFavorite = useToggleFavorite();
+
+  const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   const fav = match.pred_home_win >= match.pred_away_win ? "home" : "away";
   const isLive = ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
@@ -97,7 +102,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const handleFav = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFav(!isFav);
+    toggleFavorite.mutate({ matchId: match.id, fixtureId: match.fixture_id });
   };
 
   return (
@@ -133,22 +138,23 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   <TrendingUp className="h-2.5 w-2.5" /> Value
                 </span>
               )}
-              {/* Show value bet badge even when locked to tease */}
               {match.pred_value_bet && locked && (
                 <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                   ⚡ Value
                 </span>
               )}
               {!locked && <ConfidenceBadge confidence={match.pred_confidence as any} />}
-              {!locked && (
-                <button onClick={handleFav} className="ml-0.5">
-                  <Star className={cn("h-4 w-4 transition-colors", isFav ? "fill-warning text-warning" : "text-muted-foreground/40 hover:text-warning")} />
-                </button>
-              )}
+              {/* Favorite button - requires auth */}
+              <button onClick={handleFav} className="ml-0.5" title={user ? "Ajouter aux favoris" : "Connecte-toi pour ajouter aux favoris"}>
+                <Star className={cn(
+                  "h-4 w-4 transition-colors",
+                  isFav ? "fill-warning text-warning" : "text-muted-foreground/40 hover:text-warning"
+                )} />
+              </button>
             </div>
           </div>
 
-          {/* Teams row - ALWAYS visible even when locked */}
+          {/* Teams row */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex-1">
               <TeamDisplay name={match.home_team} logo={bothLogos ? match.home_logo : null} isFav={!locked && fav === "home"} side="home" />
@@ -173,7 +179,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
           </div>
 
-          {/* ═══ AI PREDICTION — UNLOCKED ═══ */}
+          {/* AI PREDICTION — UNLOCKED */}
           {!locked && (
             <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
               <div className="flex items-center gap-2">
@@ -211,7 +217,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
           )}
 
-          {/* ═══ LOCKED PREDICTION — PREMIUM TEASE ═══ */}
+          {/* LOCKED PREDICTION — PREMIUM TEASE */}
           {locked && (
             <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
               <div className="flex items-center gap-2 mb-2">
@@ -220,7 +226,6 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   🔒 Prédiction IA verrouillée
                 </span>
               </div>
-              {/* Probability bar teaser */}
               <div className="flex h-1.5 overflow-hidden rounded-full bg-muted mb-2">
                 <div className="bg-primary/30 transition-all" style={{ width: `${match.pred_home_win}%` }} />
                 <div className="bg-muted-foreground/15 transition-all" style={{ width: `${match.pred_draw}%` }} />
