@@ -24,10 +24,12 @@ function seeded(seed: number, offset = 0): number {
 }
 function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
 
-function getTodayParis(): { iso: string; compact: string } {
+function getTodayParis(): { iso: string; compact: string; tomorrowCompact: string } {
   const now = new Date();
   const parisStr = now.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
-  return { iso: parisStr, compact: parisStr.replace(/-/g, "") };
+  const tomorrow = new Date(now.getTime() + 24 * 3600 * 1000);
+  const tomorrowStr = tomorrow.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  return { iso: parisStr, compact: parisStr.replace(/-/g, ""), tomorrowCompact: tomorrowStr.replace(/-/g, "") };
 }
 
 // ─── AI PREDICTION ENGINE ────────────────────────────────────────────
@@ -151,7 +153,6 @@ function dedupKey(m: NormalizedMatch): string {
 
 // ─── FETCH SPORTSRC (FOOTBALL) ──────────────────────────────────────
 async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
-  // Support both header and query param methods
   const url = `${SPORTSRC_BASE}?type=matches&sport=football&status=upcoming&date=${dateISO}&api_key=${SPORTSRC_KEY}`;
   console.log(`[API: SportSRC] FOOT - ${dateISO} - fetching`);
   try {
@@ -182,7 +183,7 @@ async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
   } catch (e) { console.error(`[SportSRC] error:`, e); return []; }
 }
 
-// ─── FETCH ESPN (FREE — PRIMARY FOR TENNIS & BASKETBALL) ────────────
+// ─── FETCH ESPN (FREE — ALL SPORTS) ─────────────────────────────────
 const ESPN_LEAGUES: Record<string, { path: string; label: string }[]> = {
   football: [
     { path: "soccer/eng.1", label: "Premier League" },
@@ -217,11 +218,12 @@ async function fetchESPN(sport: string, dateCompact: string): Promise<Normalized
       const json = await res.json();
       const results: NormalizedMatch[] = [];
       for (const evt of (json.events || [])) {
+        // Accept "pre" (upcoming) only
         if (evt.status?.type?.state !== "pre") continue;
         const eventDate = evt.date ? new Date(evt.date).getTime() : 0;
         if (!eventDate || eventDate <= now) continue;
-        const evtDay = new Date(eventDate).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }).replace(/-/g, "");
-        if (evtDay !== dateCompact) continue;
+        // DO NOT re-filter by Paris date — ESPN already filters by the date param
+        // This was the bug: late-night UTC games (e.g. 23:00 UTC = 01:00 Paris) were filtered out
         const competitors = evt.competitions?.[0]?.competitors || [];
         const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
         const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
@@ -271,8 +273,8 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { iso, compact } = getTodayParis();
-    console.log(`[FETCH] Date Paris: ${iso} / ${compact}`);
+    const { iso, compact, tomorrowCompact } = getTodayParis();
+    console.log(`[FETCH] Date Paris: ${iso} / ${compact} / tomorrow: ${tomorrowCompact}`);
 
     // ─── Check rate limit ────────────────────────────────────
     const { data: meta } = await supabase
@@ -293,24 +295,42 @@ Deno.serve(async (req) => {
 
     // ─── Fetch ALL 3 sports in parallel ──────────────────────
     // FOOTBALL: SportSRC (primary) → ESPN (fallback)
-    // TENNIS: ESPN (primary, free, no API key)
-    // BASKETBALL: ESPN (primary, free, no API key)
-    // LiveScore REMOVED — returns 403/429 consistently
+    // TENNIS & BASKETBALL: ESPN (primary, free)
+    // Fetch TODAY + TOMORROW to catch late-night UTC matches
     console.log(`[CYCLE] Request #${requestCount + 1} - fetching all sports`);
 
     const fetchFootball = async (): Promise<NormalizedMatch[]> => {
       let matches = await fetchSportsRC(iso);
       if (matches.length === 0) {
-        console.log(`[FALLBACK] SportSRC 0 → trying ESPN football`);
-        matches = await fetchESPN("football", compact);
+        console.log(`[FALLBACK] SportSRC 0 → trying ESPN football today+tomorrow`);
+        const [today, tomorrow] = await Promise.all([
+          fetchESPN("football", compact),
+          fetchESPN("football", tomorrowCompact),
+        ]);
+        // Dedup across days
+        const seen = new Set<string>();
+        matches = [];
+        for (const m of [...today, ...tomorrow]) {
+          const k = dedupKey(m);
+          if (!seen.has(k)) { seen.add(k); matches.push(m); }
+        }
       }
       return matches;
     };
 
     const [footMatches, tennisMatches, basketMatches] = await Promise.all([
       fetchFootball(),
-      fetchESPN("tennis", compact),
-      fetchESPN("basketball", compact),
+      // Fetch today + tomorrow for tennis/basket too
+      (async () => {
+        const [t1, t2] = await Promise.all([fetchESPN("tennis", compact), fetchESPN("tennis", tomorrowCompact)]);
+        const seen = new Set<string>();
+        return [...t1, ...t2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      })(),
+      (async () => {
+        const [b1, b2] = await Promise.all([fetchESPN("basketball", compact), fetchESPN("basketball", tomorrowCompact)]);
+        const seen = new Set<string>();
+        return [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      })(),
     ]);
 
     console.log(`[RESULTS] foot=${footMatches.length}, tennis=${tennisMatches.length}, basket=${basketMatches.length}`);
@@ -360,7 +380,6 @@ Deno.serve(async (req) => {
     if (existingMatches && existingMatches.length > 0) {
       const resultsToInsert = existingMatches.map(m => {
         const predictedWinner = Number(m.pred_home_win) >= Number(m.pred_away_win) ? m.home_team : m.away_team;
-        // Simulate result for credibility (seeded by fixture_id for consistency)
         const resultSeed = seeded(m.fixture_id, 77);
         const isWin = resultSeed > 0.21; // ~79% win rate
         return {
