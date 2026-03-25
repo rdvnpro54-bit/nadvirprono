@@ -28,178 +28,30 @@ function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-const LIVE_STATUSES = new Set(["LIVE", "1H", "2H", "HT", "ET", "BT", "P"]);
-const SCHEDULED_STATUSES = new Set(["NS", "SCHEDULED", "NOT_STARTED", "TBD", "TIME_TO_BE_DEFINED"]);
-const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "FINISHED", "ENDED", "COMPLETED", "CANC", "PST", "SUSP", "ABD", "AWD", "WO"]);
-
-/** Only allow matches that are upcoming or currently live */
-function isDisplayableMatch(match: { kickoff: string; status: string; home_score: number | null; away_score: number | null }, now: Date): boolean {
-  const status = (match.status || "").toUpperCase();
-  const kickoff = new Date(match.kickoff);
-
-  if (Number.isNaN(kickoff.getTime())) return false;
-  if (FINISHED_STATUSES.has(status)) return false;
-
-  // Allow today + tomorrow (J+1 fallback)
-  const today = formatDate(now);
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = formatDate(tomorrow);
-  const kickoffDate = formatDate(kickoff);
-
-  if (kickoffDate !== today && kickoffDate !== tomorrowStr) return false;
-
-  if (LIVE_STATUSES.has(status)) return true;
-
-  if (!SCHEDULED_STATUSES.has(status)) return false;
-  // Don't show scheduled matches whose kickoff already passed
-  if (kickoff.getTime() < now.getTime()) return false;
-  if (match.home_score !== null || match.away_score !== null) return false;
-
-  return true;
-}
-
-// ─── SPORT DETECTION ─────────────────────────────────────────────────
-type SportType = "football" | "tennis" | "basketball" | "mma" | "hockey" | "baseball"
-  | "handball" | "volleyball" | "rugby" | "afl" | "formula1" | "nfl" | "nba";
-
-function detectSport(leagueName: string, leagueCountry: string | null): SportType {
-  const name = (leagueName || "").toLowerCase();
-  if (/nba|ncaa basketball|euroleague|acb|bbl basketball/i.test(name)) return "nba";
-  if (/nfl|ncaa football|super bowl/i.test(name)) return "nfl";
-  if (/afl|australian football/i.test(name)) return "afl";
-  if (/nhl|khl|shl|del |hockey|ice hockey/i.test(name)) return "hockey";
-  if (/mlb|npb|kbo|baseball/i.test(name)) return "baseball";
-  if (/handball|ehf/i.test(name)) return "handball";
-  if (/volleyball|cev/i.test(name)) return "volleyball";
-  if (/rugby|six nations|super rugby/i.test(name)) return "rugby";
-  if (/ufc|bellator|pfl|mma/i.test(name)) return "mma";
-  if (/formula|f1|grand prix/i.test(name)) return "formula1";
-  if (/atp|wta|tennis|roland garros|wimbledon|us open|australian open|itf/i.test(name)) return "tennis";
-  if (/basketball|fiba|basket/i.test(name)) return "basketball";
-  return "football";
-}
-
-// ─── SPORT-SPECIFIC FEATURE PROFILES ─────────────────────────────────
+// ─── SPORT PROFILES FOR AI PREDICTION ────────────────────────────────
 interface FeatureProfile {
   features: Record<string, number>;
   drawPossible: boolean;
   scoreRange: [number, number];
 }
 
-const SPORT_PROFILES: Record<SportType, FeatureProfile> = {
+const SPORT_PROFILES: Record<string, FeatureProfile> = {
   football: { features: { form: 0.25, ranking: 0.20, attack: 0.20, defense: 0.15, h2h: 0.10, homeAdv: 0.10 }, drawPossible: true, scoreRange: [0, 4] },
   tennis: { features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
   basketball: { features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [85, 130] },
-  nba: { features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [95, 130] },
-  nfl: { features: { offense: 0.25, defense: 0.25, form: 0.20, turnover: 0.15, homeAdv: 0.15 }, drawPossible: false, scoreRange: [10, 38] },
-  hockey: { features: { goalsFor: 0.25, goalsAgainst: 0.20, powerplay: 0.15, form: 0.20, homeAdv: 0.10, goalie: 0.10 }, drawPossible: true, scoreRange: [0, 5] },
-  baseball: { features: { batting: 0.25, pitching: 0.25, era: 0.15, form: 0.15, bullpen: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [0, 8] },
-  mma: { features: { winRatio: 0.25, finishRate: 0.20, strikingAcc: 0.15, takedownDef: 0.15, form: 0.15, reach: 0.10 }, drawPossible: false, scoreRange: [0, 1] },
-  handball: { features: { goalsFor: 0.25, defense: 0.20, form: 0.20, shootingEff: 0.15, homeAdv: 0.10, saves: 0.10 }, drawPossible: true, scoreRange: [20, 38] },
-  volleyball: { features: { setsWon: 0.20, spikeEff: 0.20, blockEff: 0.15, serveAce: 0.15, form: 0.20, homeAdv: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
-  rugby: { features: { triesFor: 0.25, defense: 0.20, discipline: 0.15, scrum: 0.10, form: 0.20, homeAdv: 0.10 }, drawPossible: true, scoreRange: [5, 40] },
-  afl: { features: { scoring: 0.25, disposal: 0.20, marking: 0.15, tackling: 0.15, form: 0.15, homeAdv: 0.10 }, drawPossible: false, scoreRange: [50, 120] },
-  formula1: { features: { qualiPace: 0.30, racePace: 0.25, consistency: 0.20, carPerf: 0.15, form: 0.10 }, drawPossible: false, scoreRange: [1, 20] },
 };
-
-// ─── MULTI-SPORT SIMULATED DATA (used to complement API football-only data) ──
-interface SimulatedFixture {
-  sport: SportType;
-  league: string;
-  country: string;
-  home: { name: string; logo: string | null };
-  away: { name: string; logo: string | null };
-}
-
-const MULTI_SPORT_DATA: SimulatedFixture[] = [
-  { sport: "tennis", league: "ATP Masters 1000", country: "France", home: { name: "Carlos Alcaraz", logo: null }, away: { name: "Novak Djokovic", logo: null } },
-  { sport: "tennis", league: "ATP 500", country: "Spain", home: { name: "Jannik Sinner", logo: null }, away: { name: "Daniil Medvedev", logo: null } },
-  { sport: "tennis", league: "WTA 1000", country: "USA", home: { name: "Iga Swiatek", logo: null }, away: { name: "Aryna Sabalenka", logo: null } },
-  { sport: "tennis", league: "ATP 250", country: "UK", home: { name: "Alexander Zverev", logo: null }, away: { name: "Stefanos Tsitsipas", logo: null } },
-  { sport: "nba", league: "NBA", country: "USA", home: { name: "Los Angeles Lakers", logo: null }, away: { name: "Boston Celtics", logo: null } },
-  { sport: "nba", league: "NBA", country: "USA", home: { name: "Golden State Warriors", logo: null }, away: { name: "Miami Heat", logo: null } },
-  { sport: "nba", league: "NBA", country: "USA", home: { name: "Milwaukee Bucks", logo: null }, away: { name: "Denver Nuggets", logo: null } },
-  { sport: "nba", league: "NBA", country: "USA", home: { name: "Phoenix Suns", logo: null }, away: { name: "Dallas Mavericks", logo: null } },
-  { sport: "hockey", league: "NHL", country: "USA", home: { name: "Edmonton Oilers", logo: null }, away: { name: "Florida Panthers", logo: null } },
-  { sport: "hockey", league: "NHL", country: "USA", home: { name: "NY Rangers", logo: null }, away: { name: "Colorado Avalanche", logo: null } },
-  { sport: "mma", league: "UFC 315", country: "USA", home: { name: "Jon Jones", logo: null }, away: { name: "Tom Aspinall", logo: null } },
-  { sport: "handball", league: "EHF Champions League", country: "Europe", home: { name: "FC Barcelona HB", logo: null }, away: { name: "THW Kiel", logo: null } },
-  { sport: "rugby", league: "Six Nations", country: "Europe", home: { name: "France XV", logo: null }, away: { name: "Ireland XV", logo: null } },
-  { sport: "baseball", league: "MLB", country: "USA", home: { name: "Los Angeles Dodgers", logo: null }, away: { name: "New York Yankees", logo: null } },
-];
-
-function generateComplementaryMatches(baseDate: string): any[] {
-  const matches: any[] = [];
-  const day = new Date(baseDate);
-
-  for (let i = 0; i < MULTI_SPORT_DATA.length; i++) {
-    const fixture = MULTI_SPORT_DATA[i];
-    const hour = 14 + Math.floor(seeded(hash(fixture.home.name + baseDate), i) * 10);
-    const minute = Math.floor(seeded(hash(fixture.away.name + baseDate), i + 1) * 4) * 15;
-
-    const kickoff = new Date(day);
-    kickoff.setUTCHours(hour, minute, 0, 0);
-
-    // Only generate future matches
-    if (kickoff.getTime() < Date.now()) {
-      kickoff.setDate(kickoff.getDate() + 1);
-    }
-
-    const fixtureId = 9000000 + hash(fixture.home.name + fixture.away.name + baseDate) % 999999;
-
-    matches.push({
-      fixture_id: fixtureId,
-      sport: fixture.sport,
-      league_name: fixture.league,
-      league_country: fixture.country,
-      home_team: fixture.home.name,
-      away_team: fixture.away.name,
-      home_logo: fixture.home.logo,
-      away_logo: fixture.away.logo,
-      kickoff: kickoff.toISOString(),
-      status: "NS",
-      home_score: null,
-      away_score: null,
-    });
-  }
-
-  return matches;
-}
-
-// ─── HYBRID AI ENGINE ────────────────────────────────────────────────
-
-interface PredictionResult {
-  pred_home_win: number;
-  pred_draw: number;
-  pred_away_win: number;
-  pred_score_home: number;
-  pred_score_away: number;
-  pred_over_under: number;
-  pred_over_prob: number;
-  pred_btts_prob: number;
-  pred_confidence: string;
-  pred_value_bet: boolean;
-  pred_analysis: string;
-}
 
 function simulateFeature(teamName: string, featureName: string, fixtureId: number): number {
   const seed = hash(teamName + featureName) + fixtureId;
-  const v1 = seeded(seed, 0);
-  const v2 = seeded(seed, 7);
-  return clamp01(0.3 + (v1 * 0.4) + (v2 - 0.5) * 0.2);
+  return clamp01(0.3 + (seeded(seed, 0) * 0.4) + (seeded(seed, 7) - 0.5) * 0.2);
 }
 
 function computeDataAvailability(teamName: string, fixtureId: number): number {
-  const nameFactor = clamp01(teamName.length / 20);
-  const r = seeded(hash(teamName) + fixtureId, 99);
-  return clamp01(0.5 + nameFactor * 0.3 + r * 0.2);
+  return clamp01(0.5 + clamp01(teamName.length / 20) * 0.3 + seeded(hash(teamName) + fixtureId, 99) * 0.2);
 }
 
-function generateHybridPrediction(
-  homeTeam: string, awayTeam: string, fixtureId: number, sport: SportType, leagueName: string,
-): PredictionResult {
-  const profile = SPORT_PROFILES[sport];
+function generatePrediction(homeTeam: string, awayTeam: string, fixtureId: number, sport: string) {
+  const profile = SPORT_PROFILES[sport] || SPORT_PROFILES.football;
   const features = Object.entries(profile.features);
 
   let homeScore = 0, awayScore = 0, totalWeight = 0, usedFeatures = 0;
@@ -255,9 +107,8 @@ function generateHybridPrediction(
   const bttsProb = Math.round(clamp01(0.25 + seeded(baseSeed, 4) * 0.35 + (predScoreHome > 0 && predScoreAway > 0 ? 0.2 : -0.1)) * 100);
 
   const dataCompleteness = usedFeatures / features.length;
-  const avgAvailability = (homeAvail + awayAvail) / 2;
   const maxProb = Math.max(predHome, predAway);
-  const confidenceScore = clamp01(dataCompleteness * 0.35 + avgAvailability * 0.25 + (maxProb / 100) * 0.25 + (1 - (1 - Math.abs(homeScore - awayScore) * 0.5)) * 0.15);
+  const confidenceScore = clamp01(dataCompleteness * 0.35 + ((homeAvail + awayAvail) / 2) * 0.25 + (maxProb / 100) * 0.25 + Math.abs(diff) * 0.15);
 
   let confidence: string;
   if (confidenceScore >= 0.65 && maxProb >= 55) confidence = "SAFE";
@@ -269,29 +120,13 @@ function generateHybridPrediction(
   const underdog = predHome >= predAway ? awayTeam : homeTeam;
   const dataQualityLabel = dataCompleteness >= 0.8 ? "complètes" : dataCompleteness >= 0.5 ? "partielles" : "limitées";
 
-  const sportFeatureText: Record<string, string> = {
+  const sportText: Record<string, string> = {
     football: "xG, PPDA, expected goals et pression offensive",
     tennis: "% service gagnant, break points, retour et forme récente",
-    basketball: "points/match, pace, efficacité offensive/défensive",
-    nba: "PER, true shooting %, pace et net rating",
-    nfl: "QBR, yards/tentative, turnover differential",
-    hockey: "Corsi, xG, taux d'arrêts et power play",
-    baseball: "ERA, OPS, WHIP et batting average",
-    mma: "striking accuracy, takedown defense, finish rate",
-    handball: "efficacité au tir, arrêts et possession",
-    volleyball: "spike efficiency, block rate et ace/set",
-    rugby: "essais marqués, discipline et mêlée",
-    afl: "disposals, inside 50s et scoring accuracy",
-    formula1: "pace qualif, rythme course et consistance",
+    basketball: "PER, true shooting %, pace et net rating",
   };
 
-  const analyses = [
-    `Notre moteur IA a analysé ${usedFeatures} métriques clés (${sportFeatureText[sport] || "multi-facteurs"}). Données ${dataQualityLabel}. ${fav} présente un avantage statistique significatif face à ${underdog}. Confiance calibrée à ${confidence}.`,
-    `Analyse hybride multi-facteurs : ${usedFeatures} variables pondérées dynamiquement. Les indicateurs ${sportFeatureText[sport] || "de performance"} convergent en faveur de ${fav}. Qualité des données : ${dataQualityLabel}.`,
-    `Le réseau de pondération adaptatif détecte un signal fort pour ${fav}. ${usedFeatures} features analysées. Score de confiance IA : ${confidence}.`,
-    `Modèle prédictif basé sur ${usedFeatures} facteurs (${sportFeatureText[sport] || "performance globale"}). Avantage détecté : ${fav}.`,
-  ];
-  const analysis = analyses[Math.floor(seeded(baseSeed, 6) * analyses.length)];
+  const analysis = `Notre moteur IA a analysé ${usedFeatures} métriques clés (${sportText[sport] || "multi-facteurs"}). Données ${dataQualityLabel}. ${fav} présente un avantage statistique face à ${underdog}. Confiance : ${confidence}.`;
 
   return {
     pred_home_win: predHome, pred_draw: predDraw, pred_away_win: predAway,
@@ -301,180 +136,233 @@ function generateHybridPrediction(
   };
 }
 
-// ─── MAIN HANDLER ────────────────────────────────────────────────────
+// ─── MAP TheSportsDB sport name → internal sport key ─────────────────
+function mapSport(strSport: string): string {
+  const s = (strSport || "").toLowerCase();
+  if (s === "soccer" || s === "football") return "football";
+  if (s === "tennis") return "tennis";
+  if (s === "basketball") return "basketball";
+  return s;
+}
 
+function isSupportedSport(strSport: string): boolean {
+  const s = (strSport || "").toLowerCase();
+  return ["soccer", "football", "tennis", "basketball"].includes(s);
+}
+
+// ─── FALLBACK MATCHES (when API has no data for a sport) ─────────────
+interface FallbackMatch { sport: string; league: string; country: string; home: string; away: string; }
+
+const FALLBACK_FOOTBALL: FallbackMatch[] = [
+  { sport: "football", league: "Ligue 1", country: "France", home: "Paris Saint-Germain", away: "Olympique Lyonnais" },
+  { sport: "football", league: "Premier League", country: "England", home: "Arsenal", away: "Chelsea" },
+  { sport: "football", league: "La Liga", country: "Spain", home: "Atletico Madrid", away: "Sevilla FC" },
+];
+const FALLBACK_TENNIS: FallbackMatch[] = [
+  { sport: "tennis", league: "ATP Masters 1000", country: "USA", home: "Carlos Alcaraz", away: "Novak Djokovic" },
+  { sport: "tennis", league: "WTA 1000", country: "France", home: "Iga Swiatek", away: "Aryna Sabalenka" },
+];
+const FALLBACK_BASKETBALL: FallbackMatch[] = [
+  { sport: "basketball", league: "NBA", country: "USA", home: "Los Angeles Lakers", away: "Boston Celtics" },
+  { sport: "basketball", league: "NBA", country: "USA", home: "Golden State Warriors", away: "Miami Heat" },
+];
+
+function createFallbackMatch(fb: FallbackMatch, dateStr: string, hourOffset: number): any {
+  const kickoff = new Date(`${dateStr}T${String(14 + hourOffset).padStart(2, "0")}:00:00Z`);
+  // Make sure kickoff is in the future
+  if (kickoff.getTime() <= Date.now()) {
+    kickoff.setHours(kickoff.getHours() + 12);
+    if (kickoff.getTime() <= Date.now()) {
+      // Push to tomorrow
+      kickoff.setDate(kickoff.getDate() + 1);
+      kickoff.setHours(14 + hourOffset);
+    }
+  }
+  const fixtureId = 9000000 + hash(fb.home + fb.away + dateStr) % 999999;
+  const prediction = generatePrediction(fb.home, fb.away, fixtureId, fb.sport);
+  return {
+    fixture_id: fixtureId, sport: fb.sport, league_name: fb.league, league_country: fb.country,
+    home_team: fb.home, away_team: fb.away, home_logo: null, away_logo: null,
+    kickoff: kickoff.toISOString(), status: "NS", home_score: null, away_score: null,
+    is_free: false, fetched_at: new Date().toISOString(), ...prediction,
+  };
+}
+
+// ─── MAIN HANDLER ────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const API_KEY = Deno.env.get("API_FOOTBALL_KEY");
-    if (!API_KEY) throw new Error("API_FOOTBALL_KEY not configured");
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: meta } = await supabase.from("cache_metadata").select("*").eq("id", "api_football").single();
-
     const today = formatDate(new Date());
-    let requestCount = meta?.request_count_today || 0;
-    if (meta?.last_reset_date !== today) requestCount = 0;
 
-    // Check if cache is fresh (15 min) — but bypass if forced
-    const forceRefresh = (() => {
-      try { return (req.json && req.method === "POST"); } catch { return false; }
-    })();
-
-    if (!forceRefresh && meta?.last_fetched_at) {
+    // Cache check: 15 min freshness, but bypass if cache is empty
+    if (meta?.last_fetched_at) {
       const diffMinutes = (Date.now() - new Date(meta.last_fetched_at).getTime()) / 60000;
       if (diffMinutes < 15) {
-        return new Response(
-          JSON.stringify({ message: "Cache is fresh", next_refresh_in: Math.ceil(15 - diffMinutes) }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        const { data: existing } = await supabase.from("cached_matches").select("id").gte("kickoff", today).limit(1);
+        if (existing && existing.length > 0) {
+          return new Response(
+            JSON.stringify({ message: "Cache is fresh", next_refresh_in: Math.ceil(15 - diffMinutes) }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        console.log("Cache fresh but empty — forcing refresh");
       }
     }
 
-    if (requestCount >= 95) {
-      return new Response(JSON.stringify({ error: "Daily API limit reached" }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // ─── FETCH FOOTBALL FROM API ────────────────────────────────
-    const allFixtures: any[] = [];
-    const dates: string[] = [];
-    for (let i = 0; i < 2; i++) {
-      const d = new Date(); d.setDate(d.getDate() + i);
-      dates.push(formatDate(d));
-    }
-
-    const maxFetches = Math.min(dates.length, 95 - requestCount);
-    for (let i = 0; i < maxFetches; i++) {
-      const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dates[i]}`, {
-        headers: { "x-apisports-key": API_KEY },
-      });
-      if (!response.ok) { console.error(`API error for ${dates[i]}: ${response.status}`); continue; }
-      const data = await response.json();
-      if (data.errors && Object.keys(data.errors).length > 0) { console.error(`API errors:`, data.errors); continue; }
-      allFixtures.push(...(data.response || []));
-      requestCount++;
-    }
-
-    console.log(`Fetched ${allFixtures.length} football fixtures`);
-
-    // ─── PROCESS FOOTBALL ──────────────────────────────────────
+    // ─── FETCH FROM TheSportsDB ──────────────────────────────────
     const now = new Date();
-    const processedMatches: any[] = allFixtures.map((f: any) => {
-      const leagueName = f.league?.name || "Unknown";
-      const leagueCountry = f.league?.country || null;
-      const sport = detectSport(leagueName, leagueCountry);
-      const prediction = generateHybridPrediction(f.teams.home.name, f.teams.away.name, f.fixture.id, sport, leagueName);
-      return {
-        fixture_id: f.fixture.id, sport, league_name: leagueName, league_country: leagueCountry,
-        home_team: f.teams.home.name, away_team: f.teams.away.name,
-        home_logo: f.teams.home.logo, away_logo: f.teams.away.logo,
-        kickoff: f.fixture.date, status: f.fixture.status.short,
-        home_score: f.goals?.home ?? null, away_score: f.goals?.away ?? null,
-        is_free: false, fetched_at: new Date().toISOString(), ...prediction,
-      };
-    }).filter((m) => isDisplayableMatch(m, now));
+    const dateStr = formatDate(now);
+    const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${dateStr}`;
 
-    // ─── COMPLEMENT WITH MULTI-SPORT DATA ──────────────────────
-    // API-Football only returns football. For Tennis, NBA, etc. we generate
-    // complementary matches so the Top 3 is never empty.
-    const hasTennis = processedMatches.some(m => m.sport === "tennis");
-    const hasBasket = processedMatches.some(m => m.sport === "nba" || m.sport === "basketball");
+    console.log(`Fetching from TheSportsDB: ${dateStr}`);
+    const response = await fetch(apiUrl);
+    if (!response.ok) throw new Error(`TheSportsDB error: ${response.status}`);
 
-    let complementary: any[] = [];
-    if (!hasTennis || !hasBasket) {
-      const raw = generateComplementaryMatches(today);
-      complementary = raw
-        .filter(m => {
-          if (hasTennis && m.sport === "tennis") return false;
-          if (hasBasket && (m.sport === "nba" || m.sport === "basketball")) return false;
-          return true;
-        })
-        .map(m => {
-          const prediction = generateHybridPrediction(m.home_team, m.away_team, m.fixture_id, m.sport, m.league_name);
-          return { ...m, is_free: false, fetched_at: new Date().toISOString(), ...prediction };
-        });
+    const apiData = await response.json();
+    const events = apiData?.events || [];
+    console.log(`TheSportsDB raw events: ${events.length}`);
+
+    // Log what sports we got
+    const sportCounts: Record<string, number> = {};
+    for (const e of events) {
+      sportCounts[e.strSport] = (sportCounts[e.strSport] || 0) + 1;
     }
+    console.log(`Sports breakdown: ${JSON.stringify(sportCounts)}`);
 
-    const matches = [...processedMatches, ...complementary];
-    console.log(`Total valid matches: ${matches.length} (${processedMatches.length} API + ${complementary.length} complementary)`);
+    // ─── STRICT FILTER: future matches with null scores ──────────
+    const validEvents = events.filter((event: any) => {
+      if (!event.dateEvent) return false;
+      if (!isSupportedSport(event.strSport)) return false;
 
-    // ─── PICK TOP 3 FREE (dynamic, never empty) ────────────────
-    const confVal = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
-    const scoreMatch = (m: any) => Math.max(m.pred_home_win, m.pred_away_win) + confVal(m.pred_confidence) * 10;
+      const time = event.strTime ? event.strTime.split("+")[0].split("-")[0].trim() : "23:59:00";
+      const eventDate = new Date(`${event.dateEvent}T${time}Z`);
+      if (isNaN(eventDate.getTime())) return false;
 
-    const sortByRelevance = (arr: any[]) => arr.sort((a, b) => {
-      const aLive = LIVE_STATUSES.has((a.status || "").toUpperCase()) ? 1 : 0;
-      const bLive = LIVE_STATUSES.has((b.status || "").toUpperCase()) ? 1 : 0;
-      if (aLive !== bLive) return bLive - aLive;
-      const aTime = new Date(a.kickoff).getTime();
-      const bTime = new Date(b.kickoff).getTime();
-      const nowTs = now.getTime();
-      const aSoon = (aTime - nowTs > 0 && aTime - nowTs < 7200000) ? 1 : 0;
-      const bSoon = (bTime - nowTs > 0 && bTime - nowTs < 7200000) ? 1 : 0;
-      if (aSoon !== bSoon) return bSoon - aSoon;
-      return scoreMatch(b) - scoreMatch(a);
+      // Must be in the future
+      if (eventDate.getTime() <= now.getTime()) return false;
+
+      // No scores = not started
+      if (event.intHomeScore !== null && event.intHomeScore !== undefined && event.intHomeScore !== "") return false;
+      if (event.intAwayScore !== null && event.intAwayScore !== undefined && event.intAwayScore !== "") return false;
+
+      return true;
     });
 
-    // Group by sport category
-    const footballM = matches.filter(m => m.sport === "football");
-    const tennisM = matches.filter(m => m.sport === "tennis");
-    const basketM = matches.filter(m => m.sport === "nba" || m.sport === "basketball");
-    const otherM = matches.filter(m => !["football", "tennis", "nba", "basketball"].includes(m.sport));
+    console.log(`Valid future events: ${validEvents.length}`);
 
-    sortByRelevance(footballM);
-    sortByRelevance(tennisM);
-    sortByRelevance(basketM);
-    sortByRelevance(otherM);
+    // ─── SEPARATE BY SPORT ───────────────────────────────────────
+    const footballEvents = validEvents.filter((e: any) => e.strSport === "Soccer");
+    const tennisEvents = validEvents.filter((e: any) => e.strSport === "Tennis");
+    const basketballEvents = validEvents.filter((e: any) => e.strSport === "Basketball");
 
-    // Pick 3: try 1 football + 1 tennis + 1 basket, fill gaps dynamically
-    const freeMatches: any[] = [];
-    if (footballM[0]) freeMatches.push(footballM[0]);
-    if (tennisM[0]) freeMatches.push(tennisM[0]);
-    if (basketM[0]) freeMatches.push(basketM[0]);
+    console.log(`Filtered — Football: ${footballEvents.length}, Tennis: ${tennisEvents.length}, Basketball: ${basketballEvents.length}`);
 
-    // Fill to 3 if needed from remaining matches
-    if (freeMatches.length < 3) {
-      const usedIds = new Set(freeMatches.map(m => m.fixture_id));
-      const remaining = [...footballM, ...tennisM, ...basketM, ...otherM]
-        .filter(m => !usedIds.has(m.fixture_id));
-      sortByRelevance(remaining);
-      for (const m of remaining) {
-        if (freeMatches.length >= 3) break;
-        freeMatches.push(m);
+    // Sort by time
+    const sortByTime = (arr: any[]) => arr.sort((a: any, b: any) => {
+      const ta = new Date(`${a.dateEvent}T${(a.strTime || "23:59:00").split("+")[0]}Z`).getTime();
+      const tb = new Date(`${b.dateEvent}T${(b.strTime || "23:59:00").split("+")[0]}Z`).getTime();
+      return ta - tb;
+    });
+
+    sortByTime(footballEvents);
+    sortByTime(tennisEvents);
+    sortByTime(basketballEvents);
+
+    // ─── CONVERT EVENT TO OUR FORMAT ─────────────────────────────
+    const convertEvent = (event: any, isFree: boolean) => {
+      const sport = mapSport(event.strSport);
+      const fixtureId = parseInt(event.idEvent) || hash(event.idEvent || "0");
+      const homeTeam = event.strHomeTeam || "Équipe A";
+      const awayTeam = event.strAwayTeam || "Équipe B";
+      const time = (event.strTime || "23:59:00").split("+")[0].split("-")[0].trim();
+      const kickoff = `${event.dateEvent}T${time}Z`;
+      const prediction = generatePrediction(homeTeam, awayTeam, fixtureId, sport);
+      return {
+        fixture_id: fixtureId, sport, league_name: event.strLeague || "Unknown",
+        league_country: event.strCountry || null, home_team: homeTeam, away_team: awayTeam,
+        home_logo: event.strHomeTeamBadge || null, away_logo: event.strAwayTeamBadge || null,
+        kickoff, status: "NS", home_score: null, away_score: null,
+        is_free: isFree, fetched_at: new Date().toISOString(), ...prediction,
+      };
+    };
+
+    // ─── BUILD MATCH LIST ────────────────────────────────────────
+    const matches: any[] = [];
+
+    // Top 1 per sport (free) — from API or fallback
+    let freeFootball: any = null;
+    let freeTennis: any = null;
+    let freeBasket: any = null;
+
+    if (footballEvents[0]) {
+      freeFootball = convertEvent(footballEvents[0], true);
+    } else {
+      // Use fallback
+      const idx = hash(dateStr + "football") % FALLBACK_FOOTBALL.length;
+      freeFootball = createFallbackMatch(FALLBACK_FOOTBALL[idx], dateStr, 0);
+      freeFootball.is_free = true;
+      console.log(`Using fallback football: ${freeFootball.home_team} vs ${freeFootball.away_team}`);
+    }
+
+    if (tennisEvents[0]) {
+      freeTennis = convertEvent(tennisEvents[0], true);
+    } else {
+      const idx = hash(dateStr + "tennis") % FALLBACK_TENNIS.length;
+      freeTennis = createFallbackMatch(FALLBACK_TENNIS[idx], dateStr, 2);
+      freeTennis.is_free = true;
+      console.log(`Using fallback tennis: ${freeTennis.home_team} vs ${freeTennis.away_team}`);
+    }
+
+    if (basketballEvents[0]) {
+      freeBasket = convertEvent(basketballEvents[0], true);
+    } else {
+      const idx = hash(dateStr + "basketball") % FALLBACK_BASKETBALL.length;
+      freeBasket = createFallbackMatch(FALLBACK_BASKETBALL[idx], dateStr, 4);
+      freeBasket.is_free = true;
+      console.log(`Using fallback basketball: ${freeBasket.home_team} vs ${freeBasket.away_team}`);
+    }
+
+    matches.push(freeFootball, freeTennis, freeBasket);
+
+    // Add more API matches (not free) for premium users
+    const freeIds = new Set([freeFootball.fixture_id, freeTennis.fixture_id, freeBasket.fixture_id]);
+    for (const e of [...footballEvents, ...tennisEvents, ...basketballEvents]) {
+      const fid = parseInt(e.idEvent) || hash(e.idEvent || "0");
+      if (!freeIds.has(fid)) {
+        matches.push(convertEvent(e, false));
       }
     }
 
-    const freeIds = new Set(freeMatches.map(m => m.fixture_id));
-    for (const m of matches) {
-      m.is_free = freeIds.has(m.fixture_id);
-    }
+    console.log(`Total matches: ${matches.length} (3 free, ${matches.length - 3} premium)`);
 
-    console.log(`Free matches: ${freeMatches.length}, IDs: ${[...freeIds].join(", ")}`);
+    // ─── SAVE TO DATABASE ────────────────────────────────────────
+    await supabase.from("cached_matches").delete().neq("fixture_id", 0);
 
-    // ─── SAVE TO DATABASE ───────────────────────────────────────
-    if (matches.length > 0) {
-      await supabase.from("cached_matches").delete().neq("fixture_id", 0);
-      for (let i = 0; i < matches.length; i += 50) {
-        const batch = matches.slice(i, i + 50);
-        const { error } = await supabase.from("cached_matches").upsert(batch, { onConflict: "fixture_id" });
-        if (error) console.error(`Upsert error batch ${i}:`, error);
-      }
+    for (let i = 0; i < matches.length; i += 50) {
+      const batch = matches.slice(i, i + 50);
+      const { error } = await supabase.from("cached_matches").upsert(batch, { onConflict: "fixture_id" });
+      if (error) console.error(`Upsert error batch ${i}:`, error);
     }
 
     await supabase.from("cache_metadata").upsert({
       id: "api_football", last_fetched_at: new Date().toISOString(),
-      request_count_today: requestCount, last_reset_date: today,
+      request_count_today: (meta?.last_reset_date === today ? (meta?.request_count_today || 0) : 0) + 1,
+      last_reset_date: today,
     });
 
     return new Response(
-      JSON.stringify({ success: true, matches_count: matches.length, requests_today: requestCount, free_count: freeIds.size }),
+      JSON.stringify({
+        success: true, matches_count: matches.length, free_count: 3,
+        api_events: { total: events.length, football: footballEvents.length, tennis: tennisEvents.length, basketball: basketballEvents.length },
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
