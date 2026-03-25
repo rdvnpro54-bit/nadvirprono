@@ -105,11 +105,6 @@ export default function Resultats() {
   const grouped = useMemo(() => groupByDay(displayResults), [displayResults]);
   const resolvedResults = useMemo(() => results?.filter(r => r.result === "win" || r.result === "loss") || [], [results]);
   const recentPending = useMemo(() => results ? getRecentPending(results) : [], [results]);
-  const hiddenCount = useMemo(() => {
-    if (!results) return 0;
-    const resolved = results.filter(r => r.result === "win" || r.result === "loss");
-    return resolved.length - resolved.filter(isEliteOrStrong).length;
-  }, [results]);
 
   if (!hasAccess) {
     return (
