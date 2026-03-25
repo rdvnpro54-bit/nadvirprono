@@ -10,10 +10,10 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
   Shield, Users, Crown, BarChart3, Activity,
-  AlertCircle, CheckCircle, XCircle, Clock,
-  Loader2, RefreshCw, Search
+  AlertCircle, CheckCircle, XCircle,
+  Loader2, RefreshCw, Search, Radio
 } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 interface DashboardStats {
   totalUsers: number;
@@ -33,6 +33,12 @@ interface UserEntry {
   expires_at: string | null;
 }
 
+interface PresenceUser {
+  email: string;
+  page: string;
+  joined_at: string;
+}
+
 const ADMIN_EMAIL = "rdvnpro54@gmail.com";
 
 export default function Admin() {
@@ -45,6 +51,7 @@ export default function Admin() {
   const [premiumDuration, setPremiumDuration] = useState<"weekly" | "monthly">("weekly");
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     if (!session) return null;
@@ -105,6 +112,33 @@ export default function Admin() {
     return () => { supabase.removeChannel(channel); };
   }, [session, user, fetchUsers, fetchDashboard]);
 
+  // Real-time presence tracking
+  useEffect(() => {
+    if (!session || user?.email !== ADMIN_EMAIL) return;
+
+    const presenceChannel = supabase.channel("admin-presence-viewer");
+
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        const allUsers: PresenceUser[] = [];
+        for (const key of Object.keys(state)) {
+          const presences = state[key] as any[];
+          for (const p of presences) {
+            allUsers.push({
+              email: p.email || "Anonyme",
+              page: p.page || "/",
+              joined_at: p.joined_at || new Date().toISOString(),
+            });
+          }
+        }
+        setOnlineUsers(allUsers);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(presenceChannel); };
+  }, [session, user]);
+
   const handleActivatePremium = async () => {
     if (!premiumEmail.trim()) return toast.error("Email requis");
     setActionLoading(true);
@@ -137,6 +171,19 @@ export default function Admin() {
     }
   };
 
+  const handleForceRefresh = async () => {
+    setActionLoading(true);
+    try {
+      await adminCall("force-refresh");
+      toast.success("🔄 Matchs rafraîchis avec succès");
+      fetchDashboard();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur rafraîchissement");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -156,12 +203,8 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Navbar />
-      <div className="container pt-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
+      <div className="container pt-20 px-3 sm:px-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <Shield className="h-6 w-6 text-primary" />
             <h1 className="font-display text-2xl font-bold">Admin Panel</h1>
@@ -170,11 +213,12 @@ export default function Admin() {
         </motion.div>
 
         <Tabs defaultValue="dashboard" className="space-y-4">
-          <TabsList className="grid w-full max-w-lg grid-cols-4">
-            <TabsTrigger value="dashboard" className="gap-1 text-xs"><BarChart3 className="h-3 w-3" /> Dashboard</TabsTrigger>
-            <TabsTrigger value="users" className="gap-1 text-xs"><Users className="h-3 w-3" /> Utilisateurs</TabsTrigger>
-            <TabsTrigger value="premium" className="gap-1 text-xs"><Crown className="h-3 w-3" /> Premium</TabsTrigger>
-            <TabsTrigger value="logs" className="gap-1 text-xs"><Activity className="h-3 w-3" /> Logs</TabsTrigger>
+          <TabsList className="grid w-full max-w-xl grid-cols-5">
+            <TabsTrigger value="dashboard" className="gap-1 text-[10px] sm:text-xs"><BarChart3 className="h-3 w-3" /> Stats</TabsTrigger>
+            <TabsTrigger value="live" className="gap-1 text-[10px] sm:text-xs"><Radio className="h-3 w-3" /> Live</TabsTrigger>
+            <TabsTrigger value="users" className="gap-1 text-[10px] sm:text-xs"><Users className="h-3 w-3" /> Users</TabsTrigger>
+            <TabsTrigger value="premium" className="gap-1 text-[10px] sm:text-xs"><Crown className="h-3 w-3" /> Premium</TabsTrigger>
+            <TabsTrigger value="logs" className="gap-1 text-[10px] sm:text-xs"><Activity className="h-3 w-3" /> Logs</TabsTrigger>
           </TabsList>
 
           {/* ─── DASHBOARD ─────────────────────────── */}
@@ -206,16 +250,16 @@ export default function Admin() {
                     ) : (
                       <XCircle className="h-4 w-4 text-red-400" />
                     )}
-                    <span className="text-muted-foreground">
+                    <span className="text-muted-foreground text-xs">
                       Dernier fetch: {stats.apiStatus.lastFetch
                         ? new Date(stats.apiStatus.lastFetch).toLocaleString("fr-FR")
                         : "Jamais"}
                     </span>
                   </div>
-                  <div className="text-muted-foreground">
-                    Requêtes aujourd'hui: <span className="font-semibold text-foreground">{stats.apiStatus.requestsToday}/95</span>
+                  <div className="text-muted-foreground text-xs">
+                    Requêtes: <span className="font-semibold text-foreground">{stats.apiStatus.requestsToday}/960</span>
                   </div>
-                  <div className="text-muted-foreground">
+                  <div className="text-muted-foreground text-xs">
                     Reset: {stats.apiStatus.lastResetDate}
                   </div>
                 </div>
@@ -226,7 +270,63 @@ export default function Admin() {
               <Button variant="outline" size="sm" onClick={() => { fetchDashboard(); fetchUsers(); }} className="gap-1">
                 <RefreshCw className="h-3 w-3" /> Rafraîchir
               </Button>
+              <Button size="sm" onClick={handleForceRefresh} disabled={actionLoading} className="gap-1">
+                {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                🔄 Rafraîchir les matchs
+              </Button>
             </div>
+          </TabsContent>
+
+          {/* ─── LIVE USERS ────────────────────────── */}
+          <TabsContent value="live">
+            <Card className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display font-semibold flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success/60" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-success" />
+                  </span>
+                  Utilisateurs en ligne
+                </h3>
+                <span className="rounded-full bg-success/15 px-3 py-1 text-sm font-bold text-success">
+                  {onlineUsers.length}
+                </span>
+              </div>
+
+              {onlineUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Aucun utilisateur connecté en temps réel</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                    Les utilisateurs apparaîtront ici lorsqu'ils navigueront sur le site
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {onlineUsers.map((u, i) => (
+                    <motion.div
+                      key={`${u.email}-${i}`}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center justify-between rounded-lg bg-muted/30 p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success/40" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
+                        </span>
+                        <span className="text-sm font-medium">{u.email}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="rounded bg-muted px-1.5 py-0.5">{u.page}</span>
+                        <span>{new Date(u.joined_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </Card>
           </TabsContent>
 
           {/* ─── USERS ─────────────────────────────── */}
@@ -267,7 +367,7 @@ export default function Admin() {
                         transition={{ delay: i * 0.02 }}
                         className="border-b border-border/20 hover:bg-muted/30 transition-colors"
                       >
-                        <td className="py-2.5 pr-4 font-medium">{u.email}</td>
+                        <td className="py-2.5 pr-4 font-medium text-xs">{u.email}</td>
                         <td className="py-2.5 pr-4">
                           {u.is_premium ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[11px] font-semibold text-yellow-400">
@@ -277,11 +377,11 @@ export default function Admin() {
                             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Free</span>
                           )}
                         </td>
-                        <td className="py-2.5 pr-4 text-muted-foreground">{u.plan}</td>
-                        <td className="py-2.5 pr-4 text-muted-foreground">
+                        <td className="py-2.5 pr-4 text-muted-foreground text-xs">{u.plan}</td>
+                        <td className="py-2.5 pr-4 text-muted-foreground text-xs">
                           {u.expires_at ? new Date(u.expires_at).toLocaleDateString("fr-FR") : "—"}
                         </td>
-                        <td className="py-2.5 text-muted-foreground">
+                        <td className="py-2.5 text-muted-foreground text-xs">
                           {new Date(u.created_at).toLocaleDateString("fr-FR")}
                         </td>
                       </motion.tr>
@@ -298,53 +398,24 @@ export default function Admin() {
               <h3 className="font-display font-semibold mb-4 flex items-center gap-2">
                 <Crown className="h-5 w-5 text-yellow-400" /> Gestion Premium
               </h3>
-
               <div className="space-y-4">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Email utilisateur</label>
-                  <Input
-                    type="email"
-                    placeholder="user@example.com"
-                    value={premiumEmail}
-                    onChange={(e) => setPremiumEmail(e.target.value)}
-                  />
+                  <Input type="email" placeholder="user@example.com" value={premiumEmail} onChange={(e) => setPremiumEmail(e.target.value)} />
                 </div>
-
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Durée</label>
                   <div className="flex gap-2">
-                    <Button
-                      variant={premiumDuration === "weekly" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setPremiumDuration("weekly")}
-                    >
-                      7 jours
-                    </Button>
-                    <Button
-                      variant={premiumDuration === "monthly" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setPremiumDuration("monthly")}
-                    >
-                      30 jours
-                    </Button>
+                    <Button variant={premiumDuration === "weekly" ? "default" : "outline"} size="sm" onClick={() => setPremiumDuration("weekly")}>7 jours</Button>
+                    <Button variant={premiumDuration === "monthly" ? "default" : "outline"} size="sm" onClick={() => setPremiumDuration("monthly")}>30 jours</Button>
                   </div>
                 </div>
-
                 <div className="flex gap-2 pt-2">
-                  <Button
-                    onClick={handleActivatePremium}
-                    disabled={actionLoading || !premiumEmail.trim()}
-                    className="gap-1"
-                  >
+                  <Button onClick={handleActivatePremium} disabled={actionLoading || !premiumEmail.trim()} className="gap-1">
                     {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                     Activer Premium
                   </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleDeactivatePremium}
-                    disabled={actionLoading || !premiumEmail.trim()}
-                    className="gap-1"
-                  >
+                  <Button variant="destructive" onClick={handleDeactivatePremium} disabled={actionLoading || !premiumEmail.trim()} className="gap-1">
                     {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
                     Retirer Premium
                   </Button>
