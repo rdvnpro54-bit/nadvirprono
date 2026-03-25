@@ -53,18 +53,17 @@ export function Navbar() {
           <div className="hidden items-center gap-2 md:flex">
             {user ? (
               <>
-                {isPremium && (
+                {isAdmin ? (
+                  <Link to="/admin">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary cursor-pointer">
+                      <Shield className="h-3 w-3" /> ADMIN
+                    </span>
+                  </Link>
+                ) : isPremium ? (
                   <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
                     PREMIUM
                   </span>
-                )}
-                {user.email === "rdvnpro54@gmail.com" && (
-                  <Link to="/admin">
-                    <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-primary">
-                      <Shield className="h-3.5 w-3.5" /> Admin
-                    </Button>
-                  </Link>
-                )}
+                ) : null}
                 <Link to="/compte">
                   <Button variant="ghost" size="sm" className="text-xs gap-1.5">
                     <User className="h-3.5 w-3.5" /> Compte
