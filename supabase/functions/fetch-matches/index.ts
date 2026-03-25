@@ -510,8 +510,9 @@ Deno.serve(async (req) => {
 
     console.log(`Fetched ${allFixtures.length} football fixtures`);
 
-    // ─── PROCESS FOOTBALL FIXTURES ──────────────────────────────
-    const matches: any[] = allFixtures.map((f: any) => {
+    // ─── PROCESS + STRICT BACKEND FILTER ───────────────────────
+    const now = new Date();
+    const processedFootballMatches: any[] = allFixtures.map((f: any) => {
       const leagueName = f.league?.name || "Unknown";
       const leagueCountry = f.league?.country || null;
       const sport = detectSport(leagueName, leagueCountry);
@@ -541,9 +542,11 @@ Deno.serve(async (req) => {
         fetched_at: new Date().toISOString(),
         ...prediction,
       };
-    });
+    }).filter((match) => isDisplayableMatch(match, now));
 
-    // ─── ADD MULTI-SPORT SIMULATED MATCHES ──────────────────────
+    const matches: any[] = [...processedFootballMatches];
+
+    // ─── ADD MULTI-SPORT SIMULATED MATCHES (STRICT TODAY/LIVE ONLY) ───
     for (const dateStr of dates) {
       const simulatedRaw = generateMultiSportMatches(dateStr);
       for (const sim of simulatedRaw) {
@@ -554,16 +557,21 @@ Deno.serve(async (req) => {
           sim.sport as SportType,
           sim.league_name,
         );
-        matches.push({
+
+        const simulatedMatch = {
           ...sim,
           is_free: false,
           fetched_at: new Date().toISOString(),
           ...prediction,
-        });
+        };
+
+        if (isDisplayableMatch(simulatedMatch, now)) {
+          matches.push(simulatedMatch);
+        }
       }
     }
 
-    console.log(`Total matches (football + multi-sport): ${matches.length}`);
+    console.log(`Total valid matches after strict filtering: ${matches.length}`);
 
     // ─── PICK EXACTLY 3 FREE: 1 Football + 1 Tennis + 1 Basketball ───
     const confVal = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
