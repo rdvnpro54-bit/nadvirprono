@@ -16,7 +16,9 @@ function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
     if (FINISHED_STATUSES.includes(statusUp)) return false;
     if (m.home_score !== null && m.away_score !== null) return false;
     const kickoff = new Date(m.kickoff).getTime();
+    // Allow matches up to 48h in the future (tomorrow's matches included)
     if (kickoff + 3 * 60 * 60 * 1000 < now) return false;
+    if (kickoff > now + 48 * 60 * 60 * 1000) return false;
     return true;
   });
 }
