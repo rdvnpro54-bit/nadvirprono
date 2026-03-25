@@ -155,18 +155,18 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
           </div>
 
           {/* Teams row */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex-1">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <TeamDisplay name={match.home_team} logo={bothLogos ? match.home_logo : null} isFav={!locked && fav === "home"} side="home" />
             </div>
-            <div className="flex flex-col items-center gap-0.5 min-w-[50px]">
+            <div className="flex flex-col items-center gap-0.5 shrink-0">
               {isLive ? (
-                <span className="flex items-center gap-1 text-[11px] text-success font-bold">
+                <span className="flex items-center gap-1 text-[11px] text-success font-bold whitespace-nowrap">
                   <Wifi className="h-3 w-3 animate-pulse" /> LIVE
                 </span>
               ) : (
                 <div className="flex flex-col items-center">
-                  <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground whitespace-nowrap">
                     <Clock className="h-3 w-3" /> {time}
                   </span>
                   <Countdown kickoff={match.kickoff} />
@@ -174,7 +174,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               )}
               <span className="text-[10px] text-muted-foreground">VS</span>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <TeamDisplay name={match.away_team} logo={bothLogos ? match.away_logo : null} isFav={!locked && fav === "away"} side="away" />
             </div>
           </div>
