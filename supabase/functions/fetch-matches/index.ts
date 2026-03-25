@@ -184,14 +184,22 @@ async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
 }
 
 // ─── FETCH SOFASCORE (TENNIS — PRIMARY) ─────────────────────────────
-const SOFASCORE_BASE = "https://www.sofascore.com/api/v1/sport";
+const SOFASCORE_BASE = "https://api.sofascore.com/api/v1/sport";
 
 async function fetchSofaScore(sport: string, dateISO: string): Promise<NormalizedMatch[]> {
   const sportPath = sport === "tennis" ? "tennis" : "basketball";
   const url = `${SOFASCORE_BASE}/${sportPath}/scheduled-events/${dateISO}`;
   console.log(`[API: SofaScore] ${sport.toUpperCase()} - ${dateISO} - fetching`);
   try {
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.sofascore.com/",
+        "Origin": "https://www.sofascore.com",
+      },
+    });
     if (!res.ok) { console.error(`[SofaScore] ${sport} error: ${res.status}`); await res.text(); return []; }
     const json = await res.json();
     const events = json.events || [];
