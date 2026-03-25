@@ -2,11 +2,10 @@ import { Link } from "react-router-dom";
 import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
-import { MatchCard } from "@/components/matches/MatchCard";
+import { TopMatchesSection } from "@/components/home/TopMatchesSection";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { motion, useInView } from "framer-motion";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 
 // ─── Animated Counter ──────────────────────────────────────
 function AnimatedNumber({ value, duration = 1.5, suffix = "" }: { value: number; duration?: number; suffix?: string }) {
