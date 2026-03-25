@@ -221,7 +221,7 @@ export default function Resultats() {
                         <p className="text-[10px] text-muted-foreground">Winrate</p>
                       </div>
                       <div>
-                        <p className="text-lg font-bold text-green-500">{highConfStats.wins}</p>
+                        <p className="text-lg font-bold text-primary">{highConfStats.wins}</p>
                         <p className="text-[10px] text-muted-foreground">Gagnés</p>
                       </div>
                       <div>
