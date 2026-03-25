@@ -80,9 +80,6 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
             <p className="mt-1 text-[10px] sm:text-sm text-muted-foreground">
               ⚽ Football • 🎾 Tennis • 🏀 Basketball — sélection IA quotidienne
             </p>
-            <div className="mt-2 sm:mt-3 flex justify-center">
-              <WinrateDisplay />
-            </div>
           </div>
 
           {isLoading ? (
