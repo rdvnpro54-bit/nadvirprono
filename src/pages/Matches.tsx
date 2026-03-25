@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, RefreshCw, Loader2, AlertCircle, Clock } from "lucide-react";
+import { TrendingUp, Search, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { CooldownTimer } from "@/components/matches/CooldownTimer";
+import { LiveUpdateBanner } from "@/components/home/LiveUpdateBanner";
 
 type Confidence = "SAFE" | "MODÉRÉ" | "RISQUÉ";
 
@@ -66,9 +67,9 @@ export default function Matches() {
   const freeMatches = filtered.filter(m => m.is_free).slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Navbar />
-      <div className="container pt-20 pb-16">
+      <div className="container pt-20 pb-16 overflow-x-hidden">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex items-center justify-between">
             <div>
@@ -82,6 +83,11 @@ export default function Matches() {
             <CooldownTimer lastUpdate={dataUpdatedAt} intervalMs={3 * 60 * 1000} />
           </div>
         </motion.div>
+
+        {/* Live Update Banner */}
+        <div className="mt-3">
+          <LiveUpdateBanner lastUpdate={dataUpdatedAt} matchCount={matches?.length || 0} />
+        </div>
 
         {/* Search */}
         <div className="mt-4 relative">

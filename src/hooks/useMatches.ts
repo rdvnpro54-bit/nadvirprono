@@ -9,7 +9,6 @@ const FINISHED_STATUSES = [
   "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED",
 ];
 
-/** Only keep future, unfinished matches */
 function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
   const now = Date.now();
   return matches.filter(m => {
@@ -63,8 +62,8 @@ export function useMatches() {
       console.log(`[useMatches] ${data?.length} raw → ${result.length} after dedup+filter`);
       return result;
     },
-    staleTime: 2 * 60_000,           // 2 min stale
-    refetchInterval: 3 * 60_000,     // refresh every 3 min
+    staleTime: 2 * 60_000,
+    refetchInterval: 5 * 60_000, // 5 min to match cron
   });
 }
 
@@ -94,7 +93,7 @@ export function useTriggerFetch() {
       console.log(`[useTriggerFetch] Result:`, data);
       return data;
     },
-    staleTime: 2.5 * 60_000,        // ~2.5 min
-    refetchInterval: 3 * 60_000,     // trigger every 3 min (rotation)
+    staleTime: 4.5 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 }
