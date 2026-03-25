@@ -67,9 +67,9 @@ export default function Matches() {
   const freeMatches = filtered.filter(m => m.is_free).slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Navbar />
-      <div className="container pt-20 pb-16">
+      <div className="container pt-20 pb-16 overflow-x-hidden">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex items-center justify-between">
             <div>
