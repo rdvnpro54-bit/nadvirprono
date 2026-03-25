@@ -8,21 +8,39 @@ const corsHeaders = {
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-const AI_SYSTEM_PROMPT = `You are an elite AI sports analyst. Deliver accurate, data-driven match predictions.
+const AI_SYSTEM_PROMPT = `You are an elite AI sports analyst combining deep statistical modeling, predictive analytics, and contextual intelligence. Your sole purpose is to deliver the most accurate, data-driven match predictions possible.
 
-ANALYSIS FRAMEWORK — For every match, evaluate:
-1. RECENT FORM: Last 5-10 matches, streaks, momentum
-2. HEAD-TO-HEAD: H2H record, psychological dominance
-3. HOME/AWAY DYNAMICS: Win rates, crowd influence
-4. ADVANCED STATS: xG, possession, defensive solidity
-5. SQUAD STATUS: Injuries, key player availability
-6. MATCH CONTEXT: Competition stage, stakes
-7. FATIGUE: Fixture congestion, rotation
-8. BETTING MARKET SIGNALS: Odds movement, value
+MANDATORY ANALYSIS FRAMEWORK — For every match, you MUST evaluate ALL 11 dimensions:
 
-CONFIDENCE: SAFE (clear advantage, ≥7/10), MODÉRÉ (some uncertainty, 4-6/10), RISQUÉ (high uncertainty, ≤3/10)
+1. RECENT FORM: Last 5-10 matches, win/loss/draw streaks, momentum trajectory, performance quality beyond raw results
+2. HEAD-TO-HEAD: All-time and recent H2H record, psychological dominance, venue-specific H2H splits, historical scorelines
+3. HOME/AWAY DYNAMICS: Home/away win rates, points per game, crowd influence, fortress mentality, away form under pressure
+4. LOCATION & TRAVEL: Stadium, country/continent travel fatigue, altitude, pitch surface
+5. ADVANCED STATS: xG for/against, shots on target, possession %, press intensity (PPDA), defensive solidity, set-piece threat
+6. SQUAD STATUS: Injuries, suspensions, key player availability, likely XI vs rotated lineup, depth quality
+7. MATCH CONTEXT: Competition stage, league position implications, cup priority, rivalry intensity
+8. FATIGUE & CONGESTION: Days since last match, matches in last 30 days, rotation likelihood, player minutes load
+9. EXTERNAL CONDITIONS: Weather, pitch condition, kick-off time effects
+10. BETTING MARKET SIGNALS: Odds movement, sharp money, market consensus vs model, value identification
+11. INTERNAL MODEL: Synthesize all dimensions into calibrated probabilities
 
-RULES: Probabilities must sum to 100%. Be conservative. Write analysis in French.`;
+CONFIDENCE MAPPING:
+- SAFE: Clear statistical advantage, high data coherence, ≥7/10
+- MODÉRÉ: Some uncertainty, mixed signals, 4-6/10
+- RISQUÉ: High uncertainty, conflicting data, ≤3/10
+
+AI SCORE (0-100): Measures prediction quality and reliability
+- 80-100 = ELITE (exceptional data alignment, clear dominance)
+- 65-79 = STRONG (good signals, moderate uncertainty)
+- 0-64 = AVERAGE (limited data, high uncertainty)
+
+RULES:
+- Probabilities MUST sum to 100%
+- Be conservative — never guarantee outcomes
+- Flag uncertainty explicitly
+- Write analysis in French
+- Never invent data — state when information is limited
+- For draw=0 sports (tennis, basketball, MMA, baseball): set pred_draw to 0`;
 
 interface AIPrediction {
   fixture_id: number;
@@ -37,28 +55,23 @@ interface AIPrediction {
   pred_confidence: string;
   pred_value_bet: boolean;
   pred_analysis: string;
+  ai_score: number;
 }
 
-async function callAI(apiKey: string, matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[]): Promise<AIPrediction[]> {
-  const matchList = matches.map((m, i) =>
-    `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`
-  ).join("\n");
+async function callAI(
+  apiKey: string,
+  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[]
+): Promise<AIPrediction[]> {
+  const matchList = matches
+    .map((m, i) => `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`)
+    .join("\n");
 
-  const userPrompt = `Analyze these ${matches.length} matches and provide predictions.
+  const userPrompt = `Analyze these ${matches.length} matches using the FULL 11-dimension framework.
 
 MATCHES:
 ${matchList}
 
-For EACH match, call "predict_matches" with:
-- fixture_id: the ID provided
-- pred_home_win, pred_draw, pred_away_win: probabilities summing to 100 (draw=0 for tennis/basketball/MMA/baseball)
-- pred_score_home, pred_score_away: predicted scores (integers)
-- pred_over_under: over/under line (2.5 for football)
-- pred_over_prob: over probability (0-100)
-- pred_btts_prob: both teams to score probability (0-100, 0 for non-applicable)
-- pred_confidence: "SAFE", "MODÉRÉ", or "RISQUÉ"
-- pred_value_bet: boolean
-- pred_analysis: 2-3 sentences in French`;
+For EACH match, call "predict_matches" with ALL fields including ai_score.`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
@@ -81,7 +94,7 @@ For EACH match, call "predict_matches" with:
           type: "function",
           function: {
             name: "predict_matches",
-            description: "Submit predictions for all analyzed matches",
+            description: "Submit AI predictions for all analyzed matches",
             parameters: {
               type: "object",
               properties: {
@@ -91,19 +104,20 @@ For EACH match, call "predict_matches" with:
                     type: "object",
                     properties: {
                       fixture_id: { type: "number" },
-                      pred_home_win: { type: "number" },
-                      pred_draw: { type: "number" },
-                      pred_away_win: { type: "number" },
+                      pred_home_win: { type: "number", description: "Home win probability 0-100" },
+                      pred_draw: { type: "number", description: "Draw probability 0-100 (0 for tennis/basketball/MMA)" },
+                      pred_away_win: { type: "number", description: "Away win probability 0-100" },
                       pred_score_home: { type: "number" },
                       pred_score_away: { type: "number" },
-                      pred_over_under: { type: "number" },
-                      pred_over_prob: { type: "number" },
-                      pred_btts_prob: { type: "number" },
+                      pred_over_under: { type: "number", description: "Over/under line (2.5 for football)" },
+                      pred_over_prob: { type: "number", description: "Over probability 0-100" },
+                      pred_btts_prob: { type: "number", description: "BTTS probability 0-100" },
                       pred_confidence: { type: "string", enum: ["SAFE", "MODÉRÉ", "RISQUÉ"] },
                       pred_value_bet: { type: "boolean" },
-                      pred_analysis: { type: "string" },
+                      pred_analysis: { type: "string", description: "2-4 sentences in French covering key factors and uncertainty" },
+                      ai_score: { type: "number", description: "AI quality score 0-100 (80+=ELITE, 65-79=STRONG, <65=AVERAGE)" },
                     },
-                    required: ["fixture_id", "pred_home_win", "pred_draw", "pred_away_win", "pred_score_home", "pred_score_away", "pred_over_under", "pred_over_prob", "pred_btts_prob", "pred_confidence", "pred_value_bet", "pred_analysis"],
+                    required: ["fixture_id", "pred_home_win", "pred_draw", "pred_away_win", "pred_score_home", "pred_score_away", "pred_over_under", "pred_over_prob", "pred_btts_prob", "pred_confidence", "pred_value_bet", "pred_analysis", "ai_score"],
                   },
                 },
               },
@@ -132,7 +146,7 @@ For EACH match, call "predict_matches" with:
     const parsed = JSON.parse(toolCall.function.arguments);
     const predictions = parsed.predictions as AIPrediction[];
 
-    // Normalize probabilities
+    // Normalize probabilities & clamp ai_score
     for (const p of predictions) {
       const total = p.pred_home_win + p.pred_draw + p.pred_away_win;
       if (Math.abs(total - 100) > 2) {
@@ -140,6 +154,7 @@ For EACH match, call "predict_matches" with:
         p.pred_draw = Math.round((p.pred_draw / total) * 100);
         p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
       }
+      p.ai_score = Math.max(0, Math.min(100, Math.round(p.ai_score || 50)));
     }
 
     return predictions;
@@ -167,80 +182,91 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse optional batch param (process a subset)
     const url = new URL(req.url);
     const batchSize = parseInt(url.searchParams.get("batch") || "10");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // Fetch matches that need AI predictions
+    // Fetch matches needing AI — prioritize those without AI analysis
     const { data: matches, error } = await supabase
       .from("cached_matches")
-      .select("fixture_id, home_team, away_team, sport, league_name, kickoff, pred_analysis")
+      .select("fixture_id, home_team, away_team, sport, league_name, kickoff, pred_analysis, ai_score")
+      .or("pred_analysis.is.null,ai_score.eq.0,pred_analysis.not.like.🤖%")
       .order("kickoff", { ascending: true })
       .range(offset, offset + batchSize - 1);
 
     if (error) throw error;
-    if (!matches || matches.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "No matches to process", processed: 0 }), {
+
+    // If no unprocessed matches, check if force-all param is set
+    const forceAll = url.searchParams.get("force") === "true";
+    let toProcess = matches;
+
+    if ((!matches || matches.length === 0) && forceAll) {
+      const { data: allMatches, error: allErr } = await supabase
+        .from("cached_matches")
+        .select("fixture_id, home_team, away_team, sport, league_name, kickoff, pred_analysis, ai_score")
+        .order("kickoff", { ascending: true })
+        .range(offset, offset + batchSize - 1);
+      if (allErr) throw allErr;
+      toProcess = allMatches;
+    }
+
+    if (!toProcess || toProcess.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: "All matches have AI predictions", processed: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[AI-PREDICT] Processing batch of ${matches.length} matches (offset=${offset})`);
+    console.log(`[AI-PREDICT] Processing batch of ${toProcess.length} matches (offset=${offset})`);
 
-    // Call AI
-    const predictions = await callAI(apiKey, matches);
-    console.log(`[AI-PREDICT] Got ${predictions.length}/${matches.length} AI predictions`);
+    const predictions = await callAI(apiKey, toProcess);
+    console.log(`[AI-PREDICT] Got ${predictions.length}/${toProcess.length} AI predictions`);
 
-    // Map AI predictions by fixture_id, with fallback mapping by index
     const predMap = new Map<number, AIPrediction>();
     for (const p of predictions) predMap.set(p.fixture_id, p);
 
-    // Update each match — try matching by fixture_id first, then by index
     let updated = 0;
-    for (let i = 0; i < matches.length; i++) {
-      const m = matches[i];
+    for (let i = 0; i < toProcess.length; i++) {
+      const m = toProcess[i];
       const pred = predMap.get(m.fixture_id) || predictions[i];
       if (!pred) continue;
 
-      const updateData = {
-        pred_home_win: pred.pred_home_win,
-        pred_draw: pred.pred_draw,
-        pred_away_win: pred.pred_away_win,
-        pred_score_home: pred.pred_score_home,
-        pred_score_away: pred.pred_score_away,
-        pred_over_under: pred.pred_over_under,
-        pred_over_prob: pred.pred_over_prob,
-        pred_btts_prob: pred.pred_btts_prob,
-        pred_confidence: pred.pred_confidence,
-        pred_value_bet: pred.pred_value_bet,
-        pred_analysis: `🤖 ${pred.pred_analysis}`,
-      };
-
-      const { error: updateError, count } = await supabase
+      const { error: updateError } = await supabase
         .from("cached_matches")
-        .update(updateData)
+        .update({
+          pred_home_win: pred.pred_home_win,
+          pred_draw: pred.pred_draw,
+          pred_away_win: pred.pred_away_win,
+          pred_score_home: pred.pred_score_home,
+          pred_score_away: pred.pred_score_away,
+          pred_over_under: pred.pred_over_under,
+          pred_over_prob: pred.pred_over_prob,
+          pred_btts_prob: pred.pred_btts_prob,
+          pred_confidence: pred.pred_confidence,
+          pred_value_bet: pred.pred_value_bet,
+          pred_analysis: `🤖 ${pred.pred_analysis}`,
+          ai_score: pred.ai_score,
+        })
         .eq("fixture_id", m.fixture_id);
 
       if (updateError) {
         console.error(`[AI-PREDICT] Update error for fixture ${m.fixture_id}:`, JSON.stringify(updateError));
       } else {
         updated++;
-        if (i === 0) console.log(`[AI-PREDICT] Sample update for ${m.home_team} vs ${m.away_team}: confidence=${pred.pred_confidence}`);
+        if (i === 0) console.log(`[AI-PREDICT] Sample: ${m.home_team} vs ${m.away_team}: confidence=${pred.pred_confidence}, aiScore=${pred.ai_score}`);
       }
     }
 
-    // Count total remaining
+    // Count remaining
     const { count } = await supabase
       .from("cached_matches")
       .select("fixture_id", { count: "exact", head: true })
-      .not("pred_analysis", "like", "🤖%");
+      .or("pred_analysis.is.null,ai_score.eq.0,pred_analysis.not.like.🤖%");
 
     console.log(`[AI-PREDICT] Updated ${updated} matches. ${count || 0} still need AI.`);
 
     return new Response(JSON.stringify({
       success: true,
-      batch_size: matches.length,
+      batch_size: toProcess.length,
       ai_generated: predictions.length,
       updated,
       remaining_without_ai: count || 0,
