@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Zap, Clock, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { CheckCircle, Zap, Clock, Loader2, Lock } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useAuth, STRIPE_PLANS } from "@/contexts/AuthContext";
@@ -25,23 +25,37 @@ function UrgencyTimer() {
 export default function Pricing() {
   const { user, isPremium, subscription } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleCheckout = async (priceId: string, planKey: string) => {
     if (!user) {
-      toast.error("Connecte-toi d'abord pour t'abonner");
+      navigate("/login");
       return;
     }
     setLoadingPlan(planKey);
     try {
+      // Ensure we have a valid session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Session expirée, reconnecte-toi");
+        navigate("/login");
+        return;
+      }
+      console.log("[CHECKOUT] Starting checkout for plan:", planKey, "priceId:", priceId);
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { priceId },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
+      console.log("[CHECKOUT] Response:", data, "Error:", error);
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, "_blank");
+        window.location.href = data.url;
+      } else {
+        throw new Error("URL de paiement manquante");
       }
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors du paiement");
+      console.error("[CHECKOUT] Error:", err);
+      toast.error(err.message || "Erreur lors du paiement. Réessaie.");
     } finally {
       setLoadingPlan(null);
     }
@@ -62,6 +76,26 @@ export default function Pricing() {
             <UrgencyTimer />
           </div>
         </motion.div>
+
+        {/* Not logged in — big CTA block */}
+        {!user && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            className="mt-8 rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
+              <Lock className="h-6 w-6 text-primary" />
+            </div>
+            <h2 className="text-lg font-bold">🔒 Crée un compte pour accéder aux pronostics IA</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Inscription gratuite • 3 matchs gratuits / jour</p>
+            <Link to="/login">
+              <Button className="mt-4 h-11 px-8 text-sm font-bold gap-2 btn-shimmer">
+                Créer un compte gratuit
+              </Button>
+            </Link>
+            <p className="mt-2 text-[10px] text-muted-foreground">
+              Déjà un compte ? <Link to="/login" className="text-primary underline">Se connecter</Link>
+            </p>
+          </motion.div>
+        )}
 
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
           {/* Free */}
@@ -99,12 +133,12 @@ export default function Pricing() {
             </ul>
             <Button
               size="sm"
-              className="mt-5 w-full gap-1.5"
+              className="mt-5 w-full gap-1.5 btn-shimmer"
               onClick={() => handleCheckout(STRIPE_PLANS.weekly.priceId, "weekly")}
               disabled={loadingPlan === "weekly" || (isPremium && subscription.productId === STRIPE_PLANS.weekly.productId)}
             >
               {loadingPlan === "weekly" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-              {isPremium && subscription.productId === STRIPE_PLANS.weekly.productId ? "Plan Actuel" : "Essayer 7 jours"}
+              {!user ? "Créer un compte" : isPremium && subscription.productId === STRIPE_PLANS.weekly.productId ? "Plan Actuel" : "Essayer 7 jours"}
             </Button>
           </motion.div>
 
@@ -125,12 +159,12 @@ export default function Pricing() {
             </ul>
             <Button
               size="sm"
-              className="mt-5 w-full gap-1.5 text-sm font-semibold"
+              className="mt-5 w-full gap-1.5 text-sm font-semibold btn-shimmer"
               onClick={() => handleCheckout(STRIPE_PLANS.monthly.priceId, "monthly")}
               disabled={loadingPlan === "monthly" || (isPremium && subscription.productId === STRIPE_PLANS.monthly.productId)}
             >
               {loadingPlan === "monthly" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-              {isPremium && subscription.productId === STRIPE_PLANS.monthly.productId ? "Plan Actuel" : "Passer Premium"}
+              {!user ? "Créer un compte" : isPremium && subscription.productId === STRIPE_PLANS.monthly.productId ? "Plan Actuel" : "Passer Premium"}
             </Button>
             <p className="mt-2 text-center text-[10px] text-muted-foreground">Sans engagement • Annulation facile</p>
           </motion.div>

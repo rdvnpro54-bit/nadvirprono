@@ -9,7 +9,7 @@ import { useGlobalActivity } from "@/components/home/ActivityProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites, useToggleFavorite } from "@/hooks/useFavorites";
 import { Button } from "@/components/ui/button";
-
+import { PremiumModal } from "@/components/PremiumModal";
 const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
   football: { icon: Dribbble, label: "Football" },
   tennis: { icon: CircleDot, label: "Tennis" },
