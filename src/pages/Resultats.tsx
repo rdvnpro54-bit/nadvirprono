@@ -85,7 +85,7 @@ function getTopPerformances(results: MatchResult[]): MatchResult[] {
 export default function Resultats() {
   const { allStats, topPickStats, monthStats, results, isLoading } = useResultStats();
   const [sport, setSport] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("high_conf");
   const [period, setPeriod] = useState("all");
   const [showAllHistory, setShowAllHistory] = useState(false);
 
