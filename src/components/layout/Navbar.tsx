@@ -58,6 +58,13 @@ export function Navbar() {
                     PREMIUM
                   </span>
                 )}
+                {user.email === "rdvnpro54@gmail.com" && (
+                  <Link to="/admin">
+                    <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-primary">
+                      <Shield className="h-3.5 w-3.5" /> Admin
+                    </Button>
+                  </Link>
+                )}
                 <Link to="/compte">
                   <Button variant="ghost" size="sm" className="text-xs gap-1.5">
                     <User className="h-3.5 w-3.5" /> Compte
