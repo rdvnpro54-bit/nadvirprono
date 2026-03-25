@@ -116,8 +116,8 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
               <Tooltip>
                 <TooltipTrigger asChild>
                   <h2 className="font-display text-xl sm:text-2xl font-bold inline-flex items-center gap-2 cursor-help">
-                    <Sparkles className="h-5 w-5 text-amber-400" />
-                    Top 3 du Jour <span className="gradient-text">IA</span>
+    <Sparkles className="h-5 w-5 text-amber-400" />
+                    Top 2 du Jour <span className="gradient-text">IA</span>
                   </h2>
                 </TooltipTrigger>
                 <TooltipContent>
