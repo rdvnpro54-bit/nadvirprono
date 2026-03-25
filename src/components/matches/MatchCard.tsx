@@ -134,12 +134,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </span>
             <div className="flex items-center gap-1.5">
               {match.pred_value_bet && !locked && (
-                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary badge-pulse">
                   <TrendingUp className="h-2.5 w-2.5" /> Value
                 </span>
               )}
               {match.pred_value_bet && locked && (
-                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary badge-pulse">
                   ⚡ Value
                 </span>
               )}
@@ -161,7 +161,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
             <div className="flex flex-col items-center gap-0.5 shrink-0">
               {isLive ? (
-                <span className="flex items-center gap-1 text-[11px] text-success font-bold whitespace-nowrap">
+                <span className="flex items-center gap-1 text-[11px] text-success font-bold whitespace-nowrap badge-pulse">
                   <Wifi className="h-3 w-3 animate-pulse" /> LIVE
                 </span>
               ) : (
@@ -250,9 +250,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
           {!locked && (
             <div className="mt-2">
               <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-                <div className="bg-primary transition-all" style={{ width: `${match.pred_home_win}%` }} />
-                <div className="bg-muted-foreground/30 transition-all" style={{ width: `${match.pred_draw}%` }} />
-                <div className="bg-secondary transition-all" style={{ width: `${match.pred_away_win}%` }} />
+                <motion.div className="bg-primary" initial={{ width: 0 }} animate={{ width: `${match.pred_home_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 }} />
+                <motion.div className="bg-muted-foreground/30" initial={{ width: 0 }} animate={{ width: `${match.pred_draw}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.1 }} />
+                <motion.div className="bg-secondary" initial={{ width: 0 }} animate={{ width: `${match.pred_away_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.2 }} />
               </div>
               <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>🏠 {match.pred_home_win}%</span>
