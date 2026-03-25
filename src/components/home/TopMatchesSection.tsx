@@ -15,23 +15,24 @@ interface TopMatchesSectionProps {
 }
 
 /**
- * Selects exactly 3 free matches: 1 Football, 1 Tennis, 1 Basketball/NBA
- * Sorted by relevance (LIVE > soon > best AI score)
+ * Selects up to 3 free matches: prioritize 1 Football + 1 Tennis + 1 Basketball
+ * but ALWAYS returns at least what's available (never empty if data exists)
  */
 function getTop3(matches: CachedMatch[]): CachedMatch[] {
   const free = matches.filter(m => m.is_free);
+  if (free.length > 0) {
+    const sportOrder = ["football", "tennis", "nba", "basketball"];
+    return [...free].sort((a, b) => {
+      const idxA = sportOrder.indexOf(a.sport?.toLowerCase() || "");
+      const idxB = sportOrder.indexOf(b.sport?.toLowerCase() || "");
+      return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+    }).slice(0, 3);
+  }
 
-  // The edge function already picks exactly 1 football + 1 tennis + 1 basketball
-  // Just enforce display order: Football → Tennis → Basketball
-  const sportOrder = ["football", "tennis", "nba", "basketball"];
-
-  const sorted = [...free].sort((a, b) => {
-    const idxA = sportOrder.indexOf(a.sport?.toLowerCase() || "");
-    const idxB = sportOrder.indexOf(b.sport?.toLowerCase() || "");
-    return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
-  });
-
-  return sorted.slice(0, 3);
+  // Fallback: pick best 3 from all matches
+  return [...matches]
+    .sort((a, b) => Math.max(b.pred_home_win, b.pred_away_win) - Math.max(a.pred_home_win, a.pred_away_win))
+    .slice(0, 3);
 }
 
 export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps) {
@@ -39,10 +40,6 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
   const topMatches = matches ? getTop3(matches) : [];
-  const hasStrictTop3 = topMatches.length === 3 &&
-    topMatches.some(m => m.sport?.toLowerCase() === "football") &&
-    topMatches.some(m => m.sport?.toLowerCase() === "tennis") &&
-    topMatches.some(m => ["nba", "basketball"].includes(m.sport?.toLowerCase() || ""));
 
   return (
     <motion.div
@@ -71,7 +68,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
                 <Skeleton key={i} className="h-32 rounded-xl" />
               ))}
             </div>
-          ) : hasStrictTop3 ? (
+          ) : topMatches.length > 0 ? (
             <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {topMatches.map((m, i) => (
                 <motion.div
@@ -90,12 +87,11 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
             </div>
           ) : (
             <div className="mx-auto max-w-2xl rounded-xl border border-border/50 bg-card/60 px-4 py-8 text-center">
-              <p className="text-sm font-medium text-foreground">Aucun match disponible pour le moment</p>
-              <p className="mt-1 text-xs text-muted-foreground">Aucun Top 3 valide n'est affiché tant que Football, Tennis et Basketball ne sont pas tous disponibles aujourd'hui.</p>
+              <p className="text-sm font-medium text-foreground">Chargement des matchs en cours…</p>
+              <p className="mt-1 text-xs text-muted-foreground">Les prédictions IA arrivent, rafraîchissez dans quelques instants.</p>
             </div>
           )}
 
-          {/* Midnight Countdown */}
           <div className="mt-6">
             <MidnightCountdown />
           </div>
