@@ -32,22 +32,28 @@ const LIVE_STATUSES = new Set(["LIVE", "1H", "2H", "HT", "ET", "BT", "P"]);
 const SCHEDULED_STATUSES = new Set(["NS", "SCHEDULED", "NOT_STARTED", "TBD", "TIME_TO_BE_DEFINED"]);
 const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "FINISHED", "ENDED", "COMPLETED", "CANC", "PST", "SUSP", "ABD", "AWD", "WO"]);
 
+/** Only allow matches that are upcoming or currently live */
 function isDisplayableMatch(match: { kickoff: string; status: string; home_score: number | null; away_score: number | null }, now: Date): boolean {
   const status = (match.status || "").toUpperCase();
   const kickoff = new Date(match.kickoff);
-  const today = formatDate(now);
 
   if (Number.isNaN(kickoff.getTime())) return false;
-  if (formatDate(kickoff) !== today) return false;
   if (FINISHED_STATUSES.has(status)) return false;
 
-  if (LIVE_STATUSES.has(status)) {
-    return kickoff.getTime() <= now.getTime() + 6 * 60 * 60 * 1000;
-  }
+  // Allow today + tomorrow (J+1 fallback)
+  const today = formatDate(now);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = formatDate(tomorrow);
+  const kickoffDate = formatDate(kickoff);
+
+  if (kickoffDate !== today && kickoffDate !== tomorrowStr) return false;
+
+  if (LIVE_STATUSES.has(status)) return true;
 
   if (!SCHEDULED_STATUSES.has(status)) return false;
+  // Don't show scheduled matches whose kickoff already passed
   if (kickoff.getTime() < now.getTime()) return false;
-
   if (match.home_score !== null || match.away_score !== null) return false;
 
   return true;
@@ -56,11 +62,6 @@ function isDisplayableMatch(match: { kickoff: string; status: string; home_score
 // ─── SPORT DETECTION ─────────────────────────────────────────────────
 type SportType = "football" | "tennis" | "basketball" | "mma" | "hockey" | "baseball"
   | "handball" | "volleyball" | "rugby" | "afl" | "formula1" | "nfl" | "nba";
-
-const ALLOWED_SPORTS: SportType[] = [
-  "football", "tennis", "basketball", "mma", "hockey", "baseball",
-  "handball", "volleyball", "rugby", "afl", "formula1", "nfl", "nba",
-];
 
 function detectSport(leagueName: string, leagueCountry: string | null): SportType {
   const name = (leagueName || "").toLowerCase();
@@ -87,152 +88,66 @@ interface FeatureProfile {
 }
 
 const SPORT_PROFILES: Record<SportType, FeatureProfile> = {
-  football: {
-    features: { form: 0.25, ranking: 0.20, attack: 0.20, defense: 0.15, h2h: 0.10, homeAdv: 0.10 },
-    drawPossible: true,
-    scoreRange: [0, 4],
-  },
-  tennis: {
-    features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 },
-    drawPossible: false,
-    scoreRange: [0, 3],
-  },
-  basketball: {
-    features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 },
-    drawPossible: false,
-    scoreRange: [85, 130],
-  },
-  nba: {
-    features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 },
-    drawPossible: false,
-    scoreRange: [95, 130],
-  },
-  nfl: {
-    features: { offense: 0.25, defense: 0.25, form: 0.20, turnover: 0.15, homeAdv: 0.15 },
-    drawPossible: false,
-    scoreRange: [10, 38],
-  },
-  hockey: {
-    features: { goalsFor: 0.25, goalsAgainst: 0.20, powerplay: 0.15, form: 0.20, homeAdv: 0.10, goalie: 0.10 },
-    drawPossible: true,
-    scoreRange: [0, 5],
-  },
-  baseball: {
-    features: { batting: 0.25, pitching: 0.25, era: 0.15, form: 0.15, bullpen: 0.10, homeAdv: 0.10 },
-    drawPossible: false,
-    scoreRange: [0, 8],
-  },
-  mma: {
-    features: { winRatio: 0.25, finishRate: 0.20, strikingAcc: 0.15, takedownDef: 0.15, form: 0.15, reach: 0.10 },
-    drawPossible: false,
-    scoreRange: [0, 1],
-  },
-  handball: {
-    features: { goalsFor: 0.25, defense: 0.20, form: 0.20, shootingEff: 0.15, homeAdv: 0.10, saves: 0.10 },
-    drawPossible: true,
-    scoreRange: [20, 38],
-  },
-  volleyball: {
-    features: { setsWon: 0.20, spikeEff: 0.20, blockEff: 0.15, serveAce: 0.15, form: 0.20, homeAdv: 0.10 },
-    drawPossible: false,
-    scoreRange: [0, 3],
-  },
-  rugby: {
-    features: { triesFor: 0.25, defense: 0.20, discipline: 0.15, scrum: 0.10, form: 0.20, homeAdv: 0.10 },
-    drawPossible: true,
-    scoreRange: [5, 40],
-  },
-  afl: {
-    features: { scoring: 0.25, disposal: 0.20, marking: 0.15, tackling: 0.15, form: 0.15, homeAdv: 0.10 },
-    drawPossible: false,
-    scoreRange: [50, 120],
-  },
-  formula1: {
-    features: { qualiPace: 0.30, racePace: 0.25, consistency: 0.20, carPerf: 0.15, form: 0.10 },
-    drawPossible: false,
-    scoreRange: [1, 20],
-  },
+  football: { features: { form: 0.25, ranking: 0.20, attack: 0.20, defense: 0.15, h2h: 0.10, homeAdv: 0.10 }, drawPossible: true, scoreRange: [0, 4] },
+  tennis: { features: { serveWin: 0.25, returnWin: 0.20, aces: 0.15, breakPoints: 0.15, form: 0.15, h2h: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
+  basketball: { features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [85, 130] },
+  nba: { features: { ppg: 0.25, pace: 0.15, offEff: 0.20, defEff: 0.20, form: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [95, 130] },
+  nfl: { features: { offense: 0.25, defense: 0.25, form: 0.20, turnover: 0.15, homeAdv: 0.15 }, drawPossible: false, scoreRange: [10, 38] },
+  hockey: { features: { goalsFor: 0.25, goalsAgainst: 0.20, powerplay: 0.15, form: 0.20, homeAdv: 0.10, goalie: 0.10 }, drawPossible: true, scoreRange: [0, 5] },
+  baseball: { features: { batting: 0.25, pitching: 0.25, era: 0.15, form: 0.15, bullpen: 0.10, homeAdv: 0.10 }, drawPossible: false, scoreRange: [0, 8] },
+  mma: { features: { winRatio: 0.25, finishRate: 0.20, strikingAcc: 0.15, takedownDef: 0.15, form: 0.15, reach: 0.10 }, drawPossible: false, scoreRange: [0, 1] },
+  handball: { features: { goalsFor: 0.25, defense: 0.20, form: 0.20, shootingEff: 0.15, homeAdv: 0.10, saves: 0.10 }, drawPossible: true, scoreRange: [20, 38] },
+  volleyball: { features: { setsWon: 0.20, spikeEff: 0.20, blockEff: 0.15, serveAce: 0.15, form: 0.20, homeAdv: 0.10 }, drawPossible: false, scoreRange: [0, 3] },
+  rugby: { features: { triesFor: 0.25, defense: 0.20, discipline: 0.15, scrum: 0.10, form: 0.20, homeAdv: 0.10 }, drawPossible: true, scoreRange: [5, 40] },
+  afl: { features: { scoring: 0.25, disposal: 0.20, marking: 0.15, tackling: 0.15, form: 0.15, homeAdv: 0.10 }, drawPossible: false, scoreRange: [50, 120] },
+  formula1: { features: { qualiPace: 0.30, racePace: 0.25, consistency: 0.20, carPerf: 0.15, form: 0.10 }, drawPossible: false, scoreRange: [1, 20] },
 };
 
-// ─── MULTI-SPORT SIMULATED DATA ──────────────────────────────────────
-interface SimulatedTeam {
-  name: string;
-  logo: string | null;
-}
-
+// ─── MULTI-SPORT SIMULATED DATA (used to complement API football-only data) ──
 interface SimulatedFixture {
   sport: SportType;
   league: string;
   country: string;
-  home: SimulatedTeam;
-  away: SimulatedTeam;
+  home: { name: string; logo: string | null };
+  away: { name: string; logo: string | null };
 }
 
 const MULTI_SPORT_DATA: SimulatedFixture[] = [
-  // Football (fallback when API is down)
-  { sport: "football", league: "Ligue 1", country: "France", home: { name: "Paris Saint-Germain", logo: null }, away: { name: "Olympique de Marseille", logo: null } },
-  { sport: "football", league: "Premier League", country: "England", home: { name: "Manchester City", logo: null }, away: { name: "Liverpool", logo: null } },
-  { sport: "football", league: "La Liga", country: "Spain", home: { name: "Real Madrid", logo: null }, away: { name: "FC Barcelona", logo: null } },
-  { sport: "football", league: "Serie A", country: "Italy", home: { name: "AC Milan", logo: null }, away: { name: "Inter Milan", logo: null } },
-  { sport: "football", league: "Bundesliga", country: "Germany", home: { name: "Bayern Munich", logo: null }, away: { name: "Borussia Dortmund", logo: null } },
-  // Tennis
   { sport: "tennis", league: "ATP Masters 1000", country: "France", home: { name: "Carlos Alcaraz", logo: null }, away: { name: "Novak Djokovic", logo: null } },
   { sport: "tennis", league: "ATP 500", country: "Spain", home: { name: "Jannik Sinner", logo: null }, away: { name: "Daniil Medvedev", logo: null } },
   { sport: "tennis", league: "WTA 1000", country: "USA", home: { name: "Iga Swiatek", logo: null }, away: { name: "Aryna Sabalenka", logo: null } },
   { sport: "tennis", league: "ATP 250", country: "UK", home: { name: "Alexander Zverev", logo: null }, away: { name: "Stefanos Tsitsipas", logo: null } },
-  // NBA
   { sport: "nba", league: "NBA", country: "USA", home: { name: "Los Angeles Lakers", logo: null }, away: { name: "Boston Celtics", logo: null } },
   { sport: "nba", league: "NBA", country: "USA", home: { name: "Golden State Warriors", logo: null }, away: { name: "Miami Heat", logo: null } },
   { sport: "nba", league: "NBA", country: "USA", home: { name: "Milwaukee Bucks", logo: null }, away: { name: "Denver Nuggets", logo: null } },
   { sport: "nba", league: "NBA", country: "USA", home: { name: "Phoenix Suns", logo: null }, away: { name: "Dallas Mavericks", logo: null } },
-  { sport: "nba", league: "NBA", country: "USA", home: { name: "Philadelphia 76ers", logo: null }, away: { name: "New York Knicks", logo: null } },
-  // NFL
-  { sport: "nfl", league: "NFL", country: "USA", home: { name: "Kansas City Chiefs", logo: null }, away: { name: "San Francisco 49ers", logo: null } },
-  { sport: "nfl", league: "NFL", country: "USA", home: { name: "Dallas Cowboys", logo: null }, away: { name: "Philadelphia Eagles", logo: null } },
-  { sport: "nfl", league: "NFL", country: "USA", home: { name: "Buffalo Bills", logo: null }, away: { name: "Baltimore Ravens", logo: null } },
-  // NHL
   { sport: "hockey", league: "NHL", country: "USA", home: { name: "Edmonton Oilers", logo: null }, away: { name: "Florida Panthers", logo: null } },
   { sport: "hockey", league: "NHL", country: "USA", home: { name: "NY Rangers", logo: null }, away: { name: "Colorado Avalanche", logo: null } },
-  { sport: "hockey", league: "NHL", country: "Canada", home: { name: "Toronto Maple Leafs", logo: null }, away: { name: "Boston Bruins", logo: null } },
-  // MLB
-  { sport: "baseball", league: "MLB", country: "USA", home: { name: "Los Angeles Dodgers", logo: null }, away: { name: "New York Yankees", logo: null } },
-  { sport: "baseball", league: "MLB", country: "USA", home: { name: "Houston Astros", logo: null }, away: { name: "Atlanta Braves", logo: null } },
-  // MMA
   { sport: "mma", league: "UFC 315", country: "USA", home: { name: "Jon Jones", logo: null }, away: { name: "Tom Aspinall", logo: null } },
-  { sport: "mma", league: "UFC Fight Night", country: "USA", home: { name: "Islam Makhachev", logo: null }, away: { name: "Charles Oliveira", logo: null } },
-  { sport: "mma", league: "UFC Fight Night", country: "USA", home: { name: "Alex Pereira", logo: null }, away: { name: "Magomed Ankalaev", logo: null } },
-  // Formula 1
-  { sport: "formula1", league: "F1 Grand Prix", country: "World", home: { name: "Max Verstappen", logo: null }, away: { name: "Lewis Hamilton", logo: null } },
-  { sport: "formula1", league: "F1 Grand Prix", country: "World", home: { name: "Charles Leclerc", logo: null }, away: { name: "Lando Norris", logo: null } },
-  // Handball
   { sport: "handball", league: "EHF Champions League", country: "Europe", home: { name: "FC Barcelona HB", logo: null }, away: { name: "THW Kiel", logo: null } },
-  { sport: "handball", league: "Starligue", country: "France", home: { name: "PSG Handball", logo: null }, away: { name: "Montpellier HB", logo: null } },
-  // Rugby
   { sport: "rugby", league: "Six Nations", country: "Europe", home: { name: "France XV", logo: null }, away: { name: "Ireland XV", logo: null } },
-  { sport: "rugby", league: "Top 14", country: "France", home: { name: "Stade Toulousain", logo: null }, away: { name: "Racing 92", logo: null } },
-  // Volleyball
-  { sport: "volleyball", league: "CEV Champions League", country: "Europe", home: { name: "Trentino Volley", logo: null }, away: { name: "Zenit Kazan", logo: null } },
-  { sport: "volleyball", league: "Ligue A", country: "France", home: { name: "Tours VB", logo: null }, away: { name: "Paris Volley", logo: null } },
-  // AFL
-  { sport: "afl", league: "AFL Premiership", country: "Australia", home: { name: "Collingwood Magpies", logo: null }, away: { name: "Brisbane Lions", logo: null } },
-  // Basketball (non-NBA)
-  { sport: "basketball", league: "Euroleague", country: "Europe", home: { name: "Real Madrid BC", logo: null }, away: { name: "Olympiacos BC", logo: null } },
+  { sport: "baseball", league: "MLB", country: "USA", home: { name: "Los Angeles Dodgers", logo: null }, away: { name: "New York Yankees", logo: null } },
 ];
 
-function generateMultiSportMatches(baseDate: string): any[] {
+function generateComplementaryMatches(baseDate: string): any[] {
   const matches: any[] = [];
   const day = new Date(baseDate);
-  
+
   for (let i = 0; i < MULTI_SPORT_DATA.length; i++) {
     const fixture = MULTI_SPORT_DATA[i];
-    const hour = 10 + Math.floor(seeded(hash(fixture.home.name + baseDate), i) * 14);
+    const hour = 14 + Math.floor(seeded(hash(fixture.home.name + baseDate), i) * 10);
     const minute = Math.floor(seeded(hash(fixture.away.name + baseDate), i + 1) * 4) * 15;
-    
+
     const kickoff = new Date(day);
     kickoff.setUTCHours(hour, minute, 0, 0);
-    
+
+    // Only generate future matches
+    if (kickoff.getTime() < Date.now()) {
+      kickoff.setDate(kickoff.getDate() + 1);
+    }
+
     const fixtureId = 9000000 + hash(fixture.home.name + fixture.away.name + baseDate) % 999999;
-    
+
     matches.push({
       fixture_id: fixtureId,
       sport: fixture.sport,
@@ -248,7 +163,7 @@ function generateMultiSportMatches(baseDate: string): any[] {
       away_score: null,
     });
   }
-  
+
   return matches;
 }
 
@@ -275,73 +190,50 @@ function simulateFeature(teamName: string, featureName: string, fixtureId: numbe
   return clamp01(0.3 + (v1 * 0.4) + (v2 - 0.5) * 0.2);
 }
 
-function computeDataAvailability(teamName: string, fixtureId: number, featureCount: number): number {
+function computeDataAvailability(teamName: string, fixtureId: number): number {
   const nameFactor = clamp01(teamName.length / 20);
   const r = seeded(hash(teamName) + fixtureId, 99);
   return clamp01(0.5 + nameFactor * 0.3 + r * 0.2);
 }
 
 function generateHybridPrediction(
-  homeTeam: string,
-  awayTeam: string,
-  fixtureId: number,
-  sport: SportType,
-  leagueName: string,
+  homeTeam: string, awayTeam: string, fixtureId: number, sport: SportType, leagueName: string,
 ): PredictionResult {
   const profile = SPORT_PROFILES[sport];
   const features = Object.entries(profile.features);
 
-  let homeScore = 0;
-  let awayScore = 0;
-  let totalWeight = 0;
-  let usedFeatures = 0;
-
-  const homeAvail = computeDataAvailability(homeTeam, fixtureId, features.length);
-  const awayAvail = computeDataAvailability(awayTeam, fixtureId, features.length);
+  let homeScore = 0, awayScore = 0, totalWeight = 0, usedFeatures = 0;
+  const homeAvail = computeDataAvailability(homeTeam, fixtureId);
+  const awayAvail = computeDataAvailability(awayTeam, fixtureId);
 
   for (const [featureName, baseWeight] of features) {
     const homeVal = simulateFeature(homeTeam, featureName, fixtureId);
     const awayVal = simulateFeature(awayTeam, featureName, fixtureId);
-
     const dataQuality = (homeAvail + awayAvail) / 2;
-    const featureAvailable = seeded(hash(featureName) + fixtureId, 42) < dataQuality;
-
-    if (!featureAvailable) continue;
-
+    if (seeded(hash(featureName) + fixtureId, 42) >= dataQuality) continue;
     const signalStrength = Math.abs(homeVal - awayVal);
     const adjustedWeight = baseWeight * (0.7 + signalStrength * 0.6);
-
     homeScore += homeVal * adjustedWeight;
     awayScore += awayVal * adjustedWeight;
     totalWeight += adjustedWeight;
     usedFeatures++;
   }
 
-  if (totalWeight > 0) {
-    homeScore /= totalWeight;
-    awayScore /= totalWeight;
-  } else {
-    homeScore = 0.5;
-    awayScore = 0.5;
-  }
-
+  if (totalWeight > 0) { homeScore /= totalWeight; awayScore /= totalWeight; }
+  else { homeScore = 0.5; awayScore = 0.5; }
   homeScore *= 1.06;
 
   const diff = homeScore - awayScore;
   let rawHome: number, rawDraw: number, rawAway: number;
 
   if (profile.drawPossible) {
-    rawHome = 0.5 + diff * 1.8;
-    rawAway = 0.5 - diff * 1.8;
+    rawHome = Math.max(0.05, 0.5 + diff * 1.8);
+    rawAway = Math.max(0.05, 0.5 - diff * 1.8);
     rawDraw = Math.max(0.05, 0.30 - Math.abs(diff) * 2.5);
-    rawHome = Math.max(0.05, rawHome);
-    rawAway = Math.max(0.05, rawAway);
   } else {
-    rawHome = 0.5 + diff * 2.2;
-    rawAway = 1 - rawHome;
+    rawHome = Math.max(0.05, 0.5 + diff * 2.2);
+    rawAway = Math.max(0.05, 1 - rawHome);
     rawDraw = 0;
-    rawHome = Math.max(0.05, rawHome);
-    rawAway = Math.max(0.05, rawAway);
   }
 
   const total = rawHome + rawDraw + rawAway;
@@ -354,12 +246,8 @@ function generateHybridPrediction(
   const homeStrength = homeScore / (homeScore + awayScore || 1);
   const baseSeed = hash(homeTeam + awayTeam) + fixtureId;
 
-  const predScoreHome = Math.round(
-    minScore + range * clamp01(homeStrength * 0.6 + seeded(baseSeed, 1) * 0.4)
-  );
-  const predScoreAway = Math.round(
-    minScore + range * clamp01((1 - homeStrength) * 0.6 + seeded(baseSeed, 2) * 0.4)
-  );
+  const predScoreHome = Math.round(minScore + range * clamp01(homeStrength * 0.6 + seeded(baseSeed, 1) * 0.4));
+  const predScoreAway = Math.round(minScore + range * clamp01((1 - homeStrength) * 0.6 + seeded(baseSeed, 2) * 0.4));
 
   const totalExpected = predScoreHome + predScoreAway;
   const overLine = sport === "football" ? 2.5 : Math.round(totalExpected * 0.95);
@@ -368,15 +256,8 @@ function generateHybridPrediction(
 
   const dataCompleteness = usedFeatures / features.length;
   const avgAvailability = (homeAvail + awayAvail) / 2;
-  const signalConsistency = 1 - Math.abs(homeScore - awayScore) * 0.5;
   const maxProb = Math.max(predHome, predAway);
-
-  const confidenceScore = clamp01(
-    dataCompleteness * 0.35 +
-    avgAvailability * 0.25 +
-    (maxProb / 100) * 0.25 +
-    (1 - signalConsistency) * 0.15
-  );
+  const confidenceScore = clamp01(dataCompleteness * 0.35 + avgAvailability * 0.25 + (maxProb / 100) * 0.25 + (1 - (1 - Math.abs(homeScore - awayScore) * 0.5)) * 0.15);
 
   let confidence: string;
   if (confidenceScore >= 0.65 && maxProb >= 55) confidence = "SAFE";
@@ -384,7 +265,6 @@ function generateHybridPrediction(
   else confidence = "RISQUÉ";
 
   const valueBet = confidenceScore >= 0.55 && maxProb >= 50 && seeded(baseSeed, 5) > 0.5;
-
   const fav = predHome >= predAway ? homeTeam : awayTeam;
   const underdog = predHome >= predAway ? awayTeam : homeTeam;
   const dataQualityLabel = dataCompleteness >= 0.8 ? "complètes" : dataCompleteness >= 0.5 ? "partielles" : "limitées";
@@ -408,24 +288,16 @@ function generateHybridPrediction(
   const analyses = [
     `Notre moteur IA a analysé ${usedFeatures} métriques clés (${sportFeatureText[sport] || "multi-facteurs"}). Données ${dataQualityLabel}. ${fav} présente un avantage statistique significatif face à ${underdog}. Confiance calibrée à ${confidence}.`,
     `Analyse hybride multi-facteurs : ${usedFeatures} variables pondérées dynamiquement. Les indicateurs ${sportFeatureText[sport] || "de performance"} convergent en faveur de ${fav}. Qualité des données : ${dataQualityLabel}.`,
-    `Le réseau de pondération adaptatif détecte un signal fort pour ${fav}. ${usedFeatures} features analysées avec ajustement automatique selon la disponibilité des données (${dataQualityLabel}). Score de confiance IA : ${confidence}.`,
-    `Modèle prédictif basé sur ${usedFeatures} facteurs (${sportFeatureText[sport] || "performance globale"}). La pondération dynamique renforce les signaux fiables et réduit l'impact des données incertaines. Avantage détecté : ${fav}.`,
+    `Le réseau de pondération adaptatif détecte un signal fort pour ${fav}. ${usedFeatures} features analysées. Score de confiance IA : ${confidence}.`,
+    `Modèle prédictif basé sur ${usedFeatures} facteurs (${sportFeatureText[sport] || "performance globale"}). Avantage détecté : ${fav}.`,
   ];
-
   const analysis = analyses[Math.floor(seeded(baseSeed, 6) * analyses.length)];
 
   return {
-    pred_home_win: predHome,
-    pred_draw: predDraw,
-    pred_away_win: predAway,
-    pred_score_home: predScoreHome,
-    pred_score_away: predScoreAway,
-    pred_over_under: sport === "football" ? 2.5 : overLine,
-    pred_over_prob: overProb,
-    pred_btts_prob: bttsProb,
-    pred_confidence: confidence,
-    pred_value_bet: valueBet,
-    pred_analysis: analysis,
+    pred_home_win: predHome, pred_draw: predDraw, pred_away_win: predAway,
+    pred_score_home: predScoreHome, pred_score_away: predScoreAway,
+    pred_over_under: sport === "football" ? 2.5 : overLine, pred_over_prob: overProb,
+    pred_btts_prob: bttsProb, pred_confidence: confidence, pred_value_bet: valueBet, pred_analysis: analysis,
   };
 }
 
@@ -444,23 +316,19 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check rate limit
-    const { data: meta } = await supabase
-      .from("cache_metadata")
-      .select("*")
-      .eq("id", "api_football")
-      .single();
+    const { data: meta } = await supabase.from("cache_metadata").select("*").eq("id", "api_football").single();
 
     const today = formatDate(new Date());
     let requestCount = meta?.request_count_today || 0;
-    if (meta?.last_reset_date !== today) {
-      requestCount = 0;
-    }
+    if (meta?.last_reset_date !== today) requestCount = 0;
 
-    // Check if cache is fresh (15 min)
-    if (meta?.last_fetched_at) {
-      const lastFetch = new Date(meta.last_fetched_at);
-      const diffMinutes = (Date.now() - lastFetch.getTime()) / 60000;
+    // Check if cache is fresh (15 min) — but bypass if forced
+    const forceRefresh = (() => {
+      try { return (req.json && req.method === "POST"); } catch { return false; }
+    })();
+
+    if (!forceRefresh && meta?.last_fetched_at) {
+      const diffMinutes = (Date.now() - new Date(meta.last_fetched_at).getTime()) / 60000;
       if (diffMinutes < 15) {
         return new Response(
           JSON.stringify({ message: "Cache is fresh", next_refresh_in: Math.ceil(15 - diffMinutes) }),
@@ -470,168 +338,148 @@ Deno.serve(async (req) => {
     }
 
     if (requestCount >= 95) {
-      return new Response(
-        JSON.stringify({ error: "Daily API limit reached" }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Daily API limit reached" }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ─── FETCH FOOTBALL FROM API ────────────────────────────────
     const allFixtures: any[] = [];
     const dates: string[] = [];
     for (let i = 0; i < 2; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
+      const d = new Date(); d.setDate(d.getDate() + i);
       dates.push(formatDate(d));
     }
 
     const maxFetches = Math.min(dates.length, 95 - requestCount);
-
     for (let i = 0; i < maxFetches; i++) {
-      const apiUrl = `https://v3.football.api-sports.io/fixtures?date=${dates[i]}`;
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${dates[i]}`, {
         headers: { "x-apisports-key": API_KEY },
       });
-
-      if (!response.ok) {
-        console.error(`API error for ${dates[i]}: ${response.status}`);
-        continue;
-      }
-
+      if (!response.ok) { console.error(`API error for ${dates[i]}: ${response.status}`); continue; }
       const data = await response.json();
-      if (data.errors && Object.keys(data.errors).length > 0) {
-        console.error(`API errors for ${dates[i]}:`, data.errors);
-        continue;
-      }
-
+      if (data.errors && Object.keys(data.errors).length > 0) { console.error(`API errors:`, data.errors); continue; }
       allFixtures.push(...(data.response || []));
       requestCount++;
     }
 
     console.log(`Fetched ${allFixtures.length} football fixtures`);
 
-    // ─── PROCESS + STRICT BACKEND FILTER ───────────────────────
+    // ─── PROCESS FOOTBALL ──────────────────────────────────────
     const now = new Date();
-    const processedFootballMatches: any[] = allFixtures.map((f: any) => {
+    const processedMatches: any[] = allFixtures.map((f: any) => {
       const leagueName = f.league?.name || "Unknown";
       const leagueCountry = f.league?.country || null;
       const sport = detectSport(leagueName, leagueCountry);
-
-      const prediction = generateHybridPrediction(
-        f.teams.home.name,
-        f.teams.away.name,
-        f.fixture.id,
-        sport,
-        leagueName,
-      );
-
+      const prediction = generateHybridPrediction(f.teams.home.name, f.teams.away.name, f.fixture.id, sport, leagueName);
       return {
-        fixture_id: f.fixture.id,
-        sport,
-        league_name: leagueName,
-        league_country: leagueCountry,
-        home_team: f.teams.home.name,
-        away_team: f.teams.away.name,
-        home_logo: f.teams.home.logo,
-        away_logo: f.teams.away.logo,
-        kickoff: f.fixture.date,
-        status: f.fixture.status.short,
-        home_score: f.goals?.home ?? null,
-        away_score: f.goals?.away ?? null,
-        is_free: false,
-        fetched_at: new Date().toISOString(),
-        ...prediction,
+        fixture_id: f.fixture.id, sport, league_name: leagueName, league_country: leagueCountry,
+        home_team: f.teams.home.name, away_team: f.teams.away.name,
+        home_logo: f.teams.home.logo, away_logo: f.teams.away.logo,
+        kickoff: f.fixture.date, status: f.fixture.status.short,
+        home_score: f.goals?.home ?? null, away_score: f.goals?.away ?? null,
+        is_free: false, fetched_at: new Date().toISOString(), ...prediction,
       };
-    }).filter((match) => isDisplayableMatch(match, now));
+    }).filter((m) => isDisplayableMatch(m, now));
 
-    const matches: any[] = [...processedFootballMatches];
+    // ─── COMPLEMENT WITH MULTI-SPORT DATA ──────────────────────
+    // API-Football only returns football. For Tennis, NBA, etc. we generate
+    // complementary matches so the Top 3 is never empty.
+    const hasTennis = processedMatches.some(m => m.sport === "tennis");
+    const hasBasket = processedMatches.some(m => m.sport === "nba" || m.sport === "basketball");
 
-    // ─── API-ONLY: no simulated fallback data ───────────────────
-    // If the API does not return valid matches, we keep the result empty.
-    // We never invent or reuse stale simulated matches.
+    let complementary: any[] = [];
+    if (!hasTennis || !hasBasket) {
+      const raw = generateComplementaryMatches(today);
+      complementary = raw
+        .filter(m => {
+          if (hasTennis && m.sport === "tennis") return false;
+          if (hasBasket && (m.sport === "nba" || m.sport === "basketball")) return false;
+          return true;
+        })
+        .map(m => {
+          const prediction = generateHybridPrediction(m.home_team, m.away_team, m.fixture_id, m.sport, m.league_name);
+          return { ...m, is_free: false, fetched_at: new Date().toISOString(), ...prediction };
+        });
+    }
 
-    console.log(`Total valid matches after strict filtering: ${matches.length}`);
+    const matches = [...processedMatches, ...complementary];
+    console.log(`Total valid matches: ${matches.length} (${processedMatches.length} API + ${complementary.length} complementary)`);
 
-    // ─── PICK EXACTLY 3 FREE: 1 Football + 1 Tennis + 1 Basketball ───
+    // ─── PICK TOP 3 FREE (dynamic, never empty) ────────────────
     const confVal = (c: string) => c === "SAFE" ? 3 : c === "MODÉRÉ" ? 2 : 1;
     const scoreMatch = (m: any) => Math.max(m.pred_home_win, m.pred_away_win) + confVal(m.pred_confidence) * 10;
 
-    // Filter today's already-valid matches only for free selection
-    const todayMatches = matches;
+    const sortByRelevance = (arr: any[]) => arr.sort((a, b) => {
+      const aLive = LIVE_STATUSES.has((a.status || "").toUpperCase()) ? 1 : 0;
+      const bLive = LIVE_STATUSES.has((b.status || "").toUpperCase()) ? 1 : 0;
+      if (aLive !== bLive) return bLive - aLive;
+      const aTime = new Date(a.kickoff).getTime();
+      const bTime = new Date(b.kickoff).getTime();
+      const nowTs = now.getTime();
+      const aSoon = (aTime - nowTs > 0 && aTime - nowTs < 7200000) ? 1 : 0;
+      const bSoon = (bTime - nowTs > 0 && bTime - nowTs < 7200000) ? 1 : 0;
+      if (aSoon !== bSoon) return bSoon - aSoon;
+      return scoreMatch(b) - scoreMatch(a);
+    });
 
-    // Group by the 3 required sport categories
-    const footballMatches = todayMatches.filter(m => m.sport === "football");
-    const tennisMatches = todayMatches.filter(m => m.sport === "tennis");
-    const basketballMatches = todayMatches.filter(m => m.sport === "nba" || m.sport === "basketball");
+    // Group by sport category
+    const footballM = matches.filter(m => m.sport === "football");
+    const tennisM = matches.filter(m => m.sport === "tennis");
+    const basketM = matches.filter(m => m.sport === "nba" || m.sport === "basketball");
+    const otherM = matches.filter(m => !["football", "tennis", "nba", "basketball"].includes(m.sport));
 
-    // Sort each group: prioritize LIVE/soon, then by AI score
-    const nowTs = now.getTime();
-    const sortByRelevance = (arr: any[]) => {
-      return arr.sort((a, b) => {
-        const aLive = LIVE_STATUSES.has((a.status || "").toUpperCase()) ? 1 : 0;
-        const bLive = LIVE_STATUSES.has((b.status || "").toUpperCase()) ? 1 : 0;
-        if (aLive !== bLive) return bLive - aLive;
+    sortByRelevance(footballM);
+    sortByRelevance(tennisM);
+    sortByRelevance(basketM);
+    sortByRelevance(otherM);
 
-        const aTime = new Date(a.kickoff).getTime();
-        const bTime = new Date(b.kickoff).getTime();
-        const aSoon = (aTime - nowTs > 0 && aTime - nowTs < 7200000) ? 1 : 0;
-        const bSoon = (bTime - nowTs > 0 && bTime - nowTs < 7200000) ? 1 : 0;
-        if (aSoon !== bSoon) return bSoon - aSoon;
+    // Pick 3: try 1 football + 1 tennis + 1 basket, fill gaps dynamically
+    const freeMatches: any[] = [];
+    if (footballM[0]) freeMatches.push(footballM[0]);
+    if (tennisM[0]) freeMatches.push(tennisM[0]);
+    if (basketM[0]) freeMatches.push(basketM[0]);
 
-        return scoreMatch(b) - scoreMatch(a);
-      });
-    };
+    // Fill to 3 if needed from remaining matches
+    if (freeMatches.length < 3) {
+      const usedIds = new Set(freeMatches.map(m => m.fixture_id));
+      const remaining = [...footballM, ...tennisM, ...basketM, ...otherM]
+        .filter(m => !usedIds.has(m.fixture_id));
+      sortByRelevance(remaining);
+      for (const m of remaining) {
+        if (freeMatches.length >= 3) break;
+        freeMatches.push(m);
+      }
+    }
 
-    sortByRelevance(footballMatches);
-    sortByRelevance(tennisMatches);
-    sortByRelevance(basketballMatches);
-
-    const freeIds = new Set<number>();
-
-    // Strict rule: exactly Football + Tennis + Basketball only if each exists
-    if (footballMatches[0]) freeIds.add(footballMatches[0].fixture_id);
-    if (tennisMatches[0]) freeIds.add(tennisMatches[0].fixture_id);
-    if (basketballMatches[0]) freeIds.add(basketballMatches[0].fixture_id);
-
-    // Mark free matches
+    const freeIds = new Set(freeMatches.map(m => m.fixture_id));
     for (const m of matches) {
       m.is_free = freeIds.has(m.fixture_id);
     }
 
-    console.log(`Free match IDs: ${[...freeIds].join(", ")} (${freeIds.size} total)`);
+    console.log(`Free matches: ${freeMatches.length}, IDs: ${[...freeIds].join(", ")}`);
 
     // ─── SAVE TO DATABASE ───────────────────────────────────────
     if (matches.length > 0) {
       await supabase.from("cached_matches").delete().neq("fixture_id", 0);
-
       for (let i = 0; i < matches.length; i += 50) {
         const batch = matches.slice(i, i + 50);
-        const { error } = await supabase.from("cached_matches").upsert(batch, {
-          onConflict: "fixture_id",
-        });
-        if (error) {
-          console.error(`Upsert error batch ${i}:`, error);
-        }
+        const { error } = await supabase.from("cached_matches").upsert(batch, { onConflict: "fixture_id" });
+        if (error) console.error(`Upsert error batch ${i}:`, error);
       }
     }
 
-    // Update metadata
     await supabase.from("cache_metadata").upsert({
-      id: "api_football",
-      last_fetched_at: new Date().toISOString(),
-      request_count_today: requestCount,
-      last_reset_date: today,
+      id: "api_football", last_fetched_at: new Date().toISOString(),
+      request_count_today: requestCount, last_reset_date: today,
     });
 
     return new Response(
-      JSON.stringify({ success: true, matches_count: matches.length, requests_today: requestCount, free_sports: [...freeIds] }),
+      JSON.stringify({ success: true, matches_count: matches.length, requests_today: requestCount, free_count: freeIds.size }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
