@@ -58,7 +58,8 @@ const Index = () => {
   const matchCount = matches?.length || 0;
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen pb-20 relative">
+      <div className="particles-bg" />
       <Navbar />
 
       {/* Hero */}
