@@ -16,7 +16,6 @@ function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
     if (FINISHED_STATUSES.includes(statusUp)) return false;
     if (m.home_score !== null && m.away_score !== null) return false;
     const kickoff = new Date(m.kickoff).getTime();
-    // Allow matches up to 48h in the future (tomorrow's matches included)
     if (kickoff + 3 * 60 * 60 * 1000 < now) return false;
     if (kickoff > now + 48 * 60 * 60 * 1000) return false;
     return true;
@@ -44,22 +43,30 @@ function deduplicateByTeams(matches: CachedMatch[]): CachedMatch[] {
   });
 }
 
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    return { Authorization: `Bearer ${session.access_token}` };
+  }
+  return {};
+}
+
 export function useMatches() {
   return useQuery({
     queryKey: ["cached-matches"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cached_matches")
-        .select("*")
-        .order("kickoff", { ascending: true });
+      const { data, error } = await supabase.functions.invoke("get-matches", {
+        headers: await getAuthHeaders(),
+      });
 
       if (error) throw error;
 
-      let result = deduplicateMatches(data as CachedMatch[]);
+      const matches = data as CachedMatch[];
+      let result = deduplicateMatches(matches);
       result = deduplicateByTeams(result);
       result = filterActiveMatches(result);
 
-      console.log(`[useMatches] ${data?.length} raw → ${result.length} after dedup+filter`);
+      console.log(`[useMatches] ${matches?.length} raw → ${result.length} after dedup+filter`);
       return result;
     },
     staleTime: 2 * 60_000,
@@ -71,19 +78,26 @@ export function useMatch(id: string) {
   return useQuery({
     queryKey: ["cached-match", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cached_matches")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return data as CachedMatch;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const authHeaders = await getAuthHeaders();
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/get-matches?id=${id}`, {
+        headers: {
+          "apikey": anonKey,
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+      });
+
+      if (!response.ok) throw new Error("Match not found");
+      return (await response.json()) as CachedMatch;
     },
+    enabled: !!id,
   });
 }
 
-// No more useTriggerFetch - pg_cron handles it autonomously every 5 min
-// Frontend only reads from cached_matches, never triggers fetch-matches
+// No more useTriggerFetch - pg_cron handles it autonomously
 export function useTriggerFetch() {
   return useQuery({
     queryKey: ["trigger-fetch"],
