@@ -113,7 +113,7 @@ function getPredictionText(match: CachedMatch): string {
   }
   const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
   const displayName = shortName(winner);
-  return `${shortName} gagne`;
+  return `${displayName} gagne`;
 }
 
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
