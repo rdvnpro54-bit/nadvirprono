@@ -125,7 +125,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
               ))}
             </div>
           ) : topMatches.length > 0 ? (
-            <div className="mx-auto grid max-w-4xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-2xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
               {topMatches.map((m, i) => {
                 const aiScore = m.ai_score || 0;
                 return (
