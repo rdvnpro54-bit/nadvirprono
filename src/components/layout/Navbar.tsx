@@ -20,7 +20,7 @@ const mobileNav = [
 
 export function Navbar() {
   const location = useLocation();
-  const { user, isPremium } = useAuth();
+  const { user, isPremium, isAdmin } = useAuth();
 
   return (
     <>
