@@ -222,6 +222,22 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
           )}
 
+          {/* Prediction result for finished matches */}
+          {!locked && isFinished && predictionResult && (
+            <div className={cn(
+              "mt-2 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold",
+              predictionResult === "correct"
+                ? "bg-success/10 text-success"
+                : "bg-destructive/10 text-destructive"
+            )}>
+              {predictionResult === "correct" ? (
+                <><CheckCircle2 className="h-3.5 w-3.5" /> Prédiction correcte — Score : {match.home_score}-{match.away_score}</>
+              ) : (
+                <><XCircle className="h-3.5 w-3.5" /> Prédiction incorrecte — Score : {match.home_score}-{match.away_score}</>
+              )}
+            </div>
+          )}
+
           {/* Lock overlay */}
           {locked && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm rounded-xl">
