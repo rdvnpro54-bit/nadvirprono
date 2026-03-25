@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
+import { AiScoreBadge } from "./AiScoreBadge";
 import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
