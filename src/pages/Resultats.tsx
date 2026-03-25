@@ -49,7 +49,12 @@ function groupByDay(results: MatchResult[]): { label: string; results: MatchResu
 function filterResults(results: MatchResult[], sport: string, status: string, period: string): MatchResult[] {
   let filtered = results;
   if (sport !== "all") filtered = filtered.filter(r => r.sport === sport);
-  if (status !== "all") filtered = filtered.filter(r => r.result === status);
+  if (status === "win") filtered = filtered.filter(r => r.result === "win");
+  else if (status === "loss") filtered = filtered.filter(r => r.result === "loss");
+  else if (status === "high_conf") filtered = filtered.filter(r => {
+    const maxProb = Math.max(r.pred_home_win, r.pred_away_win);
+    return maxProb >= 60 || r.predicted_confidence === "SAFE";
+  });
   if (period !== "all") {
     const now = new Date();
     const today = now.toDateString();
@@ -80,7 +85,7 @@ function getTopPerformances(results: MatchResult[]): MatchResult[] {
 export default function Resultats() {
   const { allStats, topPickStats, monthStats, results, isLoading } = useResultStats();
   const [sport, setSport] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("high_conf");
   const [period, setPeriod] = useState("all");
   const [showAllHistory, setShowAllHistory] = useState(false);
 
@@ -122,7 +127,7 @@ export default function Resultats() {
             Résultats <span className="gradient-text">IA</span>
           </h1>
           <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">
-            Performances réelles • Transparence totale • Mise fixe 10€/match
+            Sélection IA optimisée • Analyse basée sur les meilleures opportunités
           </p>
         </motion.div>
 
