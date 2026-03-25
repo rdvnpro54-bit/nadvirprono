@@ -6,6 +6,7 @@ interface SubscriptionState {
   subscribed: boolean;
   productId: string | null;
   subscriptionEnd: string | null;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ interface AuthContextType {
   loading: boolean;
   subscription: SubscriptionState;
   isPremium: boolean;
+  isAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -44,21 +46,19 @@ export const STRIPE_PLANS = {
   },
 } as const;
 
+const DEFAULT_SUB: SubscriptionState = { subscribed: false, productId: null, subscriptionEnd: null, isAdmin: false };
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [subscription, setSubscription] = useState<SubscriptionState>({
-    subscribed: false,
-    productId: null,
-    subscriptionEnd: null,
-  });
+  const [subscription, setSubscription] = useState<SubscriptionState>(DEFAULT_SUB);
 
   const checkSubscription = useCallback(async () => {
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!currentSession) {
-        setSubscription({ subscribed: false, productId: null, subscriptionEnd: null });
+        setSubscription(DEFAULT_SUB);
         return;
       }
 
@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscribed: data?.subscribed || false,
         productId: data?.product_id || null,
         subscriptionEnd: data?.subscription_end || null,
+        isAdmin: data?.is_admin || false,
       });
     } catch (err) {
       console.error("Subscription check failed:", err);
@@ -82,7 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         setSession(newSession);
@@ -90,15 +90,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
 
         if (newSession?.user) {
-          // Defer subscription check to avoid deadlock
           setTimeout(() => checkSubscription(), 0);
         } else {
-          setSubscription({ subscribed: false, productId: null, subscriptionEnd: null });
+          setSubscription(DEFAULT_SUB);
         }
       }
     );
 
-    // THEN get initial session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
@@ -106,10 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user) checkSubscription();
     });
 
-    // Auto-refresh subscription every 60s
-    const interval = setInterval(() => {
-      checkSubscription();
-    }, 60000);
+    const interval = setInterval(() => checkSubscription(), 60000);
 
     return () => {
       authSub.unsubscribe();
@@ -129,13 +124,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSubscription({ subscribed: false, productId: null, subscriptionEnd: null });
+    setSubscription(DEFAULT_SUB);
   };
 
   const isPremium = subscription.subscribed;
+  const isAdmin = subscription.isAdmin;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscription, isPremium, signUp, signIn, signOut, checkSubscription }}>
+    <AuthContext.Provider value={{ user, session, loading, subscription, isPremium, isAdmin, signUp, signIn, signOut, checkSubscription }}>
       {children}
     </AuthContext.Provider>
   );

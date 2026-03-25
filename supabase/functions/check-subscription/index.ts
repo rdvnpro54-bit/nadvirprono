@@ -6,9 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const logStep = (step: string, details?: any) => {
-  console.log(`[CHECK-SUBSCRIPTION] ${step}${details ? ` - ${JSON.stringify(details)}` : ''}`);
-};
+const ADMIN_EMAIL = "rdvnpro54@gmail.com";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -22,11 +20,6 @@ Deno.serve(async (req) => {
   );
 
   try {
-    logStep("Function started");
-
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
 
@@ -35,24 +28,61 @@ Deno.serve(async (req) => {
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    // Check admin role
+    const { data: roleData } = await supabaseClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
 
-    if (customers.data.length === 0) {
-      logStep("No Stripe customer found");
-      return new Response(JSON.stringify({ subscribed: false }), {
+    const isAdmin = !!roleData;
+
+    // Check manual premium in subscriptions table
+    const { data: subData } = await supabaseClient
+      .from("subscriptions")
+      .select("is_premium, plan, expires_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const manualPremium = subData?.is_premium === true &&
+      (!subData.expires_at || new Date(subData.expires_at) > new Date());
+
+    // If admin or manual premium, return subscribed immediately
+    if (isAdmin || manualPremium) {
+      return new Response(JSON.stringify({
+        subscribed: true,
+        is_admin: isAdmin,
+        product_id: manualPremium ? "manual_" + (subData?.plan || "premium") : "admin",
+        subscription_end: subData?.expires_at || null,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
+    // Check Stripe subscription
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      return new Response(JSON.stringify({ subscribed: false, is_admin: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+
+    if (customers.data.length === 0) {
+      return new Response(JSON.stringify({ subscribed: false, is_admin: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
+      customer: customers.data[0].id,
       status: "active",
       limit: 1,
     });
@@ -65,13 +95,11 @@ Deno.serve(async (req) => {
       const sub = subscriptions.data[0];
       subscriptionEnd = new Date(sub.current_period_end * 1000).toISOString();
       productId = sub.items.data[0].price.product;
-      logStep("Active subscription found", { subscriptionId: sub.id, productId, endDate: subscriptionEnd });
-    } else {
-      logStep("No active subscription");
     }
 
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
+      is_admin: false,
       product_id: productId,
       subscription_end: subscriptionEnd,
     }), {
@@ -80,7 +108,6 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    logStep("ERROR", { message: msg });
     return new Response(JSON.stringify({ error: msg }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
