@@ -165,7 +165,9 @@ async function fetchSportsRC(dateSportSRC: string): Promise<NormalizedMatch[]> {
     for (const lg of leagues) {
       for (const m of (lg.matches || [])) {
         if (m.status !== "notstarted") continue;
-        const ts = m.timestamp ? m.timestamp * 1000 : 0;
+        // SportSRC timestamps can be in seconds or milliseconds
+        const rawTs = m.timestamp || 0;
+        const ts = rawTs < 1e12 ? rawTs * 1000 : rawTs;
         if (!ts || ts <= now) continue;
         if (m.score?.current?.home > 0 || m.score?.current?.away > 0) continue;
         results.push({
