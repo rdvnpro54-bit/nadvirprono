@@ -111,44 +111,6 @@ export default function Resultats() {
               </motion.div>
             </TabsContent>
 
-            <TabsContent value="toppicks" className="mt-4 space-y-6">
-              {topPickStats && topPickStats.total > 0 ? (
-                <>
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-success/20 bg-success/5 p-3 sm:p-4 flex items-center gap-3">
-                    <Flame className="h-5 w-5 text-success shrink-0" />
-                    <div>
-                      <p className="text-xs sm:text-sm font-bold">💎 Top Picks IA — Confiance SAFE uniquement</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Sélection des matchs avec confiance ≥ 8/10 • Résultats vérifiés</p>
-                    </div>
-                  </motion.div>
-                  <StatsGrid stats={topPickStats} title="Performance Top Picks" icon={Flame} />
-                </>
-              ) : (
-                <div className="text-center rounded-xl border bg-card p-8">
-                  <p className="text-sm font-semibold">Pas assez de données Top Pick</p>
-                </div>
-              )}
-
-              {topPickStats && allStats && topPickStats.total > 0 && allStats.total > 0 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="rounded-xl border bg-card p-3 sm:p-4">
-                  <h4 className="text-xs font-bold mb-2">📊 Comparaison</h4>
-                  <div className="space-y-2 text-xs">
-                    {[
-                      { label: "Winrate Top Picks", value: `${topPickStats.winrate}%`, cls: "text-success" },
-                      { label: "Winrate Global", value: `${allStats.winrate}%`, cls: "" },
-                      { label: "ROI Top Picks", value: `${topPickStats.roi >= 0 ? "+" : ""}${topPickStats.roi}%`, cls: topPickStats.roi >= 0 ? "text-success" : "text-destructive" },
-                      { label: "ROI Global", value: `${allStats.roi >= 0 ? "+" : ""}${allStats.roi}%`, cls: allStats.roi >= 0 ? "text-success" : "text-destructive" },
-                    ].map(row => (
-                      <div key={row.label} className="flex justify-between">
-                        <span className="text-muted-foreground">{row.label}</span>
-                        <span className={cn("font-bold", row.cls)}>{row.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </TabsContent>
-
             <TabsContent value="history" className="mt-4 space-y-4">
               <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
 
