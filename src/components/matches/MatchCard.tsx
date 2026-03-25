@@ -106,6 +106,17 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
           {/* Top row: league, badges, fav */}
           <div className="flex items-center justify-between mb-2.5">
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+              {(() => {
+                const sportKey = (match.sport || "football").toLowerCase();
+                const sportInfo = SPORT_ICONS[sportKey] || { icon: Trophy, label: sportKey };
+                const SportIcon = sportInfo.icon;
+                return (
+                  <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1 py-0.5 text-[10px] font-semibold text-primary mr-1 shrink-0">
+                    <SportIcon className="h-2.5 w-2.5" />
+                    {sportInfo.label}
+                  </span>
+                );
+              })()}
               {match.league_country && <span className="font-medium">{match.league_country}</span>}
               <span className="opacity-50">•</span>
               <span className="truncate">{match.league_name}</span>
