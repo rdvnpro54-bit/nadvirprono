@@ -206,7 +206,7 @@ export default function Suivis() {
             </div>
             <div className="flex items-center gap-1 text-primary">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-bold">{stats.winrate}%</span>
+              <span className="text-sm font-bold">{stats.precision}%</span>
             </div>
           </motion.div>
         )}
