@@ -1,51 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Target } from "lucide-react";
 import { motion, useInView } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
-
-const BASE_WINRATE = 79;
-const BASE_TOTAL = 14;
-const BASE_CORRECT = 11;
-
-export function useWinrate() {
-  return useQuery({
-    queryKey: ["ia-winrate"],
-    queryFn: async () => {
-      // Fetch finished matches
-      const { data, error } = await supabase
-        .from("cached_matches")
-        .select("pred_home_win, pred_away_win, home_score, away_score, status")
-        .in("status", ["FT", "AET", "PEN"]);
-
-      if (error) throw error;
-
-      let correct = BASE_CORRECT;
-      let total = BASE_TOTAL;
-
-      if (data && data.length > 0) {
-        for (const m of data) {
-          if (m.home_score === null || m.away_score === null) continue;
-          const isDraw = m.home_score === m.away_score;
-          if (isDraw) continue; // skip draws
-
-          total++;
-          const predictedHome = m.pred_home_win > m.pred_away_win;
-          const actualHome = m.home_score > m.away_score;
-          if (predictedHome === actualHome) correct++;
-        }
-      }
-
-      const winrate = total > 0 ? Math.round((correct / total) * 100) : BASE_WINRATE;
-
-      return { winrate, total, correct };
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-}
+import { useWinrateStats } from "@/hooks/useMatchHistory";
 
 export function WinrateDisplay() {
-  const { data } = useWinrate();
+  const { data } = useWinrateStats();
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true });
   const [count, setCount] = useState(0);
