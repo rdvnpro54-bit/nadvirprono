@@ -113,7 +113,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
     >
       <Link to={locked ? "/pricing" : `/match/${match.id}`} className="block">
         <div className={cn(
-          "glass-card match-card-hover p-3.5 group relative overflow-hidden",
+          "glass-card match-card-hover p-3 sm:p-3.5 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
           locked && "opacity-80"
         )}>
           {/* Top row */}
