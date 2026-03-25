@@ -230,16 +230,21 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* AI PREDICTION — UNLOCKED */}
             {!locked && (
-              <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2 sm:p-2.5">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="text-[11px] sm:text-sm font-bold text-primary truncate">
-                    🔥 IA : {getPredictionText(match)}
-                  </span>
+              <div className="mt-2.5 rounded-lg border border-primary/20 bg-primary/5 p-2.5 sm:p-3 space-y-2">
+                {/* Pronostic principal */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-bold text-primary truncate">
+                      🔥 {getPredictionText(match)}
+                    </span>
+                  </div>
+                  <ConfidenceBadge confidence={match.pred_confidence as any} />
                 </div>
-                <div className="mt-1.5 flex items-center gap-1.5">
-                  <span className="text-[9px] sm:text-[11px] text-muted-foreground whitespace-nowrap">Confiance :</span>
-                  <span className="text-[9px] sm:text-[11px] font-bold text-foreground">{confidence}%</span>
+
+                {/* Confiance bar */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground whitespace-nowrap">💎 Confiance</span>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <motion.div
                       className="h-full rounded-full bg-primary prob-bar-shimmer"
@@ -248,10 +253,13 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                       transition={{ duration: 0.8, delay: (index || 0) * 0.1 }}
                     />
                   </div>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-foreground">{confidence}%</span>
                 </div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="text-[10px] sm:text-[11px] text-muted-foreground">🎯 Score prédit :</span>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-foreground">
+
+                {/* Score prédit */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-foreground">
                     {match.pred_score_home} - {match.pred_score_away}
                   </span>
                 </div>
@@ -260,26 +268,36 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* LOCKED PREDICTION — PREMIUM TEASE */}
             {locked && (
-              <div className="mt-2 rounded-lg border border-border bg-muted/30 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[11px] sm:text-sm font-semibold text-muted-foreground">
-                    🔒 Prédiction IA verrouillée
-                  </span>
+              <div className="mt-2.5 rounded-lg border border-border bg-muted/30 p-2.5 sm:p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground">
+                      Prédiction verrouillée
+                    </span>
+                  </div>
+                  <span className="text-[9px] rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">🔒</span>
                 </div>
-                <div className="flex h-1.5 overflow-hidden rounded-full bg-muted mb-2">
+                <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
                   <div className="bg-primary/20 animate-pulse" style={{ width: "40%" }} />
                   <div className="bg-muted-foreground/10" style={{ width: "20%" }} />
                   <div className="bg-secondary/20 animate-pulse" style={{ width: "40%" }} />
                 </div>
-                <p className="text-[10px] text-muted-foreground mb-2">
-                  🔥 Ce match a une confiance IA élevée
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
+                  🔥 Confiance IA élevée détectée • Analyse complète disponible
                 </p>
-                <Link to="/pricing" onClick={e => e.stopPropagation()}>
-                  <Button size="sm" className="w-full gap-1.5 text-[10px] sm:text-[11px] btn-shimmer">
-                    <Zap className="h-3 w-3" /> 💎 Débloquer avec Premium
-                  </Button>
-                </Link>
+                <div className="flex gap-2">
+                  <Link to={`/match/${match.id}`} onClick={e => e.stopPropagation()} className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full gap-1 text-[9px] sm:text-[10px] h-7">
+                      Voir l'analyse
+                    </Button>
+                  </Link>
+                  <Link to="/pricing" onClick={e => e.stopPropagation()} className="flex-1">
+                    <Button size="sm" className="w-full gap-1 text-[9px] sm:text-[10px] h-7 btn-shimmer">
+                      <Zap className="h-3 w-3" /> Premium
+                    </Button>
+                  </Link>
+                </div>
               </div>
             )}
 

@@ -157,7 +157,10 @@ const Index = () => {
         </div>
       </section>
 
-      {/* TOP PICK DU JOUR */}
+      {/* Top 3 GRATUITS — visible immédiatement sans scroll */}
+      <TopMatchesSection matches={matches} isLoading={isLoading} />
+
+      {/* TOP PICK DU JOUR — après les Top 3 sur mobile */}
       <TopPickSection matches={matches} />
 
       {/* Weekly Stats */}
@@ -168,9 +171,6 @@ const Index = () => {
           </div>
         </section>
       </ScrollSection>
-
-      {/* Top 3 */}
-      <TopMatchesSection matches={matches} isLoading={isLoading} />
 
       {/* Animated Stats */}
       <ScrollSection>

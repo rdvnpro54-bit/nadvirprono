@@ -27,19 +27,27 @@ function DataQualityBadge({ analysis }: { analysis: string | null }) {
 
 function extractKeyFactors(analysis: string | null, homeTeam: string, awayTeam: string): string[] {
   const factors: string[] = [];
-  if (!analysis) return factors;
-  if (analysis.includes("xG")) factors.push("Expected Goals (xG) analysés");
-  if (analysis.includes("PPDA")) factors.push("Pression offensive (PPDA) évaluée");
+  if (!analysis) {
+    return [
+      "Forme récente des 5 derniers matchs intégrée",
+      "Historique des confrontations directes analysé",
+      "Performance domicile/extérieur évaluée",
+    ];
+  }
+  if (analysis.includes("xG")) factors.push("Expected Goals (xG) analysés pour les deux équipes");
+  if (analysis.includes("PPDA")) factors.push("Pression offensive (PPDA) comparée");
   if (analysis.includes("PER")) factors.push("Player Efficiency Rating calculé");
   if (analysis.includes("pace")) factors.push("Rythme de jeu (pace) pris en compte");
-  if (analysis.includes("complètes")) factors.push("Base de données complète disponible");
-  if (analysis.includes("partielles")) factors.push("Données partielles — confiance ajustée");
+  if (analysis.includes("complètes")) factors.push("Base de données complète — haute fiabilité");
+  if (analysis.includes("partielles")) factors.push("Données partielles — confiance ajustée en conséquence");
   if (analysis.includes("avantage")) {
     const winner = analysis.includes(homeTeam) ? homeTeam : awayTeam;
     factors.push(`${winner} identifié comme favori statistique`);
   }
   if (factors.length < 3) factors.push("Forme récente des 5 derniers matchs intégrée");
   if (factors.length < 3) factors.push("Historique des confrontations directes analysé");
+  if (factors.length < 4) factors.push("Performance domicile vs extérieur évaluée");
+  if (factors.length < 5) factors.push("Dynamique et contexte du match analysés");
   return factors.slice(0, 5);
 }
 
@@ -149,7 +157,8 @@ export default function MatchDetail() {
 
         {/* Header card with teams */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-3">
+          {/* League + time + live */}
+          <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
               {match.league_country && <span className="font-medium">{match.league_country} • </span>}
               {match.league_name}
@@ -160,11 +169,16 @@ export default function MatchDetail() {
                   🔴 LIVE
                 </span>
               )}
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Users className="h-3 w-3" /> {userCount} analysent
-              </span>
               {!isLocked && <ConfidenceBadge confidence={match.pred_confidence as any} size="lg" />}
             </div>
+          </div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[9px] sm:text-[10px] text-muted-foreground">
+              ⏰ {new Date(match.kickoff).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} à {new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <span className="flex items-center gap-1 text-[9px] sm:text-[10px] text-muted-foreground">
+              <Users className="h-3 w-3" /> {userCount} analysent
+            </span>
           </div>
 
           <div className="flex items-center justify-between gap-3 sm:gap-4">

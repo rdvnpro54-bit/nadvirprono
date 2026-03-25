@@ -40,7 +40,7 @@ export function TopPickSection({ matches }: TopPickProps) {
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5 }}
     >
-      <section className="border-t border-border/30 py-6 sm:py-8">
+      <section className="border-t border-border/30 py-4 sm:py-8">
         <div className="container px-3 sm:px-4">
           <div className="mx-auto max-w-lg">
             <div className="text-center mb-3">
