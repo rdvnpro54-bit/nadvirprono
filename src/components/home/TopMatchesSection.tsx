@@ -78,7 +78,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
               🔥 Top 3 Pronostics <span className="gradient-text">du Jour</span>
             </h2>
             <p className="mt-1 text-[10px] sm:text-sm text-muted-foreground">
-              ⚽ Football • 🎾 Tennis • 🏀 Basketball — sélection IA quotidienne
+              ⚽ Football • 🏀 NBA • 🏒 NHL • ⚾ MLB • 🏈 NFL • 🥊 MMA • 🏎️ F1 • 🏉 AFL • 🎾 Tennis
             </p>
           </div>
 
