@@ -210,6 +210,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   </span>
                 )}
                 {!locked && <ConfidenceBadge confidence={match.pred_confidence as any} />}
+                {!locked && (match as any).ai_score > 0 && <AiScoreBadge score={(match as any).ai_score} />}
                 <button onClick={handleFav} className="ml-0.5" title={user ? "Ajouter aux favoris" : "Connecte-toi"}>
                   <Star className={cn(
                     "h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors",
