@@ -73,17 +73,18 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
     const seed = (fixtureId * 2654435761) >>> 0;
     const matchFactor = 0.3 + ((seed % 100) / 100) * 0.7; // 0.3–1.0
 
-    const base = Math.round(globalCount * 0.08 * sportMultiplier * matchFactor);
+    // Each match gets 15-35% of global, weighted by sport & match factor
+    const base = Math.round(globalCount * 0.25 * sportMultiplier * matchFactor);
 
     // Get or init stored count for smooth transitions
     const prev = matchCountsRef.current.get(fixtureId) ?? base;
-    const maxStep = Math.max(3, Math.round(base * 0.1));
+    const maxStep = Math.max(5, Math.round(base * 0.1));
     const diff = base - prev;
     const clamped = Math.abs(diff) > maxStep
       ? prev + Math.sign(diff) * maxStep
       : base;
 
-    const final = Math.max(5, clamped);
+    const final = Math.max(15, clamped);
     matchCountsRef.current.set(fixtureId, final);
     return final;
   }, [globalCount]);

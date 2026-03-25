@@ -141,40 +141,37 @@ const Index = () => {
               </Button>
             </Link>
           </motion.div>
-
-          {/* Animated Stats */}
-          <motion.div
-            className="mt-12 grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-          >
-            {[
-              { label: "Précision IA", value: 82, suffix: "%", icon: TrendingUp },
-              { label: "Matchs analysés", value: matchCount || 257, suffix: "", icon: BarChart3 },
-              { label: "Sports couverts", value: 12, suffix: "", icon: Star },
-              { label: "ROI mensuel", value: 14.2, suffix: "%", icon: Shield, prefix: "+" },
-            ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
-              <motion.div
-                key={label}
-                className="glass-card flex flex-col items-center gap-1.5 p-3 transition-all duration-200 hover:scale-105 hover:border-primary/20"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 + i * 0.1 }}
-              >
-                <Icon className="h-4 w-4 text-primary" />
-                <span className="font-display text-xl font-bold">
-                  {prefix || ""}<AnimatedNumber value={Math.floor(value)} suffix={suffix} />
-                </span>
-                <span className="text-[10px] text-muted-foreground">{label}</span>
-              </motion.div>
-            ))}
-          </motion.div>
         </div>
       </section>
 
-      {/* Top 3 */}
+      {/* Top 3 — immediately visible, especially on mobile */}
       <TopMatchesSection matches={matches} isLoading={isLoading} />
+
+      {/* Animated Stats — after Top 3 */}
+      <ScrollSection>
+        <section className="border-t border-border/30 py-10">
+          <div className="container">
+            <div className="mx-auto grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Précision IA", value: 82, suffix: "%", icon: TrendingUp },
+                { label: "Matchs analysés", value: matchCount || 257, suffix: "", icon: BarChart3 },
+                { label: "Sports couverts", value: 12, suffix: "", icon: Star },
+                { label: "ROI mensuel", value: 14, suffix: "%", icon: Shield, prefix: "+" },
+              ].map(({ label, value, suffix, icon: Icon, prefix }, i) => (
+                <ScrollSection key={label} delay={i * 0.08}>
+                  <div className="glass-card flex flex-col items-center gap-1.5 p-3 transition-all duration-200 hover:scale-105 hover:border-primary/20">
+                    <Icon className="h-4 w-4 text-primary" />
+                    <span className="font-display text-xl font-bold">
+                      {prefix || ""}<AnimatedNumber value={Math.floor(value)} suffix={suffix} />
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{label}</span>
+                  </div>
+                </ScrollSection>
+              ))}
+            </div>
+          </div>
+        </section>
+      </ScrollSection>
 
       {/* Features */}
       <ScrollSection>
