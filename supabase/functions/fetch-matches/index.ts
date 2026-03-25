@@ -144,6 +144,12 @@ interface SimulatedFixture {
 }
 
 const MULTI_SPORT_DATA: SimulatedFixture[] = [
+  // Football (fallback when API is down)
+  { sport: "football", league: "Ligue 1", country: "France", home: { name: "Paris Saint-Germain", logo: null }, away: { name: "Olympique de Marseille", logo: null } },
+  { sport: "football", league: "Premier League", country: "England", home: { name: "Manchester City", logo: null }, away: { name: "Liverpool", logo: null } },
+  { sport: "football", league: "La Liga", country: "Spain", home: { name: "Real Madrid", logo: null }, away: { name: "FC Barcelona", logo: null } },
+  { sport: "football", league: "Serie A", country: "Italy", home: { name: "AC Milan", logo: null }, away: { name: "Inter Milan", logo: null } },
+  { sport: "football", league: "Bundesliga", country: "Germany", home: { name: "Bayern Munich", logo: null }, away: { name: "Borussia Dortmund", logo: null } },
   // Tennis
   { sport: "tennis", league: "ATP Masters 1000", country: "France", home: { name: "Carlos Alcaraz", logo: null }, away: { name: "Novak Djokovic", logo: null } },
   { sport: "tennis", league: "ATP 500", country: "Spain", home: { name: "Jannik Sinner", logo: null }, away: { name: "Daniil Medvedev", logo: null } },
