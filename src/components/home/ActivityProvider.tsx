@@ -1,26 +1,27 @@
 import { useState, useEffect, useCallback, createContext, useContext, useRef } from "react";
 
-// ─── Time-based baseline ───────────────────────────────────────
+// ─── Time-based baseline (higher, more credible numbers) ───
 function getHourBaseline(): { min: number; max: number } {
   const hour = new Date().getHours();
-  if (hour >= 0 && hour < 8) return { min: 200, max: 400 };
-  if (hour >= 8 && hour < 18) return { min: 300, max: 600 };
-  return { min: 400, max: 900 }; // 18h–23h
+  if (hour >= 0 && hour < 6) return { min: 400, max: 900 };
+  if (hour >= 6 && hour < 12) return { min: 800, max: 2000 };
+  if (hour >= 12 && hour < 18) return { min: 1500, max: 4000 };
+  return { min: 3000, max: 8000 }; // 18h–23h (match time)
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-// ─── Global activity context (single source of truth) ──────────
+// ─── Global activity context (single source of truth) ──────
 interface ActivityState {
   globalCount: number;
   getMatchCount: (fixtureId: number, sport: string) => number;
 }
 
 const ActivityContext = createContext<ActivityState>({
-  globalCount: 150,
-  getMatchCount: () => 80,
+  globalCount: 1500,
+  getMatchCount: () => 120,
 });
 
 export function useGlobalActivity() {
@@ -40,15 +41,14 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       setGlobalCount(prev => {
         const { min, max } = getHourBaseline();
         const range = max - min;
-        // Small delta: ±2-5% of range
-        const maxDelta = Math.max(5, Math.round(range * 0.04));
+        const maxDelta = Math.max(10, Math.round(range * 0.03));
         const delta = Math.round((Math.random() - 0.48) * maxDelta * 2);
         return Math.max(min, Math.min(max, prev + delta));
       });
     };
 
     const schedule = () => {
-      const delay = 8000 + Math.random() * 7000; // 8-15s
+      const delay = 8000 + Math.random() * 7000;
       return setTimeout(() => {
         tick();
         timerId = schedule();
@@ -59,32 +59,34 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timerId);
   }, []);
 
-  // Per-match counts derived from global
+  // Per-match counts: 2-12% of global, minimum 45
   const getMatchCount = useCallback((fixtureId: number, sport: string) => {
     const sportMultiplier =
       sport === "football" ? 1.0 :
-      sport === "nba" ? 0.7 :
-      sport === "tennis" ? 0.5 :
-      sport === "nfl" ? 0.6 :
-      sport === "hockey" ? 0.4 :
-      0.35;
+      sport === "nba" ? 0.8 :
+      sport === "basketball" ? 0.8 :
+      sport === "tennis" ? 0.6 :
+      sport === "nfl" ? 0.7 :
+      sport === "hockey" ? 0.5 :
+      0.4;
 
-    // Deterministic per-match seed for consistency
+    // Deterministic per-match seed
     const seed = (fixtureId * 2654435761) >>> 0;
     const matchFactor = 0.3 + ((seed % 100) / 100) * 0.7; // 0.3–1.0
 
-    // Each match gets 15-35% of global, weighted by sport & match factor
-    const base = Math.round(globalCount * 0.25 * sportMultiplier * matchFactor);
+    // 2% to 12% of global
+    const pct = 0.02 + matchFactor * 0.10 * sportMultiplier;
+    const base = Math.round(globalCount * pct);
 
-    // Get or init stored count for smooth transitions
+    // Smooth transitions
     const prev = matchCountsRef.current.get(fixtureId) ?? base;
-    const maxStep = Math.max(5, Math.round(base * 0.1));
+    const maxStep = Math.max(5, Math.round(base * 0.08));
     const diff = base - prev;
     const clamped = Math.abs(diff) > maxStep
       ? prev + Math.sign(diff) * maxStep
       : base;
 
-    const final = Math.max(15, clamped);
+    const final = Math.max(45, clamped);
     matchCountsRef.current.set(fixtureId, final);
     return final;
   }, [globalCount]);

@@ -86,7 +86,7 @@ const Index = () => {
             Pronostics Sportifs
             <br />
             <motion.span
-              className="gradient-text inline-block"
+              className="gradient-text-animated inline-block"
               initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               transition={{ delay: 0.3, duration: 0.6 }}
@@ -131,7 +131,7 @@ const Index = () => {
             transition={{ delay: 0.7 }}
           >
             <Link to="/matches">
-              <Button size="lg" className="gap-2 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
+              <Button size="lg" className="btn-glow gap-2 text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
                 <Brain className="h-4 w-4" /> Voir les pronostics
               </Button>
             </Link>

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ActivityProvider } from "@/components/home/ActivityProvider";
+import { SmartNotifications } from "@/components/home/SmartNotifications";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -61,6 +62,7 @@ const App = () => (
         <AuthProvider>
           <ActivityProvider>
             <AnimatedRoutes />
+            <SmartNotifications />
           </ActivityProvider>
         </AuthProvider>
       </BrowserRouter>
