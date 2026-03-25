@@ -112,7 +112,7 @@ function getPredictionText(match: CachedMatch): string {
     return "Match nul probable";
   }
   const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
-  const shortName = winner.length > 20 ? winner.split(" ").slice(0, 2).join(" ") : winner;
+  const displayName = shortName(winner);
   return `${shortName} gagne`;
 }
 
