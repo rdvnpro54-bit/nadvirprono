@@ -14,12 +14,39 @@ export function TopPickSection({ matches }: TopPickProps) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
 
-  const topPick = useMemo(
-    () => matches?.find((m) => m.is_top_pick === true) ?? null,
-    [matches]
-  );
+  const topPick = useMemo(() => {
+    if (!matches?.length) return null;
 
-  if (!topPick) return null;
+    const flaggedTopPick = matches.find((m) => m.is_top_pick === true && !!m.pred_analysis);
+    if (flaggedTopPick) return flaggedTopPick;
+
+    const risqueMatches = matches
+      .filter((m) => !m.is_free && m.pred_confidence === "RISQUÉ" && !!m.pred_analysis)
+      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+
+    if (risqueMatches.length > 0) return risqueMatches[0];
+
+    const analyzedFallback = matches
+      .filter((m) => !m.is_free && m.pred_confidence !== "LOCKED" && !!m.pred_analysis)
+      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+
+    return analyzedFallback[0] ?? null;
+  }, [matches]);
+
+  if (!topPick && !matches?.length) return null;
+
+  if (!topPick) {
+    return (
+      <section className="border-t border-border/20 py-6 sm:py-10">
+        <div className="container px-3 sm:px-4">
+          <div className="mx-auto max-w-lg glass-card-elevated p-5 sm:p-6 animate-pulse">
+            <div className="h-5 w-40 rounded bg-muted mb-4 mx-auto" />
+            <div className="h-20 rounded-xl bg-muted/70" />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const confidence = Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0);
   const winner = (topPick.pred_home_win || 0) >= (topPick.pred_away_win || 0) ? topPick.home_team : topPick.away_team;
