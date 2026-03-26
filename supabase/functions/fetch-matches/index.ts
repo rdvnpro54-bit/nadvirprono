@@ -550,7 +550,7 @@ async function fetchESPNExtended(sport: string, compact: string, tomorrowCompact
       const k = dedupKey(m);
       if (!seen.has(k)) { seen.add(k); allMatches.push(m); }
     }
-    if (allMatches.length >= 10) break;
+    if (allMatches.length >= 30) break;
   }
 
   return allMatches;
