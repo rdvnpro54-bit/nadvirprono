@@ -61,21 +61,27 @@ function AnimatedRoutes() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <ActivityProvider>
-            <AnimatedRoutes />
-            <SmartNotifications />
-          </ActivityProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [splashDone, setSplashDone] = useState(false);
+  const handleSplashComplete = useCallback(() => setSplashDone(true), []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+        <BrowserRouter>
+          <AuthProvider>
+            <ActivityProvider>
+              <AnimatedRoutes />
+              <SmartNotifications />
+            </ActivityProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
