@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
@@ -12,6 +12,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { CooldownTimer } from "@/components/matches/CooldownTimer";
 import { LiveUpdateBanner } from "@/components/home/LiveUpdateBanner";
+import { supabase } from "@/integrations/supabase/client";
+
+const AI_LOADING_MESSAGES = [
+  "Analyse des données en cours...",
+  "Traitement IA...",
+  "Calcul des probabilités...",
+  "Synthèse des prédictions...",
+  "Évaluation des performances...",
+];
+
+function RotatingLoader() {
+  const [msgIndex, setMsgIndex] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setMsgIndex(i => (i + 1) % AI_LOADING_MESSAGES.length), 2500);
+    return () => clearInterval(interval);
+  }, []);
+  return (
+    <div className="flex items-center gap-2">
+      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={msgIndex}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          className="text-[10px] sm:text-xs text-muted-foreground"
+        >
+          {AI_LOADING_MESSAGES[msgIndex]}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 type Confidence = "SAFE" | "MODÉRÉ" | "RISQUÉ";
 type AiTier = "ELITE" | "STRONG" | "ALL";
@@ -89,9 +122,31 @@ export default function Matches() {
     });
   }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier]);
 
+  // Auto-trigger AI for LOCKED matches
+  const triggerAIPredictions = useCallback(async () => {
+    if (!matches) return;
+    const lockedCount = matches.filter(m => m.pred_confidence === "LOCKED").length;
+    if (lockedCount === 0) return;
+    console.log(`[AI-TRIGGER] ${lockedCount} LOCKED matches, triggering ai-predict...`);
+    try {
+      await supabase.functions.invoke("ai-predict", { body: { batch: 10 } });
+      // Refetch matches after AI processes them
+      setTimeout(() => refetch(), 5000);
+    } catch (e) {
+      console.warn("[AI-TRIGGER] Failed:", e);
+    }
+  }, [matches, refetch]);
+
+  // Auto-trigger on load and retry every 60s
+  useEffect(() => {
+    triggerAIPredictions();
+    const interval = setInterval(triggerAIPredictions, 60_000);
+    return () => clearInterval(interval);
+  }, [triggerAIPredictions]);
+
   const trendingMatches = useMemo(() => {
-    if (!matches) return [];
-    return matches
+    if (!filtered || filtered.length === 0) return [];
+    return filtered
       .filter(m => (m.ai_score || 0) >= 80 && !["FT", "FINISHED"].includes(m.status.toUpperCase()))
       .sort((a, b) => {
         const aLive = new Date(a.kickoff).getTime() <= Date.now() ? 1 : 0;
@@ -101,7 +156,7 @@ export default function Matches() {
         return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
       })
       .slice(0, 4);
-  }, [matches]);
+  }, [filtered]);
 
   const grouped = useMemo(() => {
     const now = Date.now();
@@ -157,7 +212,9 @@ export default function Matches() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
               >
-                {matches?.length || 0} matchs analysés • Tous les sports
+                {filtered.length} matchs affichés
+                {sport !== "all" && ` • ${sportFilters.find(f => f.value === sport)?.label || sport}`}
+                {sport === "all" && " • Tous les sports"}
               </motion.p>
             </div>
             <CooldownTimer lastUpdate={dataUpdatedAt} intervalMs={3 * 60 * 1000} />
@@ -246,20 +303,29 @@ export default function Matches() {
             })}
           </div>
           <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5 overflow-x-auto max-w-full">
-            {sportFilters.map(f => (
-              <motion.button
-                key={f.value}
-                onClick={() => setSport(f.value)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={cn(
-                  "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-colors whitespace-nowrap",
-                  sport === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {f.emoji} {f.label}
-              </motion.button>
-            ))}
+            {sportFilters.map(f => {
+              const count = f.value === "all" ? (matches?.length || 0) : (matches?.filter(m => m.sport === f.value).length || 0);
+              const isActive = sport === f.value;
+              return (
+                <motion.button
+                  key={f.value}
+                  onClick={() => setSport(f.value)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={cn(
+                    "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-all whitespace-nowrap relative",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {f.emoji} {f.label}
+                  {count > 0 && isActive && (
+                    <span className="ml-0.5 text-[8px] opacity-70">({count})</span>
+                  )}
+                </motion.button>
+              );
+            })}
           </div>
           <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5">
             {confidenceFilters.map(f => (
@@ -292,10 +358,7 @@ export default function Matches() {
         {/* Loading */}
         {isLoading && (
           <div className="mt-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-[10px] sm:text-xs text-muted-foreground">Analyse IA en cours...</span>
-            </div>
+            <RotatingLoader />
             <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <motion.div
