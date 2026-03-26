@@ -70,28 +70,46 @@ function deduplicateByTeams(matches: CachedMatch[]): CachedMatch[] {
 
 /**
  * Merge new API data with existing cached matches.
- * Rule: NEVER drop a match that was previously shown and is still in its LIVE window.
+ * Rules:
+ * 1. NEVER drop a match that was previously shown and is still in its LIVE window
+ * 2. NEVER overwrite core prediction data (pred_*, ai_score) — only update status/scores
+ * 3. Preserve team names and kickoff times from first seen version
  */
 function mergeMatches(previous: CachedMatch[], incoming: CachedMatch[]): CachedMatch[] {
   const now = Date.now();
-  const incomingMap = new Map<string, CachedMatch>();
-  for (const m of incoming) incomingMap.set(m.id, m);
+  const previousMap = new Map<string, CachedMatch>();
+  for (const m of previous) previousMap.set(m.id, m);
 
   const merged = new Map<string, CachedMatch>();
 
-  // Add all incoming first
-  for (const m of incoming) merged.set(m.id, m);
+  // Add all incoming, but preserve locked prediction fields from previous
+  for (const m of incoming) {
+    const prev = previousMap.get(m.id);
+    if (prev) {
+      // Lock core data: keep original predictions, only update mutable fields
+      merged.set(m.id, {
+        ...prev,
+        // Only these fields can be updated:
+        status: m.status,
+        home_score: m.home_score,
+        away_score: m.away_score,
+        fetched_at: m.fetched_at,
+        is_free: m.is_free,
+      });
+    } else {
+      merged.set(m.id, m);
+    }
+  }
 
   // Preserve previous matches still in their LIVE window that API dropped
   for (const prev of previous) {
-    if (merged.has(prev.id)) continue; // already in new data, skip
+    if (merged.has(prev.id)) continue;
 
     const kickoff = new Date(prev.kickoff).getTime();
     const duration = getSportDuration(prev.sport);
     const isStillActive = now < kickoff + duration + 30 * 60 * 1000;
 
     if (isStillActive && !isFinishedByAPI(prev.status)) {
-      // API dropped it but it's still in LIVE window → keep it
       merged.set(prev.id, prev);
     }
   }
