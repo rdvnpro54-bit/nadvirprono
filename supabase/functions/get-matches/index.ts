@@ -235,8 +235,11 @@ Deno.serve(async (req) => {
     }
 
     const allMatches = (matches || []) as Record<string, unknown>[];
-    const freeIds = new Set(pickTop2Free(allMatches, dateKey));
+    const freeIds = pickTop2Free(allMatches, dateKey);
     const topPickId = pickTopPick(allMatches, freeIds, dateKey);
+
+    console.log(`[get-matches] dateKey=${dateKey}, total=${allMatches.length}, freeIds=${JSON.stringify([...freeIds])}, topPickId=${topPickId}`);
+    console.log(`[get-matches] matches with predictions: ${allMatches.filter(m => m.pred_home_win != null).length}`);
 
     if (isPremium) {
       return new Response(JSON.stringify(allMatches.map(m => ({
