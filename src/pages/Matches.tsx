@@ -76,7 +76,7 @@ export default function Matches() {
       }
       const score = m.ai_score || 0;
       if (aiTier === "ELITE" && score < 80) return false;
-      if (aiTier === "STRONG" && (score >= 80 || score < 1)) return false;
+      if (aiTier === "STRONG" && (score >= 80 || score < 65)) return false;
       return true;
     });
   }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier]);
