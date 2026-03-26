@@ -280,6 +280,51 @@ function removeResolvedMatches(matches: MatchWithFlags[], resolvedFixtureIds: Se
   return matches.filter((match) => !resolvedFixtureIds.has(Number(match.fixture_id)));
 }
 
+function ensureMinFreeMatches(matches: MatchWithFlags[], min: number): MatchWithFlags[] {
+  const freeCount = matches.filter(m => m.is_free).length;
+  if (freeCount >= min) return matches;
+
+  // Find best non-free matches with predictions to promote
+  const candidates = matches
+    .filter(m => !m.is_free && !m.is_top_pick && m.pred_confidence !== "LOCKED" && m.pred_analysis)
+    .sort((a, b) => {
+      // SAFE first
+      const confA = a.pred_confidence === "SAFE" ? 3 : a.pred_confidence === "MODÉRÉ" ? 2 : 1;
+      const confB = b.pred_confidence === "SAFE" ? 3 : b.pred_confidence === "MODÉRÉ" ? 2 : 1;
+      if (confB !== confA) return confB - confA;
+      return (b.ai_score || 0) - (a.ai_score || 0);
+    });
+
+  const needed = min - freeCount;
+  const toPromote = new Set(candidates.slice(0, needed).map(m => m.id));
+
+  return matches.map(m => toPromote.has(m.id) ? { ...m, is_free: true } : m);
+}
+
+function ensureTopPickIsAnalyzed(matches: MatchWithFlags[]): MatchWithFlags[] {
+  const topPick = matches.find(m => m.is_top_pick);
+  // If top pick exists and has analysis, keep it
+  if (topPick && topPick.pred_analysis && topPick.pred_confidence !== "LOCKED") return matches;
+
+  // Find a RISQUÉ match with real analysis
+  const risque = matches
+    .filter(m => !m.is_free && m.pred_confidence === "RISQUÉ" && m.pred_analysis)
+    .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+
+  // Fallback to MODÉRÉ with analysis
+  const modere = matches
+    .filter(m => !m.is_free && m.pred_confidence === "MODÉRÉ" && m.pred_analysis)
+    .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
+
+  const newPick = risque[0] || modere[0];
+  if (!newPick) return matches;
+
+  return matches.map(m => ({
+    ...m,
+    is_top_pick: m.id === newPick.id,
+  }));
+}
+
 export function useMatches() {
   const initialMatches = loadFromLocalStorage();
   const hasCache = initialMatches !== null && initialMatches.length > 0;
@@ -309,6 +354,11 @@ export function useMatches() {
         let result = normalizeMatches(removeResolvedMatches(matches, resolvedFixtureIds));
         result = mergeMatches(removeResolvedMatches(cacheRef.current, resolvedFixtureIds), result);
         result = normalizeMatches(removeResolvedMatches(result, resolvedFixtureIds));
+
+        // Ensure 2 free matches survive client-side filtering
+        result = ensureMinFreeMatches(result, 2);
+        // Ensure top pick is a real analyzed RISQUÉ match
+        result = ensureTopPickIsAnalyzed(result);
 
         cacheRef.current = result;
         saveToLocalStorage(result);
