@@ -22,6 +22,9 @@ const ESPN_SPORT_MAP: Record<string, string> = {
   nfl: "football/nfl",
   mma: "mma/ufc",
   tennis: "tennis/atp",
+  rugby: "rugby/270557",
+  f1: "racing/f1",
+  afl: "australian-football/afl",
 };
 
 interface CachedMatch {
