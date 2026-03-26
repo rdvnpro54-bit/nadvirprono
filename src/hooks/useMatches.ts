@@ -310,6 +310,11 @@ export function useMatches() {
         result = mergeMatches(removeResolvedMatches(cacheRef.current, resolvedFixtureIds), result);
         result = normalizeMatches(removeResolvedMatches(result, resolvedFixtureIds));
 
+        // Ensure 2 free matches survive client-side filtering
+        result = ensureMinFreeMatches(result, 2);
+        // Ensure top pick is a real analyzed RISQUÉ match
+        result = ensureTopPickIsAnalyzed(result);
+
         cacheRef.current = result;
         saveToLocalStorage(result);
         console.log(`[useMatches] ${matches.length} raw → ${result.length} affichés`);
