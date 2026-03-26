@@ -270,12 +270,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* === ROW 3: Social proof (ELITE only) === */}
             {!locked && aiScore >= 80 && (
-              <div className="flex items-center gap-3 mb-2.5 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Users className="h-2.5 w-2.5" /> {12 + (match.fixture_id % 38)} suivent ce pick
+              <div className="flex items-center gap-2 mb-2 text-[9px] sm:text-[10px] text-muted-foreground overflow-hidden">
+                <span className="flex items-center gap-1 truncate">
+                  <Users className="h-2.5 w-2.5 shrink-0" /> {12 + (match.fixture_id % 38)} suivent
                 </span>
                 {aiScore >= 85 && (
-                  <span className="flex items-center gap-0.5 font-semibold text-amber-400">
+                  <span className="flex items-center gap-0.5 font-semibold text-amber-400 shrink-0">
                     <Flame className="h-2.5 w-2.5" /> Trending
                   </span>
                 )}
