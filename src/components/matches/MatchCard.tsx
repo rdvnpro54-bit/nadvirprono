@@ -145,9 +145,20 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const apiLive = ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
   const kickoffTime = new Date(match.kickoff).getTime();
   const now = Date.now();
-  const sportDurations: Record<string, number> = { football: 120, tennis: 180, basketball: 150 };
+  const sportDurations: Record<string, number> = {
+    football: 120,
+    tennis: 180,
+    basketball: 150,
+    hockey: 150,
+    baseball: 210,
+    nfl: 210,
+    mma: 180,
+    f1: 150,
+    afl: 150,
+    rugby: 120,
+  };
   const maxDuration = (sportDurations[(match.sport || "football").toLowerCase()] || 120) * 60 * 1000;
-  const isFinished = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED"].includes(match.status.toUpperCase());
+  const isFinished = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED", "COMPLETED", "ENDED"].includes(match.status.toUpperCase());
   const timeLive = now >= kickoffTime && now <= kickoffTime + maxDuration && !isFinished;
   const isLive = apiLive || timeLive;
   const confidence = Math.max(Number(match.pred_home_win), Number(match.pred_away_win), Number(match.pred_draw));
