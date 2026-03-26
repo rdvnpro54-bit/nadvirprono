@@ -81,6 +81,22 @@ export default function Matches() {
     });
   }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier]);
 
+  // Trending matches: top ELITE matches with highest engagement potential
+  const trendingMatches = useMemo(() => {
+    if (!matches) return [];
+    return matches
+      .filter(m => (m.ai_score || 0) >= 80 && !["FT", "FINISHED"].includes(m.status.toUpperCase()))
+      .sort((a, b) => {
+        // Prioritize: LIVE > high ai_score > soonest kickoff
+        const aLive = new Date(a.kickoff).getTime() <= Date.now() ? 1 : 0;
+        const bLive = new Date(b.kickoff).getTime() <= Date.now() ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+        if ((b.ai_score || 0) !== (a.ai_score || 0)) return (b.ai_score || 0) - (a.ai_score || 0);
+        return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
+      })
+      .slice(0, 4);
+  }, [matches]);
+
   const grouped = useMemo(() => {
     const groups: Record<string, CachedMatch[]> = {};
     const sortedFiltered = [...filtered].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
