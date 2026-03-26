@@ -45,42 +45,57 @@ interface CachedMatch {
   away_score: number | null;
 }
 
-// Try to fetch real scores from ESPN
+// Try to fetch real scores from ESPN — check multiple dates for reliability
 async function fetchESPNScores(sport: string): Promise<Map<string, { home: number; away: number }>> {
   const scores = new Map<string, { home: number; away: number }>();
   const espnPath = ESPN_SPORT_MAP[sport.toLowerCase()];
   if (!espnPath) return scores;
 
-  try {
-    const res = await fetch(`${ESPN_BASE}/${espnPath}/scoreboard`);
-    if (!res.ok) return scores;
-    const data = await res.json();
+  // Check today, yesterday, and 2 days ago for comprehensive coverage
+  const dates: string[] = [];
+  for (let i = 0; i <= 2; i++) {
+    const d = new Date(Date.now() - i * 24 * 3600 * 1000);
+    dates.push(d.toISOString().slice(0, 10).replace(/-/g, ""));
+  }
 
-    for (const event of data.events || []) {
-      const competitors = event.competitions?.[0]?.competitors || [];
-      if (competitors.length < 2) continue;
+  for (const dateStr of dates) {
+    try {
+      const res = await fetch(`${ESPN_BASE}/${espnPath}/scoreboard?dates=${dateStr}`);
+      if (!res.ok) continue;
+      const data = await res.json();
 
-      const home = competitors.find((c: any) => c.homeAway === "home");
-      const away = competitors.find((c: any) => c.homeAway === "away");
-      if (!home || !away) continue;
+      for (const event of data.events || []) {
+        const competitors = event.competitions?.[0]?.competitors || [];
+        if (competitors.length < 2) continue;
 
-      const status = event.status?.type?.state;
-      if (status !== "post") continue; // Only finished matches
+        const home = competitors.find((c: any) => c.homeAway === "home");
+        const away = competitors.find((c: any) => c.homeAway === "away");
+        if (!home || !away) continue;
 
-      const homeScore = parseInt(home.score, 10);
-      const awayScore = parseInt(away.score, 10);
-      if (isNaN(homeScore) || isNaN(awayScore)) continue;
+        const status = event.status?.type?.state;
+        if (status !== "post") continue; // Only finished matches
 
-      // Key by normalized team names
-      const key = `${home.team?.displayName?.toLowerCase()}_${away.team?.displayName?.toLowerCase()}`;
-      scores.set(key, { home: homeScore, away: awayScore });
+        const homeScore = parseInt(home.score, 10);
+        const awayScore = parseInt(away.score, 10);
+        if (isNaN(homeScore) || isNaN(awayScore)) continue;
 
-      // Also store short names
-      const shortKey = `${home.team?.shortDisplayName?.toLowerCase()}_${away.team?.shortDisplayName?.toLowerCase()}`;
-      scores.set(shortKey, { home: homeScore, away: awayScore });
+        // Key by normalized team names
+        const key = `${home.team?.displayName?.toLowerCase()}_${away.team?.displayName?.toLowerCase()}`;
+        scores.set(key, { home: homeScore, away: awayScore });
+
+        // Also store short names
+        const shortKey = `${home.team?.shortDisplayName?.toLowerCase()}_${away.team?.shortDisplayName?.toLowerCase()}`;
+        scores.set(shortKey, { home: homeScore, away: awayScore });
+
+        // Also store abbreviation key
+        if (home.team?.abbreviation && away.team?.abbreviation) {
+          const abbrevKey = `${home.team.abbreviation.toLowerCase()}_${away.team.abbreviation.toLowerCase()}`;
+          scores.set(abbrevKey, { home: homeScore, away: awayScore });
+        }
+      }
+    } catch (e) {
+      console.warn(`[resolve] ESPN fetch error for ${sport} date ${dateStr}:`, e);
     }
-  } catch (e) {
-    console.warn(`[resolve] ESPN fetch error for ${sport}:`, e);
   }
 
   return scores;
