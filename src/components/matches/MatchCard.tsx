@@ -111,11 +111,12 @@ const UserActivity = React.forwardRef<HTMLSpanElement, { fixtureId: number; spor
 UserActivity.displayName = "UserActivity";
 
 function getPredictionText(match: CachedMatch): string {
-  // Always use probabilities to determine the predicted winner
-  if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) {
-    return "Match nul probable";
-  }
+  // Winner is always based on probabilities
   const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
+  // If predicted score is a draw, show "Winner ou match nul"
+  if (match.pred_score_home != null && match.pred_score_away != null && match.pred_score_home === match.pred_score_away) {
+    return `${shortName(winner)} ou match nul`;
+  }
   return `${shortName(winner)} gagne`;
 }
 

@@ -48,14 +48,10 @@ export function TopPickSection({ matches }: TopPickProps) {
     );
   }
 
-  // Always use probabilities for the predicted winner
-  const isDraw = Number(topPick.pred_draw) > Number(topPick.pred_home_win) && Number(topPick.pred_draw) > Number(topPick.pred_away_win);
-  const confidence = isDraw
-    ? Number(topPick.pred_draw) || Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0)
-    : Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0);
-  const winner = isDraw
-    ? null
-    : ((topPick.pred_home_win || 0) >= (topPick.pred_away_win || 0) ? topPick.home_team : topPick.away_team);
+  // Winner always based on probabilities
+  const winner = (topPick.pred_home_win || 0) >= (topPick.pred_away_win || 0) ? topPick.home_team : topPick.away_team;
+  const isDraw = topPick.pred_score_home != null && topPick.pred_score_away != null && topPick.pred_score_home === topPick.pred_score_away;
+  const confidence = Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0);
   const time = new Date(topPick.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
   const now = Date.now();
