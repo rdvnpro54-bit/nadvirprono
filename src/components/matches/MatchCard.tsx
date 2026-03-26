@@ -308,7 +308,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground/50 cursor-help shrink-0" />
+                          <span className="inline-flex shrink-0 cursor-help">
+                            <Info className="h-3 w-3 text-muted-foreground/50" />
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[220px]">
                           <p className="text-[10px]">Basé sur 11 facteurs : forme, stats avancées, blessures, H2H, contexte, fatigue, marché...</p>
