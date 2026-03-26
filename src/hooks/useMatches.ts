@@ -6,8 +6,8 @@ import type { Tables } from "@/integrations/supabase/types";
 export type CachedMatch = Tables<"cached_matches">;
 export type MatchWithFlags = CachedMatch & { is_top_pick?: boolean };
 
-const CACHE_KEY = "pronosia_matches_cache";
-const CACHE_TS_KEY = "pronosia_matches_ts";
+const CACHE_KEY = "pronosia_matches_cache_v2";
+const CACHE_TS_KEY = "pronosia_matches_ts_v2";
 const CACHE_MAX_AGE = 30 * 60_000;
 
 const SPORT_DURATIONS: Record<string, number> = {
@@ -274,7 +274,7 @@ function removeResolvedMatches(matches: MatchWithFlags[], resolvedFixtureIds: Se
 }
 
 export function useMatches() {
-  const initialMatches = loadFromLocalStorage() ?? getFallbackMatches();
+  const initialMatches = loadFromLocalStorage() ?? [];
   const cacheRef = useRef<MatchWithFlags[]>(initialMatches);
 
   return useQuery({
@@ -294,26 +294,21 @@ export function useMatches() {
 
         const matches = Array.isArray(data) ? (data as MatchWithFlags[]) : [];
         if (matches.length === 0) {
-          console.warn("[useMatches] API vide, fallback cache/mock");
-          return cacheRef.current.length > 0 ? cacheRef.current : getFallbackMatches();
+          console.warn("[useMatches] API vide, conservation du cache courant");
+          return removeResolvedMatches(cacheRef.current, resolvedFixtureIds);
         }
 
         let result = normalizeMatches(removeResolvedMatches(matches, resolvedFixtureIds));
         result = mergeMatches(removeResolvedMatches(cacheRef.current, resolvedFixtureIds), result);
         result = normalizeMatches(removeResolvedMatches(result, resolvedFixtureIds));
 
-        if (result.length === 0) {
-          console.warn("[useMatches] Résultat vide après normalisation, fallback cache/mock");
-          return cacheRef.current.length > 0 ? cacheRef.current : getFallbackMatches();
-        }
-
         cacheRef.current = result;
         saveToLocalStorage(result);
         console.log(`[useMatches] ${matches.length} raw → ${result.length} affichés`);
         return result;
       } catch (error) {
-        console.warn("[useMatches] Fetch failed, fallback cache/mock", error);
-        return cacheRef.current.length > 0 ? cacheRef.current : getFallbackMatches();
+        console.warn("[useMatches] Fetch failed, conservation du cache courant", error);
+        return cacheRef.current;
       }
     },
     staleTime: 2 * 60_000,
