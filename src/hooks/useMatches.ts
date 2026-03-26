@@ -6,9 +6,9 @@ import type { Tables } from "@/integrations/supabase/types";
 export type CachedMatch = Tables<"cached_matches">;
 export type MatchWithFlags = CachedMatch & { is_top_pick?: boolean };
 
-const CACHE_KEY = "pronosia_matches_cache_v2";
-const CACHE_TS_KEY = "pronosia_matches_ts_v2";
-const CACHE_MAX_AGE = 30 * 60_000;
+const CACHE_KEY = "pronosia_matches_cache_v3";
+const CACHE_TS_KEY = "pronosia_matches_ts_v3";
+const CACHE_MAX_AGE = 15 * 60_000;
 
 const SPORT_DURATIONS: Record<string, number> = {
   football: 120,
