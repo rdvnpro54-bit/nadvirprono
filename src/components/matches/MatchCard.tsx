@@ -284,12 +284,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* === ROW 4: AI Prediction (unlocked) === */}
             {!locked && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2.5">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 sm:p-3 space-y-2">
                 {/* Prediction header */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-1.5 overflow-hidden">
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
                     <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span className="text-xs font-bold text-primary truncate">
+                    <span className="text-[11px] sm:text-xs font-bold text-primary truncate min-w-0">
                       🔥 {getPredictionText(match)}
                     </span>
                   </div>
@@ -309,7 +309,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
                 {/* Confidence bar */}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">💎 Confiance</span>
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground whitespace-nowrap shrink-0">💎 Confiance</span>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <motion.div
                       className="h-full rounded-full bg-primary prob-bar-shimmer"
@@ -318,13 +318,13 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                       transition={{ duration: 0.8, delay: (index || 0) * 0.1 }}
                     />
                   </div>
-                  <span className="text-[11px] font-bold text-foreground shrink-0">{confidence}%</span>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-foreground shrink-0">{confidence}%</span>
                 </div>
 
                 {/* Predicted score */}
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground">🎯 Score prédit</span>
-                  <span className="text-xs font-bold text-foreground">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-foreground">
                     {match.pred_score_home} - {match.pred_score_away}
                   </span>
                 </div>
