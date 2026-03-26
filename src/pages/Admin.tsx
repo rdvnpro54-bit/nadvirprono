@@ -42,7 +42,7 @@ interface PresenceUser {
 const ADMIN_EMAIL = "rdvnpro54@gmail.com";
 
 export default function Admin() {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading, isAdmin } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<UserEntry[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -52,10 +52,11 @@ export default function Admin() {
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
+  const isAllowedAdmin = !!user && !!session && isAdmin && user.email === ADMIN_EMAIL;
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (!currentSession) return null;
+    if (!currentSession) throw new Error("Session admin introuvable");
     const { data, error } = await supabase.functions.invoke("admin-actions", {
       body: { action, ...extra },
       headers: { Authorization: `Bearer ${currentSession.access_token}` },
@@ -89,15 +90,14 @@ export default function Admin() {
   }, [adminCall]);
 
   useEffect(() => {
-    if (session && user?.email === ADMIN_EMAIL) {
-      fetchDashboard();
-      fetchUsers();
-    }
-  }, [session, user, fetchDashboard, fetchUsers]);
+    if (!isAllowedAdmin) return;
+    fetchDashboard();
+    fetchUsers();
+  }, [isAllowedAdmin, fetchDashboard, fetchUsers]);
 
   // Real-time subscription updates
   useEffect(() => {
-    if (!session || user?.email !== ADMIN_EMAIL) return;
+    if (!isAllowedAdmin) return;
 
     const channel = supabase
       .channel("admin-realtime")
@@ -115,7 +115,7 @@ export default function Admin() {
 
   // Real-time presence tracking
   useEffect(() => {
-    if (!session || user?.email !== ADMIN_EMAIL) return;
+    if (!isAllowedAdmin) return;
 
     const presenceChannel = supabase.channel("admin-presence-viewer");
 
@@ -138,7 +138,7 @@ export default function Admin() {
       .subscribe();
 
     return () => { supabase.removeChannel(presenceChannel); };
-  }, [session, user]);
+  }, [isAllowedAdmin]);
 
   const handleActivatePremium = async () => {
     if (!premiumEmail.trim()) return toast.error("Email requis");
@@ -185,7 +185,7 @@ export default function Admin() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || (user?.email === ADMIN_EMAIL && !isAllowedAdmin)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -193,7 +193,7 @@ export default function Admin() {
     );
   }
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAllowedAdmin) {
     return <Navigate to="/" replace />;
   }
 
