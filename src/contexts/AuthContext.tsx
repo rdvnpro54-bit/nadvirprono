@@ -20,7 +20,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  checkSubscription: () => Promise<void>;
+  checkSubscription: (currentSession?: Session | null) => Promise<SubscriptionState>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
