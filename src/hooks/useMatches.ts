@@ -281,12 +281,13 @@ function removeResolvedMatches(matches: MatchWithFlags[], resolvedFixtureIds: Se
 }
 
 export function useMatches() {
-  const initialMatches = loadFromLocalStorage() ?? [];
-  const cacheRef = useRef<MatchWithFlags[]>(initialMatches);
+  const initialMatches = loadFromLocalStorage();
+  const hasCache = initialMatches !== null && initialMatches.length > 0;
+  const cacheRef = useRef<MatchWithFlags[]>(hasCache ? initialMatches : []);
 
   return useQuery({
     queryKey: ["cached-matches"],
-    initialData: initialMatches,
+    ...(hasCache ? { initialData: initialMatches } : {}),
     queryFn: async () => {
       try {
         const [matchesResponse, resolvedFixtureIds] = await Promise.all([
