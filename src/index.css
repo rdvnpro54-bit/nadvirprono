@@ -322,6 +322,7 @@
   /* Animated gradient text */
   .gradient-text-animated {
     @apply bg-clip-text text-transparent;
+    -webkit-background-clip: text;
     background-image: linear-gradient(90deg, hsl(145 80% 42%), hsl(160 70% 50%), hsl(217 70% 50%), hsl(145 80% 42%));
     background-size: 300% auto;
     animation: gradient-shift 6s linear infinite;
