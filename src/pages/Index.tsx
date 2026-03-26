@@ -1,3 +1,4 @@
+import React from "react";
 import { Link } from "react-router-dom";
 import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain, Sparkles, Flame, Crown, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,22 +37,25 @@ function AnimatedNumber({ value, duration = 1.5, suffix = "" }: { value: number;
   return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
 }
 
-function ScrollSection({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+const ScrollSection = React.forwardRef<HTMLDivElement, { children: React.ReactNode; className?: string; delay?: number }>(
+  ({ children, className, delay = 0 }, _) => {
+    const ref = useRef<HTMLDivElement>(null);
+    const inView = useInView(ref, { once: true, margin: "-60px" });
 
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 30 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
+    return (
+      <motion.div
+        ref={ref}
+        initial={{ opacity: 0, y: 30 }}
+        animate={inView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.6, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className={className}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+);
+ScrollSection.displayName = "ScrollSection";
 
 const Index = () => {
   const { data: matches, isLoading } = useMatches();

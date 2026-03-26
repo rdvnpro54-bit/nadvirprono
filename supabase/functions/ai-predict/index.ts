@@ -148,7 +148,7 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
     const parsed = JSON.parse(toolCall.function.arguments);
     const predictions = parsed.predictions as AIPrediction[];
 
-    // Normalize probabilities & clamp ai_score
+    // Normalize probabilities & clamp ai_score & fix score/winner coherence
     for (const p of predictions) {
       const total = p.pred_home_win + p.pred_draw + p.pred_away_win;
       if (Math.abs(total - 100) > 2) {
@@ -163,11 +163,33 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
       if (conf === "RISQUÉ") {
         const maxProb = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
         if (maxProb >= 35) {
-          // Rebalance to keep max under 35 while summing to 100
           const scale = 34 / maxProb;
           p.pred_home_win = Math.round(p.pred_home_win * scale);
           p.pred_draw = Math.round(p.pred_draw * scale);
           p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+        }
+      }
+
+      // FIX: Ensure predicted score is coherent with predicted winner
+      // If home_win > away_win, home score must be > away score (and vice versa)
+      const homeWins = p.pred_home_win > p.pred_away_win;
+      const scoreHomeHigher = p.pred_score_home > p.pred_score_away;
+      if (homeWins && !scoreHomeHigher) {
+        // Swap scores so home score > away score
+        const tmp = p.pred_score_home;
+        p.pred_score_home = p.pred_score_away;
+        p.pred_score_away = tmp;
+        // If still equal, bump winner score
+        if (p.pred_score_home === p.pred_score_away) {
+          p.pred_score_home += 1;
+        }
+      } else if (!homeWins && scoreHomeHigher && p.pred_away_win > p.pred_home_win) {
+        // Away is predicted winner but home score is higher — swap
+        const tmp = p.pred_score_home;
+        p.pred_score_home = p.pred_score_away;
+        p.pred_score_away = tmp;
+        if (p.pred_score_home === p.pred_score_away) {
+          p.pred_score_away += 1;
         }
       }
     }
