@@ -380,13 +380,13 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* === ROW 5: Probability bar + Activity === */}
             {!locked && (
-              <div className="mt-3">
+              <div className="mt-2.5">
                 <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
                   <motion.div className="bg-primary" initial={{ width: 0 }} animate={{ width: `${match.pred_home_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 }} />
                   <motion.div className="bg-muted-foreground/30" initial={{ width: 0 }} animate={{ width: `${match.pred_draw}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.1 }} />
                   <motion.div className="bg-secondary" initial={{ width: 0 }} animate={{ width: `${match.pred_away_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.2 }} />
                 </div>
-                <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                <div className="mt-1 flex items-center justify-between text-[9px] sm:text-[10px] text-muted-foreground">
                   <span>🏠 {match.pred_home_win}%</span>
                   <UserActivity fixtureId={match.fixture_id} sport={match.sport || "football"} />
                   <span>✈️ {match.pred_away_win}%</span>
@@ -395,11 +395,11 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             )}
 
             {/* === ROW 6: Favorite button === */}
-            <div className="mt-2.5 flex items-center justify-between">
+            <div className="mt-2 flex items-center justify-between">
               <button
                 onClick={handleFav}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium transition-all active:scale-95",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium transition-all active:scale-95 min-h-[32px]",
                   isFav
                     ? "bg-warning/15 text-warning"
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
