@@ -61,14 +61,18 @@
   * {
     @apply border-border;
     box-sizing: border-box;
+    -webkit-box-sizing: border-box;
   }
 
   html, body {
     @apply text-foreground antialiased;
-    font-family: 'Inter', 'Outfit', system-ui, sans-serif;
+    font-family: 'Inter', 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
     max-width: 100vw;
     background: hsl(228 25% 4%);
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body::before {
@@ -81,6 +85,7 @@
       radial-gradient(ellipse 70% 50% at 20% 20%, hsl(145 80% 42% / 0.06), transparent),
       radial-gradient(ellipse 60% 40% at 75% 30%, hsl(217 70% 50% / 0.06), transparent),
       radial-gradient(ellipse 50% 50% at 50% 80%, hsl(280 60% 50% / 0.04), transparent);
+    -webkit-animation: bgOrbs 12s ease-in-out infinite alternate;
     animation: bgOrbs 12s ease-in-out infinite alternate;
   }
 
@@ -93,19 +98,23 @@
     background:
       radial-gradient(ellipse 50% 40% at 80% 70%, hsl(145 80% 42% / 0.04), transparent),
       radial-gradient(ellipse 60% 50% at 30% 60%, hsl(38 92% 50% / 0.03), transparent);
+    -webkit-animation: bgOrbs2 16s ease-in-out infinite alternate;
     animation: bgOrbs2 16s ease-in-out infinite alternate;
   }
 
   @keyframes bgOrbs {
     0% {
+      -webkit-transform: translate(0, 0) scale(1);
       transform: translate(0, 0) scale(1);
       opacity: 0.8;
     }
     50% {
+      -webkit-transform: translate(3%, -2%) scale(1.05);
       transform: translate(3%, -2%) scale(1.05);
       opacity: 1;
     }
     100% {
+      -webkit-transform: translate(-2%, 3%) scale(0.95);
       transform: translate(-2%, 3%) scale(0.95);
       opacity: 0.7;
     }
@@ -113,14 +122,17 @@
 
   @keyframes bgOrbs2 {
     0% {
+      -webkit-transform: translate(0, 0) scale(1);
       transform: translate(0, 0) scale(1);
       opacity: 0.6;
     }
     50% {
+      -webkit-transform: translate(-4%, 2%) scale(1.08);
       transform: translate(-4%, 2%) scale(1.08);
       opacity: 0.9;
     }
     100% {
+      -webkit-transform: translate(2%, -3%) scale(0.98);
       transform: translate(2%, -3%) scale(0.98);
       opacity: 0.5;
     }
@@ -131,6 +143,11 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Safari safe area padding */
+  body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 }
 
