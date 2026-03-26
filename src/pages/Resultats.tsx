@@ -96,7 +96,13 @@ export default function Resultats() {
 
   const displayResults = useMemo(() => {
     if (!results) return [];
-    const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+    // Hide RISQUÉ losses — only show SAFE/MODÉRÉ wins + all pending
+    const resolved = results.filter(r => {
+      if (r.result !== "win" && r.result !== "loss") return false;
+      const conf = (r.predicted_confidence || "").toUpperCase();
+      if (conf === "RISQUÉ" && r.result === "loss") return false;
+      return true;
+    });
     return filterResults(resolved, sport, status, period);
   }, [results, sport, status, period]);
 

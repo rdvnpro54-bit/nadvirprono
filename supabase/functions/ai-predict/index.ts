@@ -155,6 +155,19 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
         p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
       }
       p.ai_score = Math.max(0, Math.min(100, Math.round(p.ai_score || 50)));
+
+      // Enforce RISQUÉ credibility: max prob must be < 35%
+      const conf = (p.pred_confidence || "").toUpperCase();
+      if (conf === "RISQUÉ") {
+        const maxProb = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
+        if (maxProb >= 35) {
+          // Rebalance to keep max under 35 while summing to 100
+          const scale = 34 / maxProb;
+          p.pred_home_win = Math.round(p.pred_home_win * scale);
+          p.pred_draw = Math.round(p.pred_draw * scale);
+          p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+        }
+      }
     }
 
     return predictions;
