@@ -96,21 +96,69 @@ export default function Compte() {
 
         {!user ? (
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.1, type: "spring" }}
-            className="mt-8 glass-card p-6 text-center"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="mt-6 space-y-4"
           >
-            <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }}>
-              <User className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-            </motion.div>
-            <p className="text-sm font-medium">Non connecté</p>
-            <p className="mt-1 text-xs text-muted-foreground">Connecte-toi pour accéder à ton compte.</p>
-            <Link to="/login" className="mt-4 block">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button className="w-full">Se connecter</Button>
+            {/* Hero */}
+            <motion.div variants={staggerItem} className="text-center">
+              <motion.div
+                className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/20"
+                animate={{ boxShadow: ["0 0 0 0 hsl(var(--primary) / 0)", "0 0 30px 8px hsl(var(--primary) / 0.3)", "0 0 0 0 hsl(var(--primary) / 0)"] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 4, repeat: Infinity }}>
+                  <Zap className="h-10 w-10 text-primary" />
+                </motion.div>
               </motion.div>
-            </Link>
+              <h2 className="font-display text-xl font-bold">Rejoins Pronosia 🚀</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Accède aux meilleurs pronostics IA et booste tes gains</p>
+            </motion.div>
+
+            {/* Primary CTA */}
+            <motion.div variants={staggerItem}>
+              <Link to="/login?mode=register">
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  <Button className="w-full h-14 text-base font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.4)]" size="lg">
+                    <Zap className="h-5 w-5" />
+                    Créer un compte gratuit
+                  </Button>
+                </motion.div>
+              </Link>
+              <Link to="/login" className="mt-2 block text-center">
+                <span className="text-xs text-muted-foreground hover:text-primary transition-colors">Déjà un compte ? <span className="underline">Se connecter</span></span>
+              </Link>
+            </motion.div>
+
+            {/* Benefits */}
+            <motion.div variants={staggerItem} className="glass-card p-5 space-y-3">
+              {[
+                { icon: BarChart3, text: "Accès aux pronostics IA" },
+                { icon: Zap, text: "Matchs ELITE sélectionnés automatiquement" },
+                { icon: Activity, text: "Résultats en temps réel" },
+                { icon: Users, text: "Suivi de tes performances" },
+              ].map(({ icon: Icon, text }) => (
+                <motion.div key={text} className="flex items-center gap-3" whileHover={{ x: 4 }}>
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+                    <Icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">{text}</span>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Trust */}
+            <motion.div variants={staggerItem} className="flex flex-col items-center gap-1 pt-2">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Shield className="h-3.5 w-3.5 text-primary" />
+                <span>Inscription gratuite en 10 secondes</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CreditCard className="h-3.5 w-3.5 text-primary" />
+                <span>Aucune carte bancaire requise</span>
+              </div>
+            </motion.div>
           </motion.div>
         ) : (
           <motion.div variants={staggerContainer} initial="hidden" animate="show">
