@@ -57,20 +57,25 @@ function stripPredictions(match: Record<string, unknown>): Record<string, unknow
 
 /**
  * Pick exactly 2 FREE matches (most SAFE, highest confidence).
- * Deterministic: sorted by confidence rank → prediction strength → ai_score → id.
+ * Uses ALL matches with predictions (non-LOCKED in DB).
+ * If only 1 has predictions, pick 1. Top pick is excluded after.
  */
-function pickTop2Free(matches: Record<string, unknown>[], dateKey: string): [string, string] | [string] | [] {
+function pickTop2Free(matches: Record<string, unknown>[], dateKey: string): Set<string> {
   const { start, end } = getParisDayBounds();
-  const todayPool = matches.filter(m => {
-    const k = String(m.kickoff || "");
+  
+  // Get matches with actual predictions (non-null confidence that isn't LOCKED)
+  const withPredictions = matches.filter(m => {
     const conf = String(m.pred_confidence || "").toUpperCase();
-    return k >= start && k < end && conf !== "LOCKED" && conf !== "";
+    return conf !== "LOCKED" && conf !== "" && m.pred_home_win != null;
   });
 
-  const pool = todayPool.length >= 2 ? todayPool : matches.filter(m => {
-    const conf = String(m.pred_confidence || "").toUpperCase();
-    return conf !== "LOCKED" && conf !== "";
+  // Prefer today's matches, fallback to all with predictions
+  const todayPool = withPredictions.filter(m => {
+    const k = String(m.kickoff || "");
+    return k >= start && k < end;
   });
+
+  const pool = todayPool.length >= 2 ? todayPool : withPredictions;
 
   // Sort: SAFE first → highest prediction → highest ai_score → stable id sort
   const sorted = [...pool].sort((a, b) => {
@@ -83,7 +88,7 @@ function pickTop2Free(matches: Record<string, unknown>[], dateKey: string): [str
     return String(a.id).localeCompare(String(b.id));
   });
 
-  return sorted.slice(0, 2).map(m => String(m.id)) as any;
+  return new Set(sorted.slice(0, 2).map(m => String(m.id)));
 }
 
 /**
