@@ -72,6 +72,14 @@ export default function MatchDetail() {
 
   const predictionText = useMemo(() => {
     if (!match || isLocked) return "";
+    // Use predicted score to determine outcome
+    if (match.pred_score_home != null && match.pred_score_away != null) {
+      if (match.pred_score_home === match.pred_score_away) return "Match nul probable";
+      return match.pred_score_home > match.pred_score_away
+        ? `${match.home_team} gagne`
+        : `${match.away_team} gagne`;
+    }
+    // Fallback to probabilities
     if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) return "Match nul probable";
     return match.pred_home_win >= match.pred_away_win ? `${match.home_team} gagne` : `${match.away_team} gagne`;
   }, [match, isLocked]);
