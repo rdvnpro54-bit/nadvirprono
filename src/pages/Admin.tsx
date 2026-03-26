@@ -115,7 +115,7 @@ export default function Admin() {
 
   // Real-time presence tracking
   useEffect(() => {
-    if (!session || user?.email !== ADMIN_EMAIL) return;
+    if (!isAllowedAdmin) return;
 
     const presenceChannel = supabase.channel("admin-presence-viewer");
 
@@ -138,7 +138,7 @@ export default function Admin() {
       .subscribe();
 
     return () => { supabase.removeChannel(presenceChannel); };
-  }, [session, user]);
+  }, [isAllowedAdmin]);
 
   const handleActivatePremium = async () => {
     if (!premiumEmail.trim()) return toast.error("Email requis");
