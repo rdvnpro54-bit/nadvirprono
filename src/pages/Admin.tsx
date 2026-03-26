@@ -42,7 +42,7 @@ interface PresenceUser {
 const ADMIN_EMAIL = "rdvnpro54@gmail.com";
 
 export default function Admin() {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading, isAdmin } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<UserEntry[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -52,10 +52,11 @@ export default function Admin() {
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
+  const isAllowedAdmin = !!user && !!session && isAdmin && user.email === ADMIN_EMAIL;
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (!currentSession) return null;
+    if (!currentSession) throw new Error("Session admin introuvable");
     const { data, error } = await supabase.functions.invoke("admin-actions", {
       body: { action, ...extra },
       headers: { Authorization: `Bearer ${currentSession.access_token}` },
@@ -89,15 +90,14 @@ export default function Admin() {
   }, [adminCall]);
 
   useEffect(() => {
-    if (session && user?.email === ADMIN_EMAIL) {
-      fetchDashboard();
-      fetchUsers();
-    }
-  }, [session, user, fetchDashboard, fetchUsers]);
+    if (!isAllowedAdmin) return;
+    fetchDashboard();
+    fetchUsers();
+  }, [isAllowedAdmin, fetchDashboard, fetchUsers]);
 
   // Real-time subscription updates
   useEffect(() => {
-    if (!session || user?.email !== ADMIN_EMAIL) return;
+    if (!isAllowedAdmin) return;
 
     const channel = supabase
       .channel("admin-realtime")
