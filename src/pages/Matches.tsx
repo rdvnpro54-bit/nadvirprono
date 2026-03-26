@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
@@ -12,6 +12,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { CooldownTimer } from "@/components/matches/CooldownTimer";
 import { LiveUpdateBanner } from "@/components/home/LiveUpdateBanner";
+import { supabase } from "@/integrations/supabase/client";
+
+const AI_LOADING_MESSAGES = [
+  "Analyse des données en cours...",
+  "Traitement IA...",
+  "Calcul des probabilités...",
+  "Synthèse des prédictions...",
+  "Évaluation des performances...",
+];
+
+function RotatingLoader() {
+  const [msgIndex, setMsgIndex] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setMsgIndex(i => (i + 1) % AI_LOADING_MESSAGES.length), 2500);
+    return () => clearInterval(interval);
+  }, []);
+  return (
+    <div className="flex items-center gap-2">
+      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={msgIndex}
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          className="text-[10px] sm:text-xs text-muted-foreground"
+        >
+          {AI_LOADING_MESSAGES[msgIndex]}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 type Confidence = "SAFE" | "MODÉRÉ" | "RISQUÉ";
 type AiTier = "ELITE" | "STRONG" | "ALL";
