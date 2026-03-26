@@ -620,21 +620,23 @@ Deno.serve(async (req) => {
     const fetchMMA = () => fetchESPNExtended("mma", compact, tomorrowCompact);
     const fetchF1 = () => fetchESPNExtended("f1", compact, tomorrowCompact);
     const fetchAFL = () => fetchESPNExtended("afl", compact, tomorrowCompact);
+    const fetchRugby = () => fetchESPNExtended("rugby", compact, tomorrowCompact);
 
     const [
       footMatches, tennisMatches, basketMatches,
       hockeyMatches, baseballMatches,
-      nflMatches, mmaMatches, f1Matches, aflMatches,
+      nflMatches, mmaMatches, f1Matches, aflMatches, rugbyMatches,
     ] = await Promise.all([
       fetchFootball(), fetchTennis(), fetchBasketball(),
       fetchHockey(), fetchBaseball(),
-      fetchNFL(), fetchMMA(), fetchF1(), fetchAFL(),
+      fetchNFL(), fetchMMA(), fetchF1(), fetchAFL(), fetchRugby(),
     ]);
 
     const sportResults: Record<string, number> = {
       football: footMatches.length, tennis: tennisMatches.length, basketball: basketMatches.length,
       hockey: hockeyMatches.length, baseball: baseballMatches.length,
       nfl: nflMatches.length, mma: mmaMatches.length, f1: f1Matches.length, afl: aflMatches.length,
+      rugby: rugbyMatches.length,
     };
     console.log(`[RESULTS] ${JSON.stringify(sportResults)}`);
 
