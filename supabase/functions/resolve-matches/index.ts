@@ -106,14 +106,18 @@ function findScore(
   homeTeam: string,
   awayTeam: string
 ): { home: number; away: number } | null {
+  // Exact match
   const key = `${homeTeam.toLowerCase()}_${awayTeam.toLowerCase()}`;
   if (scores.has(key)) return scores.get(key)!;
 
-  // Fuzzy match: check if any key contains parts of team names
+  // Fuzzy match: check if any key contains significant parts of team names
+  const homeWords = homeTeam.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  const awayWords = awayTeam.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  
   for (const [k, v] of scores) {
-    const h = homeTeam.toLowerCase().split(" ")[0];
-    const a = awayTeam.toLowerCase().split(" ")[0];
-    if (k.includes(h) && k.includes(a)) return v;
+    const homeMatch = homeWords.some(w => k.split("_")[0]?.includes(w));
+    const awayMatch = awayWords.some(w => k.split("_")[1]?.includes(w));
+    if (homeMatch && awayMatch) return v;
   }
   return null;
 }
