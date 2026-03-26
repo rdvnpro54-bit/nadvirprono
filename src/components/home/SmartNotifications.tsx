@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Brain, Flame, Zap } from "lucide-react";
+import { X, Flame } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMatches } from "@/hooks/useMatches";
 
@@ -12,7 +12,7 @@ interface Notification {
   type: "match" | "info";
 }
 
-export function SmartNotifications() {
+export const SmartNotifications = forwardRef<HTMLDivElement>(function SmartNotifications(_props, ref) {
   const { data: matches } = useMatches();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const shownCount = useRef(0);
@@ -26,20 +26,17 @@ export function SmartNotifications() {
   const addNotification = useCallback(() => {
     if (shownCount.current >= maxPerSession || !matches) return;
 
-    // Find SAFE matches starting within 15-30 min that haven't been shown
     const now = Date.now();
     const safeMatches = matches.filter(m => {
       if (m.pred_confidence !== "SAFE" || m.is_free !== true) return false;
       if (shownFixtures.current.has(m.fixture_id)) return false;
       const kickoff = new Date(m.kickoff).getTime();
       const diff = kickoff - now;
-      // Show for matches between -5min and +60min of kickoff
       return diff > -5 * 60_000 && diff < 60 * 60_000;
     });
 
     if (safeMatches.length === 0) return;
 
-    // Pick the one closest to kickoff
     const match = safeMatches.sort((a, b) =>
       new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
     )[0];
@@ -64,10 +61,7 @@ export function SmartNotifications() {
   }, [matches, dismiss]);
 
   useEffect(() => {
-    // First check after 20s
     const firstTimer = setTimeout(addNotification, 20000);
-
-    // Then every 45-90s
     const interval = setInterval(() => {
       addNotification();
     }, 45000 + Math.random() * 45000);
@@ -79,7 +73,7 @@ export function SmartNotifications() {
   }, [addNotification]);
 
   return (
-    <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-2 max-w-sm md:bottom-6">
+    <div ref={ref} className="fixed bottom-20 right-4 z-40 flex flex-col gap-2 max-w-sm md:bottom-6">
       <AnimatePresence>
         {notifications.map((n) => (
           <motion.div
@@ -105,4 +99,4 @@ export function SmartNotifications() {
       </AnimatePresence>
     </div>
   );
-}
+});
