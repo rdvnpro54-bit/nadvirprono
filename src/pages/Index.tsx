@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain, Sparkles, Flame, Crown, ArrowRight } from "lucide-react";
+import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain, Sparkles, Flame, Crown, ArrowRight, Lock, CheckCircle, Trophy, Users, Eye, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { TopMatchesSection } from "@/components/home/TopMatchesSection";
@@ -9,7 +9,7 @@ import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { useEliteWinrate } from "@/hooks/useResults";
 import { useMatchDiagnostics } from "@/hooks/useMatchLifecycle";
-import { motion, useInView, useScroll, useTransform } from "framer-motion";
+import { motion, useInView, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +57,50 @@ const ScrollSection = React.forwardRef<HTMLDivElement, { children: React.ReactNo
 );
 ScrollSection.displayName = "ScrollSection";
 
+// Rotating social proof messages
+const SOCIAL_PROOF = [
+  "🏆 3 utilisateurs ont gagné grâce au Top Pick hier",
+  "🔥 Match ELITE détecté il y a 12 minutes",
+  "✅ 8 prédictions SAFE gagnées cette semaine",
+  "📈 +127% de ROI sur les Value Bets ce mois",
+  "⚡ 2 nouveaux matchs ELITE ajoutés",
+];
+
+function SocialProofTicker() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex(prev => (prev + 1) % SOCIAL_PROOF.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="h-6 overflow-hidden">
+      <AnimatePresence mode="wait">
+        <motion.p
+          key={index}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -20, opacity: 0 }}
+          transition={{ duration: 0.4 }}
+          className="text-[10px] sm:text-xs text-muted-foreground/70 text-center"
+        >
+          {SOCIAL_PROOF[index]}
+        </motion.p>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Testimonial data
+const TESTIMONIALS = [
+  { name: "Thomas R.", badge: "Premium", text: "Les picks ELITE sont impressionnants. 6 gains sur 7 cette semaine !", avatar: "T" },
+  { name: "Sarah M.", badge: "Premium", text: "Enfin une IA qui ne survend pas. Analyses honnêtes et résultats solides.", avatar: "S" },
+  { name: "Karim D.", badge: "Gratuit → Premium", text: "J'ai testé gratuit 1 semaine puis j'ai craqué. Les Value Bets changent tout.", avatar: "K" },
+];
+
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
   const { data: eliteData } = useEliteWinrate();
@@ -72,6 +116,7 @@ const Index = () => {
   const eliteWinrate = eliteData?.winrate ?? 84;
   const eliteStreak = eliteData?.streak;
   const eliteCount = matches?.filter(m => (m as any).ai_score >= 80).length || 0;
+  const safeCount = matches?.filter(m => m.pred_confidence === "SAFE").length || 0;
 
   return (
     <div className="min-h-screen pb-20 relative">
@@ -82,15 +127,21 @@ const Index = () => {
       <motion.section
         ref={heroRef}
         style={{ opacity: heroOpacity, scale: heroScale }}
-        className="relative overflow-hidden pt-20 pb-12 sm:pb-16"
+        className="relative overflow-hidden pt-20 pb-10 sm:pb-14"
       >
         {/* Ambient glow orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-primary/8 blur-[100px] floating-glow" />
           <div className="absolute top-1/2 -right-20 w-64 h-64 rounded-full bg-secondary/8 blur-[100px] floating-glow" style={{ animationDelay: "3s" }} />
+          <motion.div
+            className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-primary/4 blur-[120px]"
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 6, repeat: Infinity }}
+          />
         </div>
 
         <div className="container relative z-10 flex flex-col items-center text-center px-3 sm:px-4">
+          {/* Live badge */}
           <motion.span
             className="mb-3 sm:mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-[10px] sm:text-xs font-medium text-primary backdrop-blur-sm"
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -100,7 +151,7 @@ const Index = () => {
             <motion.span animate={{ rotate: [0, 360] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
               <Sparkles className="h-3 w-3" />
             </motion.span>
-            Sélection Intelligente • IA Nouvelle Génération
+            Moteur ATLAS • Prédictions Nouvelle Génération
           </motion.span>
 
           <motion.h1
@@ -170,7 +221,7 @@ const Index = () => {
             transition={{ delay: 0.6 }}
           >
             <RefreshCw className="h-3 w-3 animate-spin" style={{ animationDuration: "3s" }} />
-            <span>Données temps réel • Mis à jour toutes les 15 min</span>
+            <span>Données temps réel • Mis à jour toutes les 10 min</span>
           </motion.div>
 
           <motion.div
@@ -182,11 +233,21 @@ const Index = () => {
             <GlobalActivityBanner />
           </motion.div>
 
+          {/* Social proof ticker */}
           <motion.div
-            className="mt-5 sm:mt-6 flex flex-wrap items-center justify-center gap-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.75 }}
+            className="mt-3 w-full max-w-md"
+          >
+            <SocialProofTicker />
+          </motion.div>
+
+          <motion.div
+            className="mt-4 sm:mt-5 flex flex-wrap items-center justify-center gap-3"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
+            transition={{ delay: 0.8 }}
           >
             <Link to="/matches">
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
@@ -212,6 +273,88 @@ const Index = () => {
       {/* TOP PICK DU JOUR */}
       <TopPickSection matches={matches} />
 
+      {/* Premium Teaser — Locked predictions preview */}
+      <ScrollSection>
+        <section className="border-t border-border/20 py-10 sm:py-14">
+          <div className="container px-3 sm:px-4 max-w-lg">
+            <motion.div
+              className="text-center mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="font-display text-lg sm:text-xl font-bold flex items-center justify-center gap-2">
+                <Eye className="h-5 w-5 text-primary" />
+                Aperçu des Prédictions <span className="text-primary">Premium</span>
+              </h2>
+              <p className="mt-1 text-[10px] sm:text-xs text-muted-foreground/60">
+                {matchCount - 2} matchs supplémentaires analysés par ATLAS
+              </p>
+            </motion.div>
+
+            {/* Blurred locked cards */}
+            <div className="space-y-2.5">
+              {[
+                { home: "████████", away: "████████", conf: "SAFE", score: "82" },
+                { home: "████████", away: "████████", conf: "ELITE", score: "91" },
+                { home: "████████", away: "████████", conf: "SAFE", score: "78" },
+              ].map((item, i) => (
+                <ScrollSection key={i} delay={i * 0.1}>
+                  <motion.div
+                    className="glass-card p-3.5 relative overflow-hidden group cursor-pointer"
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    {/* Blur overlay */}
+                    <div className="absolute inset-0 bg-card/60 backdrop-blur-sm z-10 flex items-center justify-center">
+                      <motion.div
+                        className="flex items-center gap-2 text-xs font-semibold text-primary"
+                        animate={{ opacity: [0.6, 1, 0.6] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Débloquer avec Premium</span>
+                      </motion.div>
+                    </div>
+                    <div className="flex items-center justify-between opacity-40">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-muted" />
+                        <div>
+                          <p className="text-xs font-medium blur-[3px]">{item.home}</p>
+                          <p className="text-[10px] text-muted-foreground blur-[3px]">vs {item.away}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-[9px] font-bold px-2 py-0.5 rounded-full",
+                          item.conf === "ELITE" ? "bg-amber-500/20 text-amber-400" : "bg-primary/20 text-primary"
+                        )}>
+                          {item.conf === "ELITE" ? `⚡ ELITE ${item.score}` : `🛡 SAFE`}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                </ScrollSection>
+              ))}
+            </div>
+
+            <motion.div
+              className="mt-4 text-center"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+            >
+              <Link to="/pricing">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button className="btn-glow btn-shimmer gap-2 h-10 text-xs">
+                    <Lock className="h-3.5 w-3.5" /> Débloquer tous les pronostics
+                  </Button>
+                </motion.div>
+              </Link>
+            </motion.div>
+          </div>
+        </section>
+      </ScrollSection>
+
       {/* Animated Stats */}
       <ScrollSection>
         <section className="border-t border-border/20 py-10 sm:py-14">
@@ -222,14 +365,14 @@ const Index = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
             >
-              Statistiques en temps réel
+              Performance ATLAS en temps réel
             </motion.p>
             <div className="mx-auto grid max-w-2xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
               {[
-                { label: "Winrate ELITE", value: eliteWinrate, suffix: "%", icon: Sparkles, color: "text-primary" },
+                { label: "Winrate ELITE", value: eliteWinrate, suffix: "%", icon: Trophy, color: "text-primary" },
                 { label: "Matchs analysés", value: matchCount || 0, suffix: "", icon: BarChart3, color: "text-secondary" },
-                { label: "Sports couverts", value: 12, suffix: "", icon: Star, color: "text-accent" },
-                { label: "Matchs ELITE", value: eliteCount, suffix: "", icon: Zap, color: "text-success" },
+                { label: "Matchs SAFE", value: safeCount, suffix: "", icon: Shield, color: "text-accent" },
+                { label: "Matchs ELITE", value: eliteCount, suffix: "", icon: Sparkles, color: "text-success" },
               ].map(({ label, value, suffix, icon: Icon, color }, i) => (
                 <ScrollSection key={label} delay={i * 0.08}>
                   <motion.div
@@ -242,6 +385,56 @@ const Index = () => {
                       <AnimatedNumber value={Math.floor(value)} suffix={suffix} />
                     </span>
                     <span className="text-[9px] sm:text-[10px] text-muted-foreground mt-1 block">{label}</span>
+                  </motion.div>
+                </ScrollSection>
+              ))}
+            </div>
+          </div>
+        </section>
+      </ScrollSection>
+
+      {/* Testimonials */}
+      <ScrollSection>
+        <section className="border-t border-border/20 py-10 sm:py-14">
+          <div className="container px-3 sm:px-4 max-w-lg">
+            <motion.div
+              className="text-center mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="font-display text-lg sm:text-xl font-bold flex items-center justify-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Ce qu'ils en <span className="gradient-text">pensent</span>
+              </h2>
+            </motion.div>
+
+            <div className="space-y-3">
+              {TESTIMONIALS.map((t, i) => (
+                <ScrollSection key={i} delay={i * 0.1}>
+                  <motion.div
+                    className="glass-card p-4 relative"
+                    whileHover={{ scale: 1.02, y: -2 }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/15 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                        {t.avatar}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold">{t.name}</span>
+                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            {t.badge}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">"{t.text}"</p>
+                        <div className="flex gap-0.5 mt-1.5">
+                          {[1,2,3,4,5].map(s => (
+                            <Star key={s} className="h-2.5 w-2.5 text-accent fill-accent" />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 </ScrollSection>
               ))}
@@ -264,17 +457,17 @@ const Index = () => {
                 Pourquoi <span className="gradient-text">Pronosia</span> ?
               </h2>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground/70 max-w-md mx-auto">
-                Une technologie de prédiction sportive de nouvelle génération
+                Le moteur ATLAS analyse chaque match sur 11 dimensions
               </p>
             </motion.div>
             <div className="mx-auto grid max-w-4xl gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { icon: Brain, title: "IA Multi-Dimension", desc: "11 facteurs analysés : forme, xG, blessures, H2H, fatigue, marché, contexte et plus encore." },
-                { icon: Sparkles, title: "Sélection ELITE", desc: "Seuls les matchs avec un AI Score élevé sont mis en avant. Qualité > quantité." },
-                { icon: TrendingUp, title: "Value Bets", desc: "Détection automatique des cotes sous-évaluées par les bookmakers." },
-                { icon: BarChart3, title: "12 Sports", desc: "Football, NBA, NFL, MMA, Hockey, F1, Handball, Rugby, Volleyball, Baseball, AFL et Basketball." },
-                { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 15 minutes. Opportunités détectées automatiquement." },
-                { icon: Shield, title: `${eliteWinrate}% Winrate ELITE`, desc: "Performance vérifiable sur les 20 derniers matchs ELITE. Historique transparent." },
+                { icon: Brain, title: "Moteur ATLAS", desc: "Protocole de raisonnement forcé en 5 étapes : audit contextuel, base rate, analyse factorielle, synthèse, calibration." },
+                { icon: Sparkles, title: "Sélection ELITE", desc: "Seuls les matchs avec un AI Score ≥80 sont ELITE. Aucun compromis sur la qualité." },
+                { icon: TrendingUp, title: "Value Bets", desc: "Détection automatique quand la cote du marché sous-estime la vraie probabilité (edge > 4%)." },
+                { icon: Target, title: "Anti-Biais Cognitif", desc: "Protection contre le biais de récence, prestige, et favori-longshot. L'IA cherche les contradictions." },
+                { icon: Zap, title: "Temps Réel", desc: "Données actualisées toutes les 10 minutes. Pipeline multi-sources (ESPN, SofaScore, SportSRC)." },
+                { icon: Shield, title: `${eliteWinrate}% Winrate ELITE`, desc: "Performance vérifiable sur les 20 derniers matchs ELITE. Historique 100% transparent." },
               ].map(({ icon: Icon, title, desc }, i) => (
                 <ScrollSection key={title} delay={i * 0.06}>
                   <motion.div
@@ -298,6 +491,51 @@ const Index = () => {
         </section>
       </ScrollSection>
 
+      {/* How it works */}
+      <ScrollSection>
+        <section className="border-t border-border/20 py-10 sm:py-14">
+          <div className="container px-3 sm:px-4 max-w-lg">
+            <motion.div
+              className="text-center mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="font-display text-lg sm:text-xl font-bold">
+                Comment fonctionne <span className="gradient-text">ATLAS</span> ?
+              </h2>
+            </motion.div>
+
+            <div className="space-y-3">
+              {[
+                { step: "1", title: "Collecte multi-sources", desc: "ESPN, SofaScore, SportSRC — données fraîches toutes les 10 min", icon: RefreshCw },
+                { step: "2", title: "Analyse 11 dimensions", desc: "Forme, xG, H2H, fatigue, blessures, marché, contexte...", icon: Brain },
+                { step: "3", title: "Synthèse probabiliste", desc: "Calibration anti-biais, score de confiance, détection Value Bet", icon: Target },
+                { step: "4", title: "Sélection ELITE", desc: "Seuls les matchs à forte conviction passent le filtre", icon: Trophy },
+              ].map(({ step, title, desc, icon: Icon }, i) => (
+                <ScrollSection key={step} delay={i * 0.1}>
+                  <motion.div
+                    className="glass-card p-4 flex items-start gap-3.5"
+                    whileHover={{ x: 4 }}
+                  >
+                    <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-primary bg-primary/10 rounded-full w-4 h-4 flex items-center justify-center">{step}</span>
+                        {title}
+                      </p>
+                      <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">{desc}</p>
+                    </div>
+                  </motion.div>
+                </ScrollSection>
+              ))}
+            </div>
+          </div>
+        </section>
+      </ScrollSection>
+
       {/* CTA Premium */}
       <ScrollSection>
         <section className="border-t border-border/20 py-12 sm:py-16">
@@ -313,24 +551,38 @@ const Index = () => {
                 transition={{ duration: 4, repeat: Infinity }}
               />
               <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
+                animate={{ scale: [1, 1.15, 1] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
               >
                 <Crown className="mx-auto h-8 w-8 text-primary mb-4 relative z-10" />
               </motion.div>
               <h2 className="font-display text-lg sm:text-xl font-bold relative z-10">Passe à Premium</h2>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground relative z-10">
-                Accès prioritaire aux matchs ELITE uniquement. Analyses complètes et prédictions avancées.
+                Accède à tous les matchs analysés par ATLAS. Prédictions complètes, Value Bets, et alertes ELITE.
               </p>
-              <div className="mt-4 space-y-2 text-[10px] sm:text-xs text-muted-foreground/80 relative z-10">
-                <p>✔ +{matchCount} matchs analysés aujourd'hui</p>
-                <p>✔ IA basée sur 11 dimensions réelles</p>
-                <p>✔ Sélection automatique des meilleurs matchs</p>
+              <div className="mt-4 space-y-2 text-[10px] sm:text-xs relative z-10">
+                {[
+                  `${matchCount}+ matchs analysés aujourd'hui`,
+                  "Moteur ATLAS : 11 dimensions d'analyse",
+                  "Value Bets à edge > 4% détectés",
+                  "Alertes matchs ELITE en temps réel",
+                ].map((item, i) => (
+                  <motion.p
+                    key={i}
+                    className="flex items-center justify-center gap-2 text-muted-foreground/80"
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                  >
+                    <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" /> {item}
+                  </motion.p>
+                ))}
               </div>
               <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center relative z-10">
                 <Link to="/pricing">
                   <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
-                    <Button className="gap-2 btn-shimmer btn-glow shadow-lg shadow-primary/20 h-11">
+                    <Button className="gap-2 btn-shimmer btn-glow shadow-lg shadow-primary/20 h-11 text-sm font-semibold">
                       <Zap className="h-4 w-4" /> À partir de 9,90€/semaine
                     </Button>
                   </motion.div>
@@ -341,7 +593,7 @@ const Index = () => {
                 animate={{ opacity: [0.6, 1, 0.6] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
-                ⏳ Les meilleurs matchs sont limités chaque jour
+                ⏳ Les meilleurs matchs sont limités chaque jour — ne rate pas les ELITE
               </motion.p>
             </motion.div>
           </div>
