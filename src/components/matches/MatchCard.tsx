@@ -180,7 +180,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
       >
         <Link to={locked ? "#" : `/match/${match.id}`} onClick={handleLockedClick} className="block">
           <div className={cn(
-            "glass-card match-card-hover p-4 group relative overflow-hidden w-full active:scale-[0.98] transition-transform duration-200",
+            "glass-card match-card-hover p-3 sm:p-4 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
             locked && "opacity-80",
             getAiScoreGlow(aiScore)
           )}>
@@ -188,24 +188,24 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive live-bar-pulse" />}
 
             {/* === ROW 1: Sport + League + Badges === */}
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1.5 mb-2.5 overflow-hidden">
+              <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
                 {(() => {
                   const sportKey = (match.sport || "football").toLowerCase();
                   const sportInfo = SPORT_ICONS[sportKey] || { icon: Trophy, label: sportKey };
                   const SportIcon = sportInfo.icon;
                   return (
-                    <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary shrink-0">
+                    <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-primary shrink-0">
                       <SportIcon className="h-3 w-3" />
                       {sportInfo.label}
                     </span>
                   );
                 })()}
-                <span className="text-[10px] text-muted-foreground truncate">
-                  {match.league_name}{match.league_country ? ` • ${match.league_country}` : ""}
+                <span className="text-[9px] sm:text-[10px] text-muted-foreground truncate min-w-0">
+                  {match.league_name}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                 {!locked && <ConfidenceBadge confidence={match.pred_confidence as any} />}
                 {!locked && aiScore > 0 && <AiScoreBadge score={aiScore} />}
                 {match.pred_value_bet && (
