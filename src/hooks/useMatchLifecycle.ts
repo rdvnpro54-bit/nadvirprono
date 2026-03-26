@@ -21,7 +21,6 @@ export function getMatchStatus(match: CachedMatch): MatchStatus {
   const kickoff = new Date(match.kickoff).getTime();
   const statusUp = match.status.toUpperCase();
 
-  // Finished: API says finished OR kickoff + duration + margin exceeded
   if (FINISHED_STATUSES.includes(statusUp)) return "finished";
   if (match.home_score !== null && match.away_score !== null) return "finished";
 
@@ -29,9 +28,7 @@ export function getMatchStatus(match: CachedMatch): MatchStatus {
   const durationMs = (SPORT_DURATIONS[sport] || 120) * 60 * 1000;
   if (now > kickoff + durationMs) return "finished";
 
-  // Live: time-based (currentTime >= startTime) — NEVER rely only on API
   if (now >= kickoff) return "live";
-
   return "upcoming";
 }
 
@@ -39,62 +36,53 @@ export function isMatchLive(match: CachedMatch): boolean {
   return getMatchStatus(match) === "live";
 }
 
-// ─── TOP PICK DU JOUR (LOCKED PER DAY) ─────────────────────────
-const TOP_PICK_KEY = "pronosia_top_pick";
-
-interface StoredTopPick {
-  matchId: string;
-  date: string; // YYYY-MM-DD
-}
-
+// ─── DETERMINISTIC DATE KEY ─────────────────────────────────────
 function getTodayISO(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
 }
 
-function selectBestMatch(matches: CachedMatch[]): CachedMatch | null {
-  const eligible = matches.filter(m => {
-    const status = getMatchStatus(m);
-    return status === "upcoming" && m.pred_confidence !== "LOCKED";
-  });
-  if (eligible.length === 0) return null;
-
-  // Prefer RISQUÉ matches for the Top Pick (more exciting, drives conversions)
-  return eligible.reduce((best, m) => {
-    const rankM = m.pred_confidence === "RISK" ? 3 : m.pred_confidence === "MODÉRÉ" ? 2 : 1;
-    const rankB = best.pred_confidence === "RISK" ? 3 : best.pred_confidence === "MODÉRÉ" ? 2 : 1;
-    if (rankM !== rankB) return rankM > rankB ? m : best;
-    // Among same risk level, pick highest ai_score
-    return (m.ai_score || 0) > (best.ai_score || 0) ? m : best;
-  });
+// ─── DETERMINISTIC DAILY SEED ───────────────────────────────────
+// Same seed for all users on the same day → same selections
+function getDailySeed(): number {
+  const dateStr = getTodayISO();
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
 }
 
+// ─── TOP PICK DU JOUR (RISQUÉ — DETERMINISTIC) ─────────────────
 export function useTopPick(matches: CachedMatch[] | undefined): CachedMatch | null {
   return useMemo(() => {
     if (!matches || matches.length === 0) return null;
-    const today = getTodayISO();
 
-    // Check stored top pick
-    try {
-      const stored = localStorage.getItem(TOP_PICK_KEY);
-      if (stored) {
-        const parsed: StoredTopPick = JSON.parse(stored);
-        if (parsed.date === today) {
-          // Same day → use stored match ID (locked)
-          const found = matches.find(m => m.id === parsed.matchId);
-          if (found) return found;
-          // Match no longer in cache (finished/removed), keep stored but return null
-        }
-      }
-    } catch { /* ignore parse errors */ }
+    const eligible = matches.filter(m => {
+      const status = getMatchStatus(m);
+      return (status === "upcoming" || status === "live") && m.pred_confidence !== "LOCKED";
+    });
+    if (eligible.length === 0) return null;
 
-    // New day or no stored → select and save
-    const best = selectBestMatch(matches);
-    if (best) {
-      try {
-        localStorage.setItem(TOP_PICK_KEY, JSON.stringify({ matchId: best.id, date: today }));
-      } catch { /* storage full */ }
-    }
-    return best;
+    // FORCE RISQUÉ picks first, then MODÉRÉ, then SAFE
+    const risque = eligible.filter(m => m.pred_confidence === "RISQUÉ");
+    const modere = eligible.filter(m => m.pred_confidence === "MODÉRÉ");
+    const safe = eligible.filter(m => m.pred_confidence === "SAFE");
+
+    // Pick from risqué first, otherwise modéré, last resort safe
+    const pool = risque.length > 0 ? risque : modere.length > 0 ? modere : safe;
+
+    // Sort deterministically by ai_score desc, then fixture_id for tie-breaking
+    const sorted = [...pool].sort((a, b) => {
+      const scoreDiff = (b.ai_score || 0) - (a.ai_score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.fixture_id - b.fixture_id;
+    });
+
+    // Use daily seed for stable rotation among top candidates
+    const seed = getDailySeed();
+    const topCandidates = sorted.slice(0, Math.min(3, sorted.length));
+    return topCandidates[seed % topCandidates.length];
   }, [matches]);
 }
 
@@ -108,20 +96,8 @@ export function useMatchDiagnostics(matches: CachedMatch[] | undefined) {
     const upcoming = matches.filter(m => getMatchStatus(m) === "upcoming").length;
     const finished = matches.filter(m => getMatchStatus(m) === "finished").length;
 
-    // Top pick
-    const today = getTodayISO();
-    let topPickId = "none";
-    try {
-      const stored = localStorage.getItem(TOP_PICK_KEY);
-      if (stored) {
-        const parsed: StoredTopPick = JSON.parse(stored);
-        if (parsed.date === today) topPickId = parsed.matchId;
-      }
-    } catch { /* */ }
-
     console.log(`[PRONOSIA] ━━━ Match Lifecycle ━━━`);
     console.log(`[PRONOSIA] Cache: ${cached} matchs`);
     console.log(`[PRONOSIA] Live: ${live} | Upcoming: ${upcoming} | Finished: ${finished}`);
-    console.log(`[PRONOSIA] Top Pick: ${topPickId} (${today})`);
   }, [matches]);
 }
