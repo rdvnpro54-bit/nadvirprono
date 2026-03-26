@@ -92,27 +92,30 @@ function Countdown({ kickoff }: { kickoff: string }) {
   );
 }
 
-function UserActivity({ fixtureId, sport }: { fixtureId: number; sport: string }) {
-  const { getMatchCount } = useGlobalActivity();
-  const [count, setCount] = useState(() => getMatchCount(fixtureId, sport));
-  useEffect(() => {
-    const schedule = () => {
-      const delay = 10000 + Math.random() * 10000;
-      return setTimeout(() => { setCount(getMatchCount(fixtureId, sport)); timerId = schedule(); }, delay);
-    };
-    let timerId = schedule();
-    return () => clearTimeout(timerId);
-  }, [fixtureId, sport, getMatchCount]);
-  return (
-    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-      <span className="relative flex h-2 w-2">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/40" />
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/60" />
+const UserActivity = React.forwardRef<HTMLSpanElement, { fixtureId: number; sport: string }>(
+  ({ fixtureId, sport }, ref) => {
+    const { getMatchCount } = useGlobalActivity();
+    const [count, setCount] = useState(() => getMatchCount(fixtureId, sport));
+    useEffect(() => {
+      const schedule = () => {
+        const delay = 10000 + Math.random() * 10000;
+        return setTimeout(() => { setCount(getMatchCount(fixtureId, sport)); timerId = schedule(); }, delay);
+      };
+      let timerId = schedule();
+      return () => clearTimeout(timerId);
+    }, [fixtureId, sport, getMatchCount]);
+    return (
+      <span ref={ref} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/40" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/60" />
+        </span>
+        {count} analysent
       </span>
-      {count} analysent
-    </span>
-  );
-}
+    );
+  }
+);
+UserActivity.displayName = "UserActivity";
 
 function SocialProofBadge({ aiScore, fixtureId }: { aiScore: number; fixtureId: number }) {
   if (aiScore < 80) return null;
