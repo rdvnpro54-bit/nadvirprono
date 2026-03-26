@@ -16,6 +16,9 @@ interface DashboardStats {
   apiStatus: { lastFetch: string; requestsToday: number } | null;
 }
 
+const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
+const staggerItem = { hidden: { opacity: 0, y: 20, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35 } } };
+
 export default function Compte() {
   const { user, isPremium, isAdmin, subscription, signOut, checkSubscription } = useAuth();
   const [portalLoading, setPortalLoading] = useState(false);
@@ -48,38 +51,23 @@ export default function Compte() {
     setAdminLoading(true);
     try {
       const data = await adminCall("dashboard");
-      setAdminStats({
-        totalUsers: data.totalUsers || 0,
-        premiumCount: data.premiumCount || 0,
-        matchCount: data.matchCount || 0,
-        apiStatus: data.apiStatus || null,
-      });
-    } catch (err: any) {
-      console.error("Admin stats error:", err);
-    } finally {
-      setAdminLoading(false);
-    }
+      setAdminStats({ totalUsers: data.totalUsers || 0, premiumCount: data.premiumCount || 0, matchCount: data.matchCount || 0, apiStatus: data.apiStatus || null });
+    } catch (err: any) { console.error("Admin stats error:", err); }
+    finally { setAdminLoading(false); }
   }, [isAdmin, user, adminCall]);
 
-  useEffect(() => {
-    fetchAdminStats();
-  }, [fetchAdminStats]);
+  useEffect(() => { fetchAdminStats(); }, [fetchAdminStats]);
 
   const handleForceRefresh = async () => {
     setRefreshLoading(true);
     try {
       const data = await adminCall("force-refresh");
       toast.success(`✅ ${data.matches_count || 0} matchs rafraîchis (${data.free_count || 0} gratuits)`);
-      // Invalidate match queries to reload UI
       queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
       queryClient.invalidateQueries({ queryKey: ["trigger-fetch"] });
-      // Refresh admin stats
       fetchAdminStats();
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors du rafraîchissement");
-    } finally {
-      setRefreshLoading(false);
-    }
+    } catch (err: any) { toast.error(err.message || "Erreur lors du rafraîchissement"); }
+    finally { setRefreshLoading(false); }
   };
 
   const handlePortal = async () => {
@@ -88,55 +76,67 @@ export default function Compte() {
       const { data, error } = await supabase.functions.invoke("customer-portal");
       if (error) throw error;
       if (data?.url) window.open(data.url, "_blank");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur");
-    } finally {
-      setPortalLoading(false);
-    }
+    } catch (err: any) { toast.error(err.message || "Erreur"); }
+    finally { setPortalLoading(false); }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    toast.success("Déconnecté");
-  };
+  const handleSignOut = async () => { await signOut(); toast.success("Déconnecté"); };
 
   const planLabel = isPremium
-    ? subscription.productId === STRIPE_PLANS.weekly.productId
-      ? "Premium Hebdo"
-      : "Premium Mensuel"
+    ? subscription.productId === STRIPE_PLANS.weekly.productId ? "Premium Hebdo" : "Premium Mensuel"
     : "Gratuit";
 
   return (
     <div className="min-h-screen bg-background pb-20">
       <Navbar />
       <div className="container max-w-lg pt-20 pb-16">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="font-display text-2xl font-bold">Mon Compte</h1>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="font-display text-2xl font-bold">Mon <span className="gradient-text">Compte</span></h1>
         </motion.div>
 
         {!user ? (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-8 glass-card p-6 text-center">
-            <User className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.1, type: "spring" }}
+            className="mt-8 glass-card p-6 text-center"
+          >
+            <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+              <User className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+            </motion.div>
             <p className="text-sm font-medium">Non connecté</p>
             <p className="mt-1 text-xs text-muted-foreground">Connecte-toi pour accéder à ton compte.</p>
             <Link to="/login" className="mt-4 block">
-              <Button className="w-full">Se connecter</Button>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button className="w-full">Se connecter</Button>
+              </motion.div>
             </Link>
           </motion.div>
         ) : (
-          <>
+          <motion.div variants={staggerContainer} initial="hidden" animate="show">
             {/* Profile */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-6 glass-card p-5">
+            <motion.div variants={staggerItem} className="mt-6 glass-card p-5" whileHover={{ y: -2, boxShadow: "0 8px 25px -8px hsl(var(--primary) / 0.15)" }}>
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
+                <motion.div
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20"
+                  whileHover={{ rotate: 10 }}
+                  animate={{ boxShadow: ["0 0 0 0 hsl(var(--primary) / 0)", "0 0 15px 3px hsl(var(--primary) / 0.2)", "0 0 0 0 hsl(var(--primary) / 0)"] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                >
                   <User className="h-6 w-6 text-primary" />
-                </div>
+                </motion.div>
                 <div>
                   <p className="font-display text-sm font-bold">{user.email}</p>
                   <div className="flex items-center gap-2">
                     <p className="text-[11px] text-muted-foreground">Membre Pronosia</p>
                     {isAdmin && (
-                      <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-[9px] font-bold text-destructive">ADMIN</span>
+                      <motion.span
+                        className="rounded-full bg-destructive/20 px-2 py-0.5 text-[9px] font-bold text-destructive"
+                        animate={{ scale: [1, 1.05, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        ADMIN
+                      </motion.span>
                     )}
                   </div>
                 </div>
@@ -145,82 +145,45 @@ export default function Compte() {
 
             {/* Admin Console */}
             {isAdmin && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mt-3 glass-card p-5 border border-destructive/30">
+              <motion.div variants={staggerItem} className="mt-3 glass-card p-5 border border-destructive/30">
                 <div className="flex items-center gap-2 mb-4">
                   <Shield className="h-4 w-4 text-destructive" />
                   <h2 className="font-display text-sm font-bold">Console Admin</h2>
                 </div>
-
-                {/* Force Refresh Button */}
                 <div className="mb-4 rounded-lg bg-destructive/5 border border-destructive/20 p-3">
                   <p className="text-[11px] font-semibold text-foreground mb-1">🔄 Rafraîchir les Pronostics</p>
-                  <p className="text-[10px] text-muted-foreground mb-2">
-                    Force le rechargement immédiat des 3 pronostics du jour (foot + tennis + basket). Nouveau reset automatique à minuit.
-                  </p>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full gap-1.5 text-[11px]"
-                    onClick={handleForceRefresh}
-                    disabled={refreshLoading}
-                  >
-                    {refreshLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    )}
-                    {refreshLoading ? "Rafraîchissement..." : "Forcer le rafraîchissement maintenant"}
-                  </Button>
+                  <p className="text-[10px] text-muted-foreground mb-2">Force le rechargement immédiat des pronostics du jour.</p>
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button variant="destructive" size="sm" className="w-full gap-1.5 text-[11px]" onClick={handleForceRefresh} disabled={refreshLoading}>
+                      {refreshLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      {refreshLoading ? "Rafraîchissement..." : "Forcer le rafraîchissement"}
+                    </Button>
+                  </motion.div>
                 </div>
-
                 {adminLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
+                  <div className="flex items-center justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                 ) : adminStats ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-muted/50 p-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                        <Users className="h-3.5 w-3.5" />
-                        <span className="text-[10px] font-medium">Utilisateurs</span>
-                      </div>
-                      <p className="font-display text-lg font-bold">{adminStats.totalUsers}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/50 p-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                        <Zap className="h-3.5 w-3.5" />
-                        <span className="text-[10px] font-medium">Premium</span>
-                      </div>
-                      <p className="font-display text-lg font-bold">{adminStats.premiumCount}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/50 p-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                        <BarChart3 className="h-3.5 w-3.5" />
-                        <span className="text-[10px] font-medium">Matchs cachés</span>
-                      </div>
-                      <p className="font-display text-lg font-bold">{adminStats.matchCount}</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/50 p-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                        <Activity className="h-3.5 w-3.5" />
-                        <span className="text-[10px] font-medium">Dernier fetch</span>
-                      </div>
-                      <p className="font-display text-xs font-bold">
-                        {adminStats.apiStatus
-                          ? new Date(adminStats.apiStatus.lastFetch).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-                          : "N/A"}
-                      </p>
-                      {adminStats.apiStatus && (
-                        <p className="text-[9px] text-muted-foreground">{adminStats.apiStatus.requestsToday} req/jour</p>
-                      )}
-                    </div>
-                  </div>
+                  <motion.div className="grid grid-cols-2 gap-2" variants={staggerContainer} initial="hidden" animate="show">
+                    {[
+                      { icon: Users, label: "Utilisateurs", value: adminStats.totalUsers },
+                      { icon: Zap, label: "Premium", value: adminStats.premiumCount },
+                      { icon: BarChart3, label: "Matchs cachés", value: adminStats.matchCount },
+                      { icon: Activity, label: "Dernier fetch", value: adminStats.apiStatus ? new Date(adminStats.apiStatus.lastFetch).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "N/A", sub: adminStats.apiStatus ? `${adminStats.apiStatus.requestsToday} req/jour` : undefined },
+                    ].map(({ icon: Icon, label, value, sub }) => (
+                      <motion.div key={label} variants={staggerItem} whileHover={{ scale: 1.03 }} className="rounded-lg bg-muted/50 p-3">
+                        <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                          <Icon className="h-3.5 w-3.5" /><span className="text-[10px] font-medium">{label}</span>
+                        </div>
+                        <p className="font-display text-lg font-bold">{value}</p>
+                        {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
+                      </motion.div>
+                    ))}
+                  </motion.div>
                 ) : null}
-
                 <div className="mt-3 flex gap-2">
                   <Link to="/admin" className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1.5 text-[11px] border-destructive/30 text-destructive hover:bg-destructive/10">
-                      <Shield className="h-3.5 w-3.5" /> Panneau Admin Complet
+                      <Shield className="h-3.5 w-3.5" /> Panneau Admin
                     </Button>
                   </Link>
                   <Button variant="ghost" size="sm" className="text-[11px]" onClick={fetchAdminStats} disabled={adminLoading}>
@@ -230,63 +193,60 @@ export default function Compte() {
               </motion.div>
             )}
 
-            {/* Subscription status */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mt-3 glass-card p-5">
+            {/* Subscription */}
+            <motion.div variants={staggerItem} className="mt-3 glass-card p-5" whileHover={{ y: -2 }}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold">Statut</p>
                   <p className="text-[11px] text-muted-foreground">{planLabel}</p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-[10px] font-bold ${isPremium ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                <motion.span
+                  className={`rounded-full px-3 py-1 text-[10px] font-bold ${isPremium ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}
+                  animate={isPremium ? { scale: [1, 1.05, 1] } : {}}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
                   {isPremium ? "PREMIUM" : "FREE"}
-                </span>
+                </motion.span>
               </div>
-
               {isPremium && subscription.subscriptionEnd && (
                 <div className="mt-3 border-t border-border/50 pt-3">
-                  <p className="text-[11px] text-muted-foreground">
-                    Expire le {new Date(subscription.subscriptionEnd).toLocaleDateString("fr-FR")}
-                  </p>
+                  <p className="text-[11px] text-muted-foreground">Expire le {new Date(subscription.subscriptionEnd).toLocaleDateString("fr-FR")}</p>
                 </div>
               )}
-
               {!isPremium && (
                 <div className="mt-3 border-t border-border/50 pt-3">
                   <p className="text-[11px] text-muted-foreground">3 matchs gratuits / jour</p>
                   <Link to="/pricing" className="mt-3 block">
-                    <Button size="sm" className="w-full gap-1.5">
-                      <Zap className="h-3.5 w-3.5" /> Passer Premium
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                      <Button size="sm" className="w-full gap-1.5 btn-shimmer"><Zap className="h-3.5 w-3.5" /> Passer Premium</Button>
+                    </motion.div>
                   </Link>
                 </div>
               )}
             </motion.div>
 
             {/* Actions */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-3 space-y-2">
+            <motion.div variants={staggerItem} className="mt-3 space-y-2">
               {isPremium && (
-                <Button variant="outline" size="sm" className="w-full gap-2 justify-start" onClick={handlePortal} disabled={portalLoading}>
-                  {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  Gérer l'abonnement
-                </Button>
+                <motion.div whileHover={{ x: 4 }}>
+                  <Button variant="outline" size="sm" className="w-full gap-2 justify-start" onClick={handlePortal} disabled={portalLoading}>
+                    {portalLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} Gérer l'abonnement
+                  </Button>
+                </motion.div>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 justify-start text-destructive hover:text-destructive"
-                onClick={handleSignOut}
-              >
-                <LogOut className="h-4 w-4" /> Se déconnecter
-              </Button>
+              <motion.div whileHover={{ x: 4 }}>
+                <Button variant="outline" size="sm" className="w-full gap-2 justify-start text-destructive hover:text-destructive" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4" /> Se déconnecter
+                </Button>
+              </motion.div>
             </motion.div>
 
-            {/* Refresh */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-4">
+            <motion.div variants={staggerItem} className="mt-4">
               <Button variant="ghost" size="sm" className="w-full text-[11px] text-muted-foreground" onClick={checkSubscription}>
                 Vérifier le statut d'abonnement
               </Button>
             </motion.div>
-          </>
+          </motion.div>
         )}
       </div>
     </div>
