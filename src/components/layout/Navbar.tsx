@@ -85,7 +85,7 @@ export function Navbar() {
             {user ? (
               <>
                 {isAdmin ? (
-                  <Link to="/admin">
+                  <Link to="/admin" reloadDocument>
                     <motion.span
                       className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-bold text-primary cursor-pointer"
                       whileHover={{ scale: 1.1 }}
