@@ -145,9 +145,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Safari safe area padding */
+  /* Safari safe area padding — only horizontal + bottom in standalone to avoid double top padding */
   body {
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* iOS standalone: push content below status bar */
+  @media all and (display-mode: standalone) {
+    body {
+      padding-top: env(safe-area-inset-top);
+    }
   }
 }
 
