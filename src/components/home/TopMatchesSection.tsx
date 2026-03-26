@@ -77,7 +77,7 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
               ))}
             </div>
           ) : topMatches.length > 0 ? (
-            <div className="mx-auto grid max-w-2xl gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+            <div className="mx-auto grid max-w-2xl gap-4 grid-cols-1 md:grid-cols-2">
               {topMatches.map((m, i) => (
                 <motion.div
                   key={m.id}
