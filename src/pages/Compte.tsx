@@ -120,7 +120,7 @@ export default function Compte() {
             <motion.div variants={staggerItem}>
               <Link to="/login?mode=register">
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Button className="w-full h-14 text-base font-bold gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_20px_hsl(145_60%_40%/0.4)]" size="lg">
+                  <Button className="w-full h-14 text-base font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_hsl(var(--primary)/0.4)]" size="lg">
                     <Zap className="h-5 w-5" />
                     Créer un compte gratuit
                   </Button>
