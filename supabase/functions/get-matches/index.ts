@@ -17,16 +17,15 @@ const PRED_FIELDS_TO_STRIP = [
 // DETERMINISTIC DAILY SELECTIONS — SAME FOR ALL USERS
 // ═══════════════════════════════════════════════════════
 
-function getParisDayBounds() {
+function getParisDayBounds(): { startMs: number; endMs: number; dateKey: string } {
   const now = new Date();
   const parisDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
   const [year, month, day] = parisDate.split("-").map(Number);
-  const start = new Date(Date.UTC(year, month - 1, day - 1, 23, 0, 0)).toISOString();
-  const end = new Date(Date.UTC(year, month - 1, day, 23, 0, 0)).toISOString();
-  return { start, end, dateKey: parisDate };
+  const startMs = Date.UTC(year, month - 1, day - 1, 23, 0, 0);
+  const endMs = Date.UTC(year, month - 1, day, 23, 0, 0);
+  return { startMs, endMs, dateKey: parisDate };
 }
 
-/** Deterministic hash from date string — same for every user */
 function hashDate(dateStr: string): number {
   let h = 0;
   for (let i = 0; i < dateStr.length; i++) {
@@ -48,6 +47,15 @@ function getPredictionStrength(m: Record<string, unknown>): number {
   return Math.max(Number(m.pred_home_win ?? 0), Number(m.pred_away_win ?? 0), Number(m.pred_draw ?? 0));
 }
 
+function getKickoffMs(m: Record<string, unknown>): number {
+  return new Date(String(m.kickoff || "")).getTime();
+}
+
+function hasPredictions(m: Record<string, unknown>): boolean {
+  const conf = String(m.pred_confidence || "").toUpperCase();
+  return conf !== "LOCKED" && conf !== "" && m.pred_home_win != null;
+}
+
 function stripPredictions(match: Record<string, unknown>): Record<string, unknown> {
   const stripped = { ...match };
   for (const field of PRED_FIELDS_TO_STRIP) stripped[field] = null;
@@ -57,27 +65,22 @@ function stripPredictions(match: Record<string, unknown>): Record<string, unknow
 
 /**
  * Pick exactly 2 FREE matches (most SAFE, highest confidence).
- * Uses ALL matches with predictions (non-LOCKED in DB).
- * If only 1 has predictions, pick 1. Top pick is excluded after.
+ * Deterministic and identical for ALL users.
  */
-function pickTop2Free(matches: Record<string, unknown>[], dateKey: string): Set<string> {
-  const { start, end } = getParisDayBounds();
-  
-  // Get matches with actual predictions (non-null confidence that isn't LOCKED)
-  const withPredictions = matches.filter(m => {
-    const conf = String(m.pred_confidence || "").toUpperCase();
-    return conf !== "LOCKED" && conf !== "" && m.pred_home_win != null;
+function pickTop2Free(matches: Record<string, unknown>[]): Set<string> {
+  const { startMs, endMs } = getParisDayBounds();
+
+  const withPreds = matches.filter(m => hasPredictions(m));
+
+  // Prefer today's matches
+  const todayPool = withPreds.filter(m => {
+    const k = getKickoffMs(m);
+    return k >= startMs && k < endMs;
   });
 
-  // Prefer today's matches, fallback to all with predictions
-  const todayPool = withPredictions.filter(m => {
-    const k = String(m.kickoff || "");
-    return k >= start && k < end;
-  });
+  const pool = todayPool.length >= 2 ? todayPool : withPreds;
 
-  const pool = todayPool.length >= 2 ? todayPool : withPredictions;
-
-  // Sort: SAFE first → highest prediction → highest ai_score → stable id sort
+  // Sort: SAFE first → highest prediction → highest ai_score → id
   const sorted = [...pool].sort((a, b) => {
     const cr = getConfidenceRank(b.pred_confidence) - getConfidenceRank(a.pred_confidence);
     if (cr !== 0) return cr;
@@ -88,22 +91,28 @@ function pickTop2Free(matches: Record<string, unknown>[], dateKey: string): Set<
     return String(a.id).localeCompare(String(b.id));
   });
 
-  return new Set(sorted.slice(0, 2).map(m => String(m.id)));
+  const result = new Set(sorted.slice(0, 2).map(m => String(m.id)));
+  console.log(`[pickTop2Free] pool=${pool.length}, result=[${[...result].join(", ")}]`);
+  return result;
 }
 
 /**
  * Pick exactly 1 TOP PICK (most RISQUÉ, highest ai_score).
- * Deterministic: uses date hash for stable rotation among top candidates.
  */
-function pickTopPick(matches: Record<string, unknown>[], excludeIds: Set<string>, dateKey: string): string | null {
-  const { start, end } = getParisDayBounds();
+function pickTopPick(matches: Record<string, unknown>[], excludeIds: Set<string>): string | null {
+  const { startMs, endMs, dateKey } = getParisDayBounds();
+
   const pool = matches.filter(m => {
-    const k = String(m.kickoff || "");
-    const conf = String(m.pred_confidence || "").toUpperCase();
-    return k >= start && k < end && !excludeIds.has(String(m.id)) && conf !== "LOCKED" && conf !== "";
+    const k = getKickoffMs(m);
+    return k >= startMs && k < endMs && !excludeIds.has(String(m.id)) && hasPredictions(m);
   });
 
-  if (pool.length === 0) return null;
+  if (pool.length === 0) {
+    // Fallback: any match with predictions not in free
+    const fallback = matches.filter(m => !excludeIds.has(String(m.id)) && hasPredictions(m));
+    if (fallback.length === 0) return null;
+    return String(fallback[0].id);
+  }
 
   // Prioritize RISQUÉ → MODÉRÉ → SAFE
   const risque = pool.filter(m => getConfidenceRank(m.pred_confidence) === 1);
@@ -111,17 +120,17 @@ function pickTopPick(matches: Record<string, unknown>[], excludeIds: Set<string>
   const safe = pool.filter(m => getConfidenceRank(m.pred_confidence) === 3);
   const candidates = risque.length > 0 ? risque : modere.length > 0 ? modere : safe;
 
-  // Sort by ai_score desc → id for determinism
   const sorted = [...candidates].sort((a, b) => {
     const ai = (Number(b.ai_score) || 0) - (Number(a.ai_score) || 0);
     if (ai !== 0) return ai;
     return String(a.id).localeCompare(String(b.id));
   });
 
-  // Use date hash for stable pick among top 3 candidates
   const top = sorted.slice(0, Math.min(3, sorted.length));
   const seed = hashDate(dateKey);
-  return String(top[seed % top.length].id);
+  const pick = String(top[seed % top.length].id);
+  console.log(`[pickTopPick] candidates=${candidates.length}, pick=${pick}`);
+  return pick;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -139,7 +148,6 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     let isPremium = false;
-    let userId: string | null = null;
 
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
@@ -150,7 +158,7 @@ Deno.serve(async (req) => {
       const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
 
       if (!claimsError && claimsData?.claims) {
-        userId = claimsData.claims.sub as string;
+        const userId = claimsData.claims.sub as string;
         const adminClient = createClient(supabaseUrl, serviceKey);
 
         const { data: sub } = await adminClient
@@ -177,7 +185,6 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const matchId = url.searchParams.get("id");
     const adminClient = createClient(supabaseUrl, serviceKey);
-    const { dateKey } = getParisDayBounds();
 
     // ─── SINGLE MATCH DETAIL ───
     if (matchId) {
@@ -200,15 +207,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if this match is one of the daily free/top picks
       const { data: allIds } = await adminClient
         .from("cached_matches")
         .select("id, sport, kickoff, pred_confidence, pred_home_win, pred_away_win, pred_draw, ai_score")
         .order("kickoff", { ascending: true });
 
       const all = (allIds || []) as Record<string, unknown>[];
-      const freeIds = pickTop2Free(all, dateKey);
-      const topPickId = pickTopPick(all, freeIds, dateKey);
+      const freeIds = pickTop2Free(all);
+      const topPickId = pickTopPick(all, freeIds);
 
       if (freeIds.has(matchId) || topPickId === matchId) {
         return new Response(JSON.stringify({ ...match, is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
@@ -235,11 +241,10 @@ Deno.serve(async (req) => {
     }
 
     const allMatches = (matches || []) as Record<string, unknown>[];
-    const freeIds = pickTop2Free(allMatches, dateKey);
-    const topPickId = pickTopPick(allMatches, freeIds, dateKey);
+    const freeIds = pickTop2Free(allMatches);
+    const topPickId = pickTopPick(allMatches, freeIds);
 
-    console.log(`[get-matches] dateKey=${dateKey}, total=${allMatches.length}, freeIds=${JSON.stringify([...freeIds])}, topPickId=${topPickId}`);
-    console.log(`[get-matches] matches with predictions: ${allMatches.filter(m => m.pred_home_win != null).length}`);
+    console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
 
     if (isPremium) {
       return new Response(JSON.stringify(allMatches.map(m => ({
