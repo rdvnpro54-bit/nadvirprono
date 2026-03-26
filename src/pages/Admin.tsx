@@ -54,14 +54,15 @@ export default function Admin() {
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
-    if (!session) return null;
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) return null;
     const { data, error } = await supabase.functions.invoke("admin-actions", {
       body: { action, ...extra },
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${currentSession.access_token}` },
     });
     if (error) throw error;
     return data;
-  }, [session]);
+  }, []);
 
   const fetchDashboard = useCallback(async () => {
     try {
