@@ -165,7 +165,9 @@
   }
 
   .glass-card {
-    @apply bg-card/70 backdrop-blur-xl border border-border/40 rounded-xl;
+    @apply bg-card/70 border border-border/40 rounded-xl;
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
     background: linear-gradient(
       145deg,
       hsl(225 18% 9% / 0.9),
