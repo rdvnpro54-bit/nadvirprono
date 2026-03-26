@@ -13,6 +13,11 @@ const PRED_FIELDS_TO_STRIP = [
   "pred_value_bet", "pred_confidence", "pred_analysis",
 ] as const;
 
+const FINISHED_STATUSES = [
+  "FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD",
+  "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED",
+] as const;
+
 // ═══════════════════════════════════════════════════════
 // DETERMINISTIC DAILY SELECTIONS — SAME FOR ALL USERS
 // ═══════════════════════════════════════════════════════
@@ -54,6 +59,13 @@ function getKickoffMs(m: Record<string, unknown>): number {
 function hasPredictions(m: Record<string, unknown>): boolean {
   const conf = String(m.pred_confidence || "").toUpperCase();
   return conf !== "LOCKED" && conf !== "" && m.pred_home_win != null;
+}
+
+function isFinishedMatch(match: Record<string, unknown>): boolean {
+  const status = String(match.status || "").toUpperCase();
+  if (FINISHED_STATUSES.includes(status as (typeof FINISHED_STATUSES)[number])) return true;
+  if (match.home_score != null && match.away_score != null) return true;
+  return false;
 }
 
 function stripPredictions(match: Record<string, unknown>): Record<string, unknown> {
