@@ -53,6 +53,37 @@ function ScrollSection({ children, className, delay = 0 }: { children: React.Rea
   );
 }
 
+// Floating particle effect
+function FloatingOrbs() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {[...Array(5)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full bg-primary/10 blur-2xl"
+          style={{
+            width: 80 + i * 40,
+            height: 80 + i * 40,
+            left: `${15 + i * 18}%`,
+            top: `${20 + (i % 3) * 25}%`,
+          }}
+          animate={{
+            y: [0, -20, 0, 20, 0],
+            x: [0, 10, 0, -10, 0],
+            opacity: [0.3, 0.6, 0.3],
+          }}
+          transition={{
+            duration: 6 + i * 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: i * 0.5,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 const Index = () => {
   const { data: matches, isLoading } = useMatches();
   const { data: eliteData } = useEliteWinrate();
@@ -71,18 +102,19 @@ const Index = () => {
 
       {/* Hero */}
       <section className="relative overflow-hidden pt-20 pb-12 sm:pb-16">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/3 left-1/4 h-72 w-72 rounded-full bg-primary/5 blur-3xl" />
-          <div className="absolute bottom-1/3 right-1/4 h-72 w-72 rounded-full bg-secondary/5 blur-3xl" />
-        </div>
+        <FloatingOrbs />
 
         <div className="container relative z-10 flex flex-col items-center text-center px-3 sm:px-4">
           <motion.span
             className="mb-3 sm:mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[10px] sm:text-xs font-medium text-primary"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 200 }}
           >
-            <Sparkles className="h-3 w-3" /> Sélection Intelligente • IA Nouvelle Génération
+            <motion.span animate={{ rotate: [0, 360] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
+              <Sparkles className="h-3 w-3" />
+            </motion.span>
+            Sélection Intelligente • IA Nouvelle Génération
           </motion.span>
 
           <motion.h1
@@ -106,23 +138,33 @@ const Index = () => {
           {/* Dynamic ELITE winrate */}
           <motion.div
             className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-2"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5, type: "spring" }}
           >
-            <span className="inline-flex items-center gap-1.5 font-bold text-primary text-sm sm:text-base rounded-full border border-primary/20 bg-primary/5 px-3 py-1">
+            <motion.span
+              className="inline-flex items-center gap-1.5 font-bold text-primary text-sm sm:text-base rounded-full border border-primary/20 bg-primary/5 px-3 py-1"
+              whileHover={{ scale: 1.05 }}
+              animate={{ boxShadow: ["0 0 0 0 hsl(var(--primary) / 0)", "0 0 20px 4px hsl(var(--primary) / 0.15)", "0 0 0 0 hsl(var(--primary) / 0)"] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            >
               <Sparkles className="h-4 w-4" /> Top AI Picks : {eliteWinrate}% winrate
-            </span>
+            </motion.span>
             {eliteStreak && eliteStreak.count >= 2 && (
-              <span className={cn(
-                "inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 border",
-                eliteStreak.type === "win"
-                  ? "border-success/30 bg-success/10 text-success"
-                  : "border-destructive/30 bg-destructive/10 text-destructive"
-              )}>
+              <motion.span
+                className={cn(
+                  "inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 border",
+                  eliteStreak.type === "win"
+                    ? "border-success/30 bg-success/10 text-success"
+                    : "border-destructive/30 bg-destructive/10 text-destructive"
+                )}
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
+              >
                 <Flame className="h-3 w-3" />
                 {eliteStreak.count} {eliteStreak.type === "win" ? "wins" : "losses"} d'affilée
-              </span>
+              </motion.span>
             )}
           </motion.div>
 
@@ -170,20 +212,24 @@ const Index = () => {
             transition={{ delay: 0.7 }}
           >
             <Link to="/matches">
-              <Button size="lg" className="btn-glow btn-shimmer gap-2 text-xs sm:text-sm font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20">
-                <Brain className="h-4 w-4" /> Voir les pronostics
-              </Button>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="lg" className="btn-glow btn-shimmer gap-2 text-xs sm:text-sm font-semibold shadow-lg shadow-primary/20">
+                  <Brain className="h-4 w-4" /> Voir les pronostics
+                </Button>
+              </motion.div>
             </Link>
             <Link to="/pricing">
-              <Button size="lg" variant="outline" className="gap-2 text-xs sm:text-sm transition-all duration-200 hover:scale-105">
-                Découvrir Premium <ChevronRight className="h-4 w-4" />
-              </Button>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button size="lg" variant="outline" className="gap-2 text-xs sm:text-sm">
+                  Découvrir Premium <ChevronRight className="h-4 w-4" />
+                </Button>
+              </motion.div>
             </Link>
           </motion.div>
         </div>
       </section>
 
-      {/* Top 3 GRATUITS */}
+      {/* Top 2 GRATUITS */}
       <TopMatchesSection matches={matches} isLoading={isLoading} />
 
       {/* TOP PICK DU JOUR */}
@@ -195,19 +241,28 @@ const Index = () => {
           <div className="container px-3 sm:px-4">
             <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
               {[
-                { label: "Winrate ELITE", value: eliteWinrate, suffix: "%", icon: Sparkles },
-                { label: "Matchs analysés", value: matchCount || 0, suffix: "", icon: BarChart3 },
-                { label: "Sports couverts", value: 12, suffix: "", icon: Star },
-                { label: "Matchs ELITE", value: eliteCount, suffix: "", icon: Zap },
-              ].map(({ label, value, suffix, icon: Icon }, i) => (
-                <ScrollSection key={label} delay={i * 0.08}>
-                  <div className="glass-card match-card-hover flex flex-col items-center gap-1 sm:gap-1.5 p-2.5 sm:p-3">
-                    <Icon className="h-4 w-4 text-primary" />
+                { label: "Winrate ELITE", value: eliteWinrate, suffix: "%", icon: Sparkles, color: "text-primary" },
+                { label: "Matchs analysés", value: matchCount || 0, suffix: "", icon: BarChart3, color: "text-secondary" },
+                { label: "Sports couverts", value: 12, suffix: "", icon: Star, color: "text-amber-400" },
+                { label: "Matchs ELITE", value: eliteCount, suffix: "", icon: Zap, color: "text-emerald-400" },
+              ].map(({ label, value, suffix, icon: Icon, color }, i) => (
+                <ScrollSection key={label} delay={i * 0.1}>
+                  <motion.div
+                    className="glass-card match-card-hover flex flex-col items-center gap-1 sm:gap-1.5 p-2.5 sm:p-3"
+                    whileHover={{ scale: 1.05, y: -4 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, delay: i * 0.5 }}
+                    >
+                      <Icon className={`h-4 w-4 ${color}`} />
+                    </motion.div>
                     <span className="font-display text-lg sm:text-xl font-bold">
                       <AnimatedNumber value={Math.floor(value)} suffix={suffix} />
                     </span>
                     <span className="text-[9px] sm:text-[10px] text-muted-foreground">{label}</span>
-                  </div>
+                  </motion.div>
                 </ScrollSection>
               ))}
             </div>
@@ -219,9 +274,14 @@ const Index = () => {
       <ScrollSection>
         <section className="border-t border-border/30 py-10 sm:py-12">
           <div className="container px-3 sm:px-4">
-            <h2 className="mb-6 sm:mb-8 text-center font-display text-xl sm:text-2xl font-bold">
+            <motion.h2
+              className="mb-6 sm:mb-8 text-center font-display text-xl sm:text-2xl font-bold"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
               Pourquoi <span className="gradient-text">Pronosia</span> ?
-            </h2>
+            </motion.h2>
             <div className="mx-auto grid max-w-4xl gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { icon: Brain, title: "IA Multi-Dimension", desc: "11 facteurs analysés : forme, xG, blessures, H2H, fatigue, marché, contexte et plus encore." },
@@ -232,13 +292,20 @@ const Index = () => {
                 { icon: Shield, title: `${eliteWinrate}% Winrate ELITE`, desc: "Performance vérifiable sur les 20 derniers matchs ELITE. Historique transparent." },
               ].map(({ icon: Icon, title, desc }, i) => (
                 <ScrollSection key={title} delay={i * 0.08}>
-                  <div className="glass-card match-card-hover p-4 sm:p-5">
-                    <div className="mb-2 sm:mb-3 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-primary/15">
+                  <motion.div
+                    className="glass-card match-card-hover p-4 sm:p-5"
+                    whileHover={{ scale: 1.03, y: -4, boxShadow: "0 10px 30px -10px hsl(var(--primary) / 0.2)" }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <motion.div
+                      className="mb-2 sm:mb-3 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-primary/15"
+                      whileHover={{ rotate: 10 }}
+                    >
                       <Icon className="h-4 w-4 text-primary" />
-                    </div>
+                    </motion.div>
                     <h3 className="mb-1 font-display text-xs sm:text-sm font-semibold">{title}</h3>
                     <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">{desc}</p>
-                  </div>
+                  </motion.div>
                 </ScrollSection>
               ))}
             </div>
@@ -251,28 +318,46 @@ const Index = () => {
         <section className="border-t border-border/30 py-10 sm:py-12">
           <div className="container max-w-lg text-center px-3 sm:px-4">
             <motion.div
-              className="glass-card glow-border p-6 sm:p-8"
+              className="glass-card glow-border p-6 sm:p-8 relative overflow-hidden"
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.2 }}
             >
-              <Zap className="mx-auto h-7 w-7 sm:h-8 sm:w-8 text-primary mb-3" />
-              <h2 className="font-display text-lg sm:text-xl font-bold">Passe à Premium</h2>
-              <p className="mt-2 text-xs sm:text-sm text-muted-foreground">
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5"
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+              />
+              <motion.div
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Zap className="mx-auto h-7 w-7 sm:h-8 sm:w-8 text-primary mb-3 relative z-10" />
+              </motion.div>
+              <h2 className="font-display text-lg sm:text-xl font-bold relative z-10">Passe à Premium</h2>
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground relative z-10">
                 Accès prioritaire aux matchs ELITE uniquement. Analyses complètes et prédictions avancées.
               </p>
-              <div className="mt-3 space-y-1.5 text-[10px] text-muted-foreground">
+              <div className="mt-3 space-y-1.5 text-[10px] text-muted-foreground relative z-10">
                 <p>✔ +{matchCount} matchs analysés aujourd'hui</p>
                 <p>✔ IA basée sur 11 dimensions réelles</p>
                 <p>✔ Sélection automatique des meilleurs matchs</p>
               </div>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center relative z-10">
                 <Link to="/pricing">
-                  <Button className="gap-2 transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-primary/20 btn-shimmer">
-                    <Zap className="h-4 w-4" /> À partir de 9,90€/semaine
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button className="gap-2 btn-shimmer shadow-lg shadow-primary/20">
+                      <Zap className="h-4 w-4" /> À partir de 9,90€/semaine
+                    </Button>
+                  </motion.div>
                 </Link>
               </div>
-              <p className="mt-3 text-[9px] text-warning font-medium">⏳ Les meilleurs matchs sont limités chaque jour</p>
+              <motion.p
+                className="mt-3 text-[9px] text-warning font-medium relative z-10"
+                animate={{ opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                ⏳ Les meilleurs matchs sont limités chaque jour
+              </motion.p>
             </motion.div>
           </div>
         </section>
@@ -281,7 +366,12 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border/30 py-6 sm:py-8">
         <div className="container flex flex-col items-center gap-2 sm:gap-3 text-center text-xs text-muted-foreground px-3">
-          <span className="font-display font-bold text-foreground text-sm">Pronosia</span>
+          <motion.span
+            className="font-display font-bold text-foreground text-sm"
+            whileHover={{ scale: 1.05 }}
+          >
+            Pronosia
+          </motion.span>
           <p className="text-[10px] sm:text-xs">© 2026 Pronosia. Pronostics sportifs propulsés par l'IA.</p>
           <p className="text-[9px] sm:text-[10px]">⚠️ Les prédictions IA sont probabilistes, jamais garanties. Pariez de manière responsable.</p>
         </div>
