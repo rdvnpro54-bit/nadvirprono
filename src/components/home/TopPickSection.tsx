@@ -3,7 +3,6 @@ import { Flame, Brain, ChevronRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
 import { type MatchWithFlags } from "@/hooks/useMatches";
-import { useTopPick, getMatchStatus } from "@/hooks/useMatchLifecycle";
 import { motion, useInView } from "framer-motion";
 import { useMemo, useRef } from "react";
 
@@ -14,19 +13,23 @@ interface TopPickProps {
 export function TopPickSection({ matches }: TopPickProps) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
-  const fallbackTopPick = useTopPick(matches);
+
+  // Use backend flag directly — no client-side selection needed
   const topPick = useMemo(
-    () => matches?.find((match) => match.is_top_pick) ?? fallbackTopPick,
-    [matches, fallbackTopPick]
+    () => matches?.find((m) => m.is_top_pick === true) ?? null,
+    [matches]
   );
 
   if (!topPick) return null;
 
-  const status = getMatchStatus(topPick);
-  const confidence = Math.max(Number(topPick.pred_home_win), Number(topPick.pred_away_win));
-  const winner = topPick.pred_home_win >= topPick.pred_away_win ? topPick.home_team : topPick.away_team;
+  const confidence = Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0);
+  const winner = (topPick.pred_home_win || 0) >= (topPick.pred_away_win || 0) ? topPick.home_team : topPick.away_team;
   const time = new Date(topPick.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  const isLive = status === "live";
+
+  const now = Date.now();
+  const kickoff = new Date(topPick.kickoff).getTime();
+  const isLive = now >= kickoff && now <= kickoff + 180 * 60 * 1000 && 
+    !["FT", "AET", "FINISHED"].includes(topPick.status?.toUpperCase() || "");
 
   return (
     <motion.div
@@ -159,17 +162,19 @@ export function TopPickSection({ matches }: TopPickProps) {
                     <span className="text-xs text-muted-foreground">⚠️ Confiance</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold">{confidence}%</span>
-                      <ConfidenceBadge confidence={topPick.pred_confidence as any} />
+                      <ConfidenceBadge confidence={(topPick.pred_confidence || "RISQUÉ") as any} />
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">{isLive ? "🔴 En cours" : "⏰ Heure"}</span>
                     <span className="text-xs font-medium">{isLive ? "LIVE" : time}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">🎯 Score prédit</span>
-                    <span className="text-sm font-bold">{topPick.pred_score_home} - {topPick.pred_score_away}</span>
-                  </div>
+                  {topPick.pred_score_home != null && topPick.pred_score_away != null && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">🎯 Score prédit</span>
+                      <span className="text-sm font-bold">{topPick.pred_score_home} - {topPick.pred_score_away}</span>
+                    </div>
+                  )}
                 </motion.div>
 
                 <motion.div

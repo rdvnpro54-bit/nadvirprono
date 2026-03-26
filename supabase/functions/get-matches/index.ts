@@ -6,136 +6,136 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Prediction fields to strip for non-premium
 const PRED_FIELDS_TO_STRIP = [
-  "pred_home_win",
-  "pred_draw",
-  "pred_away_win",
-  "pred_score_home",
-  "pred_score_away",
-  "pred_over_under",
-  "pred_over_prob",
-  "pred_btts_prob",
-  "pred_value_bet",
-  "pred_confidence",
-  "pred_analysis",
+  "pred_home_win", "pred_draw", "pred_away_win",
+  "pred_score_home", "pred_score_away",
+  "pred_over_under", "pred_over_prob", "pred_btts_prob",
+  "pred_value_bet", "pred_confidence", "pred_analysis",
 ] as const;
 
-const PREFERRED_FREE_SPORTS = ["football", "tennis", "basketball"] as const;
+// ═══════════════════════════════════════════════════════
+// DETERMINISTIC DAILY SELECTIONS — SAME FOR ALL USERS
+// ═══════════════════════════════════════════════════════
 
-function getParisDayBounds() {
+function getParisDayBounds(): { startMs: number; endMs: number; dateKey: string } {
   const now = new Date();
   const parisDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
   const [year, month, day] = parisDate.split("-").map(Number);
-  const start = new Date(Date.UTC(year, month - 1, day - 1, 23, 0, 0)).toISOString();
-  const end = new Date(Date.UTC(year, month - 1, day, 23, 0, 0)).toISOString();
-  return { start, end };
+  const startMs = Date.UTC(year, month - 1, day - 1, 23, 0, 0);
+  const endMs = Date.UTC(year, month - 1, day, 23, 0, 0);
+  return { startMs, endMs, dateKey: parisDate };
+}
+
+function hashDate(dateStr: string): number {
+  let h = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    h = ((h << 5) - h) + dateStr.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
 }
 
 function getConfidenceRank(confidence: unknown): number {
-  const normalized = String(confidence || "").toUpperCase();
-  if (normalized === "SAFE") return 3;
-  if (normalized === "MODÉRÉ" || normalized === "MODERE") return 2;
-  if (normalized === "RISQUÉ" || normalized === "RISQUE" || normalized === "RISK") return 1;
+  const n = String(confidence || "").toUpperCase();
+  if (n === "SAFE") return 3;
+  if (n === "MODÉRÉ" || n === "MODERE") return 2;
+  if (n === "RISQUÉ" || n === "RISQUE" || n === "RISK") return 1;
   return 0;
 }
 
-function getPredictionStrength(match: Record<string, unknown>): number {
-  const home = Number(match.pred_home_win ?? 0);
-  const away = Number(match.pred_away_win ?? 0);
-  const draw = Number(match.pred_draw ?? 0);
-  return Math.max(home, away, draw);
+function getPredictionStrength(m: Record<string, unknown>): number {
+  return Math.max(Number(m.pred_home_win ?? 0), Number(m.pred_away_win ?? 0), Number(m.pred_draw ?? 0));
 }
 
-function isSameSport(match: Record<string, unknown>, sport: string): boolean {
-  return String(match.sport || "").toLowerCase() === sport;
+function getKickoffMs(m: Record<string, unknown>): number {
+  return new Date(String(m.kickoff || "")).getTime();
 }
 
-function sortForFreePicks(a: Record<string, unknown>, b: Record<string, unknown>): number {
-  const confidenceDiff = getConfidenceRank(b.pred_confidence) - getConfidenceRank(a.pred_confidence);
-  if (confidenceDiff !== 0) return confidenceDiff;
-  const predictionDiff = getPredictionStrength(b) - getPredictionStrength(a);
-  if (predictionDiff !== 0) return predictionDiff;
-  const aiScoreDiff = Number(b.ai_score ?? 0) - Number(a.ai_score ?? 0);
-  if (aiScoreDiff !== 0) return aiScoreDiff;
-  return String(a.id).localeCompare(String(b.id));
-}
-
-function sortForTopPick(a: Record<string, unknown>, b: Record<string, unknown>): number {
-  const aRisky = getConfidenceRank(a.pred_confidence) === 1 ? 1 : 0;
-  const bRisky = getConfidenceRank(b.pred_confidence) === 1 ? 1 : 0;
-  if (aRisky !== bRisky) return bRisky - aRisky;
-  const aiScoreDiff = Number(b.ai_score ?? 0) - Number(a.ai_score ?? 0);
-  if (aiScoreDiff !== 0) return aiScoreDiff;
-  const predictionDiff = getPredictionStrength(b) - getPredictionStrength(a);
-  if (predictionDiff !== 0) return predictionDiff;
-  return String(a.id).localeCompare(String(b.id));
+function hasPredictions(m: Record<string, unknown>): boolean {
+  const conf = String(m.pred_confidence || "").toUpperCase();
+  return conf !== "LOCKED" && conf !== "" && m.pred_home_win != null;
 }
 
 function stripPredictions(match: Record<string, unknown>): Record<string, unknown> {
   const stripped = { ...match };
-  for (const field of PRED_FIELDS_TO_STRIP) {
-    stripped[field] = null;
-  }
-  // Override confidence to a generic value
+  for (const field of PRED_FIELDS_TO_STRIP) stripped[field] = null;
   stripped.pred_confidence = "LOCKED";
   return stripped;
 }
 
 /**
- * Determine the 3 free matches of the day:
- * Prefer 1 football + 1 tennis + 1 basketball.
- * Falls back to any available sport.
+ * Pick exactly 2 FREE matches (most SAFE, highest confidence).
+ * Deterministic and identical for ALL users.
  */
-function pickFreeMatches(matches: Record<string, unknown>[]): Set<string> {
-  const { start: todayStart, end: tomorrowStart } = getParisDayBounds();
+function pickTop2Free(matches: Record<string, unknown>[]): Set<string> {
+  const { startMs, endMs } = getParisDayBounds();
 
-  // Only today's matches
-  const todayMatches = matches.filter(
-    (m) => (m.kickoff as string) >= todayStart && (m.kickoff as string) < tomorrowStart
-  );
+  const withPreds = matches.filter(m => hasPredictions(m));
 
-  const pool = [...(todayMatches.length > 0 ? todayMatches : matches.slice(0, 20))].sort(sortForFreePicks);
-  const picked: string[] = [];
-  const usedIds = new Set<string>();
+  // Prefer today's matches
+  const todayPool = withPreds.filter(m => {
+    const k = getKickoffMs(m);
+    return k >= startMs && k < endMs;
+  });
 
-  // 1st pass: one per sport
-  for (const sport of PREFERRED_FREE_SPORTS) {
-    const match = pool.find(
-      (m) => isSameSport(m, sport) && !usedIds.has(m.id as string)
-    );
-    if (match) {
-      picked.push(match.id as string);
-      usedIds.add(match.id as string);
-    }
-  }
+  const pool = todayPool.length >= 2 ? todayPool : withPreds;
 
-  // 2nd pass: fill to 3
-  if (picked.length < 3) {
-    for (const m of pool) {
-      if (picked.length >= 3) break;
-      if (!usedIds.has(m.id as string)) {
-        picked.push(m.id as string);
-        usedIds.add(m.id as string);
-      }
-    }
-  }
+  // Sort: SAFE first → highest prediction → highest ai_score → id
+  const sorted = [...pool].sort((a, b) => {
+    const cr = getConfidenceRank(b.pred_confidence) - getConfidenceRank(a.pred_confidence);
+    if (cr !== 0) return cr;
+    const ps = getPredictionStrength(b) - getPredictionStrength(a);
+    if (ps !== 0) return ps;
+    const ai = (Number(b.ai_score) || 0) - (Number(a.ai_score) || 0);
+    if (ai !== 0) return ai;
+    return String(a.id).localeCompare(String(b.id));
+  });
 
-  return new Set(picked.slice(0, 3));
+  const result = new Set(sorted.slice(0, 2).map(m => String(m.id)));
+  console.log(`[pickTop2Free] pool=${pool.length}, result=[${[...result].join(", ")}]`);
+  return result;
 }
 
-function pickTopPick(matches: Record<string, unknown>[], excludedIds: Set<string>): string | null {
-  const { start, end } = getParisDayBounds();
-  const pool = matches
-    .filter((m) => {
-      const kickoff = String(m.kickoff || "");
-      const confidence = String(m.pred_confidence || "").toUpperCase();
-      return kickoff >= start && kickoff < end && !excludedIds.has(String(m.id)) && confidence !== "LOCKED";
-    })
-    .sort(sortForTopPick);
+/**
+ * Pick exactly 1 TOP PICK (most RISQUÉ, highest ai_score).
+ */
+function pickTopPick(matches: Record<string, unknown>[], excludeIds: Set<string>): string | null {
+  const { startMs, endMs, dateKey } = getParisDayBounds();
 
-  return pool[0]?.id ? String(pool[0].id) : null;
+  const pool = matches.filter(m => {
+    const k = getKickoffMs(m);
+    return k >= startMs && k < endMs && !excludeIds.has(String(m.id)) && hasPredictions(m);
+  });
+
+  if (pool.length === 0) {
+    // Fallback: any match with predictions not in free
+    const fallback = matches.filter(m => !excludeIds.has(String(m.id)) && hasPredictions(m));
+    if (fallback.length === 0) return null;
+    return String(fallback[0].id);
+  }
+
+  // Prioritize RISQUÉ → MODÉRÉ → SAFE
+  const risque = pool.filter(m => getConfidenceRank(m.pred_confidence) === 1);
+  const modere = pool.filter(m => getConfidenceRank(m.pred_confidence) === 2);
+  const safe = pool.filter(m => getConfidenceRank(m.pred_confidence) === 3);
+  const candidates = risque.length > 0 ? risque : modere.length > 0 ? modere : safe;
+
+  const sorted = [...candidates].sort((a, b) => {
+    const ai = (Number(b.ai_score) || 0) - (Number(a.ai_score) || 0);
+    if (ai !== 0) return ai;
+    return String(a.id).localeCompare(String(b.id));
+  });
+
+  const top = sorted.slice(0, Math.min(3, sorted.length));
+  const seed = hashDate(dateKey);
+  const pick = String(top[seed % top.length].id);
+  console.log(`[pickTopPick] candidates=${candidates.length}, pick=${pick}`);
+  return pick;
 }
+
+// ═══════════════════════════════════════════════════════
+// MAIN HANDLER
+// ═══════════════════════════════════════════════════════
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -147,38 +147,30 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Check if user is authenticated + premium
     let isPremium = false;
-    let userId: string | null = null;
 
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "");
       const userClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      
+      const token = authHeader.replace("Bearer ", "");
       const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
-      
-      if (!claimsError && claimsData?.claims) {
-        userId = claimsData.claims.sub as string;
 
-        // Check subscription
+      if (!claimsError && claimsData?.claims) {
+        const userId = claimsData.claims.sub as string;
         const adminClient = createClient(supabaseUrl, serviceKey);
+
         const { data: sub } = await adminClient
           .from("subscriptions")
           .select("is_premium, expires_at")
           .eq("user_id", userId)
           .maybeSingle();
 
-        if (sub?.is_premium) {
-          // Check expiration
-          if (!sub.expires_at || new Date(sub.expires_at) > new Date()) {
-            isPremium = true;
-          }
+        if (sub?.is_premium && (!sub.expires_at || new Date(sub.expires_at) > new Date())) {
+          isPremium = true;
         }
 
-        // Admin is always premium
         const { data: roleData } = await adminClient
           .from("user_roles")
           .select("role")
@@ -190,14 +182,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Parse query params
     const url = new URL(req.url);
-    const matchId = url.searchParams.get("id"); // single match detail
-
+    const matchId = url.searchParams.get("id");
     const adminClient = createClient(supabaseUrl, serviceKey);
 
+    // ─── SINGLE MATCH DETAIL ───
     if (matchId) {
-      // Single match detail
       const { data: match, error } = await adminClient
         .from("cached_matches")
         .select("*")
@@ -211,32 +201,33 @@ Deno.serve(async (req) => {
         });
       }
 
-      // For single match: only premium can see predictions
-      // Unless it's one of today's free matches
-      if (!isPremium) {
-        const allMatches = await adminClient
-          .from("cached_matches")
-          .select("id, sport, kickoff")
-          .order("kickoff", { ascending: true });
-
-        const publicMatches = (allMatches.data || []) as Record<string, unknown>[];
-        const freeIds = pickFreeMatches(publicMatches);
-        const topPickId = pickTopPick(publicMatches, freeIds);
-        
-        if (!freeIds.has(matchId) && topPickId !== matchId) {
-          return new Response(
-            JSON.stringify({ ...stripPredictions(match as Record<string, unknown>), is_top_pick: false }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        return new Response(JSON.stringify({ ...match, is_top_pick: topPickId === matchId }), {
+      if (isPremium) {
+        return new Response(JSON.stringify({ ...match, is_top_pick: false }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const { data: allIds } = await adminClient
+        .from("cached_matches")
+        .select("id, sport, kickoff, pred_confidence, pred_home_win, pred_away_win, pred_draw, ai_score")
+        .order("kickoff", { ascending: true });
+
+      const all = (allIds || []) as Record<string, unknown>[];
+      const freeIds = pickTop2Free(all);
+      const topPickId = pickTopPick(all, freeIds);
+
+      if (freeIds.has(matchId) || topPickId === matchId) {
+        return new Response(JSON.stringify({ ...match, is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ ...stripPredictions(match as Record<string, unknown>), is_top_pick: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // All matches list
+    // ─── ALL MATCHES LIST ───
     const { data: matches, error } = await adminClient
       .from("cached_matches")
       .select("*")
@@ -250,26 +241,29 @@ Deno.serve(async (req) => {
     }
 
     const allMatches = (matches || []) as Record<string, unknown>[];
-
-    const freeIds = pickFreeMatches(allMatches);
+    const freeIds = pickTop2Free(allMatches);
     const topPickId = pickTopPick(allMatches, freeIds);
 
+    console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
+
     if (isPremium) {
-      // Premium: full data
-      return new Response(JSON.stringify(allMatches.map((m) => ({ ...m, is_top_pick: topPickId === m.id }))), {
+      return new Response(JSON.stringify(allMatches.map(m => ({
+        ...m,
+        is_free: freeIds.has(String(m.id)),
+        is_top_pick: topPickId === String(m.id),
+      }))), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Non-premium: strip predictions except 3 free matches + top pick public
+    // Non-premium: show predictions only for free + top pick
+    const result = allMatches.map(m => {
+      const id = String(m.id);
+      const isFree = freeIds.has(id);
+      const isTopPick = topPickId === id;
 
-    const result = allMatches.map((m) => {
-      const isTopPick = topPickId === m.id;
-      if (freeIds.has(m.id as string)) {
-        return { ...m, is_free: true, is_top_pick: isTopPick };
-      }
-      if (isTopPick) {
-        return { ...m, is_free: false, is_top_pick: true };
+      if (isFree || isTopPick) {
+        return { ...m, is_free: isFree, is_top_pick: isTopPick };
       }
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });

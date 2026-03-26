@@ -4,60 +4,31 @@ import { Button } from "@/components/ui/button";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MidnightCountdown } from "./MidnightCountdown";
-import { type CachedMatch } from "@/hooks/useMatches";
-import { getMatchStatus } from "@/hooks/useMatchLifecycle";
+import { type MatchWithFlags } from "@/hooks/useMatches";
 import { motion, useInView } from "framer-motion";
 import { useRef, useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TopMatchesSectionProps {
-  matches: CachedMatch[] | undefined;
+  matches: MatchWithFlags[] | undefined;
   isLoading: boolean;
 }
 
 /**
- * DETERMINISTIC Top 2: Same for ALL users.
- * Picks the 2 most SAFE / highest confidence free matches.
- * No localStorage — pure function of today's match data.
+ * Use backend `is_free` flag directly — no client-side re-sorting.
+ * This guarantees ALL users see the exact same 2 matches.
  */
-function useDeterministicTop2(matches: CachedMatch[] | undefined): CachedMatch[] {
+function useBackendTop2(matches: MatchWithFlags[] | undefined): MatchWithFlags[] {
   return useMemo(() => {
-    if (!matches || matches.length === 0) return [];
-
-    // Only free, non-finished matches
-    const freeMatches = matches.filter(m => {
-      const status = getMatchStatus(m);
-      return m.is_free && (status === "upcoming" || status === "live");
-    });
-    if (freeMatches.length === 0) return [];
-
-    // Sort: SAFE first, then by highest confidence %, then ai_score, then fixture_id for determinism
-    const sorted = [...freeMatches].sort((a, b) => {
-      const rankA = a.pred_confidence === "SAFE" ? 3 : a.pred_confidence === "MODÉRÉ" ? 2 : 1;
-      const rankB = b.pred_confidence === "SAFE" ? 3 : b.pred_confidence === "MODÉRÉ" ? 2 : 1;
-      if (rankA !== rankB) return rankB - rankA;
-      const confA = Math.max(Number(a.pred_home_win) || 0, Number(a.pred_away_win) || 0);
-      const confB = Math.max(Number(b.pred_home_win) || 0, Number(b.pred_away_win) || 0);
-      if (confA !== confB) return confB - confA;
-      if ((b.ai_score || 0) !== (a.ai_score || 0)) return (b.ai_score || 0) - (a.ai_score || 0);
-      return a.fixture_id - b.fixture_id; // deterministic tie-break
-    });
-
-    return sorted.slice(0, 2);
+    if (!matches) return [];
+    return matches.filter(m => m.is_free === true).slice(0, 2);
   }, [matches]);
-}
-
-function getScoreStyle(score: number) {
-  if (score >= 90) return "ring-2 ring-amber-400/50 shadow-lg shadow-amber-500/20";
-  if (score >= 80) return "ring-1 ring-emerald-400/40 shadow-md shadow-emerald-500/10";
-  return "";
 }
 
 export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
-
-  const topMatches = useDeterministicTop2(matches);
+  const topMatches = useBackendTop2(matches);
 
   return (
     <motion.div
@@ -117,23 +88,17 @@ export function TopMatchesSection({ matches, isLoading }: TopMatchesSectionProps
             </div>
           ) : topMatches.length > 0 ? (
             <div className="mx-auto grid max-w-2xl gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
-              {topMatches.map((m, i) => {
-                const aiScore = m.ai_score || 0;
-                return (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ delay: i * 0.2, duration: 0.5, type: "spring", stiffness: 200 }}
-                    className={`group rounded-xl ${getScoreStyle(aiScore)}`}
-                    whileHover={{ scale: 1.03, y: -4, transition: { duration: 0.2 } }}
-                  >
-                    <div className="rounded-xl transition-shadow duration-200 group-hover:shadow-lg group-hover:shadow-primary/10">
-                      <MatchCard match={m} index={i} />
-                    </div>
-                  </motion.div>
-                );
-              })}
+              {topMatches.map((m, i) => (
+                <motion.div
+                  key={m.id}
+                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: i * 0.15, duration: 0.5, type: "spring", stiffness: 200 }}
+                  whileHover={{ scale: 1.03, y: -4, transition: { duration: 0.2 } }}
+                >
+                  <MatchCard match={m} index={i} />
+                </motion.div>
+              ))}
             </div>
           ) : (
             <motion.div
