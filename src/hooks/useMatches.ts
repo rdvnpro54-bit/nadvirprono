@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type CachedMatch = Tables<"cached_matches">;
+export type MatchWithFlags = CachedMatch & { is_top_pick?: boolean };
 
 // ─── Sport durations (minutes) for LIVE window ──────────────────
 const SPORT_DURATIONS: Record<string, number> = {
@@ -29,7 +30,7 @@ function getSportDuration(sport: string): number {
  * Filter matches: keep upcoming + live, drop truly finished.
  * Uses sport-specific durations instead of a fixed 3h window.
  */
-function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
+function filterActiveMatches(matches: MatchWithFlags[]): MatchWithFlags[] {
   const now = Date.now();
   return matches.filter(m => {
     const kickoff = new Date(m.kickoff).getTime();
@@ -47,8 +48,8 @@ function filterActiveMatches(matches: CachedMatch[]): CachedMatch[] {
   });
 }
 
-function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
-  const map = new Map<number, CachedMatch>();
+function deduplicateMatches(matches: MatchWithFlags[]): MatchWithFlags[] {
+  const map = new Map<number, MatchWithFlags>();
   for (const m of matches) {
     const existing = map.get(m.fixture_id);
     if (!existing || new Date(m.fetched_at) > new Date(existing.fetched_at)) {
@@ -58,7 +59,7 @@ function deduplicateMatches(matches: CachedMatch[]): CachedMatch[] {
   return Array.from(map.values());
 }
 
-function deduplicateByTeams(matches: CachedMatch[]): CachedMatch[] {
+function deduplicateByTeams(matches: MatchWithFlags[]): MatchWithFlags[] {
   const seen = new Set<string>();
   return matches.filter(m => {
     const key = `${m.home_team.toLowerCase()}_${m.away_team.toLowerCase()}_${m.kickoff}`;
@@ -75,12 +76,12 @@ function deduplicateByTeams(matches: CachedMatch[]): CachedMatch[] {
  * 2. NEVER overwrite core prediction data (pred_*, ai_score) — only update status/scores
  * 3. Preserve team names and kickoff times from first seen version
  */
-function mergeMatches(previous: CachedMatch[], incoming: CachedMatch[]): CachedMatch[] {
+function mergeMatches(previous: MatchWithFlags[], incoming: MatchWithFlags[]): MatchWithFlags[] {
   const now = Date.now();
-  const previousMap = new Map<string, CachedMatch>();
+  const previousMap = new Map<string, MatchWithFlags>();
   for (const m of previous) previousMap.set(m.id, m);
 
-  const merged = new Map<string, CachedMatch>();
+  const merged = new Map<string, MatchWithFlags>();
 
   // Add all incoming, but preserve locked prediction fields from previous
   for (const m of incoming) {
@@ -95,6 +96,7 @@ function mergeMatches(previous: CachedMatch[], incoming: CachedMatch[]): CachedM
         away_score: m.away_score,
         fetched_at: m.fetched_at,
         is_free: m.is_free,
+        is_top_pick: m.is_top_pick,
       });
     } else {
       merged.set(m.id, m);
@@ -126,7 +128,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 export function useMatches() {
-  const cacheRef = useRef<CachedMatch[]>([]);
+  const cacheRef = useRef<MatchWithFlags[]>([]);
 
   return useQuery({
     queryKey: ["cached-matches"],
@@ -144,7 +146,7 @@ export function useMatches() {
         throw error;
       }
 
-      const matches = data as CachedMatch[];
+      const matches = data as MatchWithFlags[];
       let result = deduplicateMatches(matches);
       result = deduplicateByTeams(result);
 
@@ -181,7 +183,7 @@ export function useMatch(id: string) {
       });
 
       if (!response.ok) throw new Error("Match not found");
-      return (await response.json()) as CachedMatch;
+      return (await response.json()) as MatchWithFlags;
     },
     enabled: !!id,
   });

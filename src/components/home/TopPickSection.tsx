@@ -2,19 +2,23 @@ import { Link } from "react-router-dom";
 import { Flame, Brain, ChevronRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
-import { type CachedMatch } from "@/hooks/useMatches";
+import { type MatchWithFlags } from "@/hooks/useMatches";
 import { useTopPick, getMatchStatus } from "@/hooks/useMatchLifecycle";
 import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 interface TopPickProps {
-  matches: CachedMatch[] | undefined;
+  matches: MatchWithFlags[] | undefined;
 }
 
 export function TopPickSection({ matches }: TopPickProps) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
-  const topPick = useTopPick(matches);
+  const fallbackTopPick = useTopPick(matches);
+  const topPick = useMemo(
+    () => matches?.find((match) => match.is_top_pick) ?? fallbackTopPick,
+    [matches, fallbackTopPick]
+  );
 
   if (!topPick) return null;
 
