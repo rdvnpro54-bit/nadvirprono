@@ -14,6 +14,13 @@ const SPORT_DURATIONS: Record<string, number> = {
   football: 120,
   tennis: 180,
   basketball: 150,
+  hockey: 150,
+  baseball: 210,
+  nfl: 210,
+  mma: 180,
+  f1: 150,
+  afl: 150,
+  rugby: 120,
 };
 
 const FINISHED_STATUSES = [
