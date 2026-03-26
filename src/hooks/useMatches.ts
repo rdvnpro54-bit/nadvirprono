@@ -6,14 +6,21 @@ import type { Tables } from "@/integrations/supabase/types";
 export type CachedMatch = Tables<"cached_matches">;
 export type MatchWithFlags = CachedMatch & { is_top_pick?: boolean };
 
-const CACHE_KEY = "pronosia_matches_cache_v2";
-const CACHE_TS_KEY = "pronosia_matches_ts_v2";
-const CACHE_MAX_AGE = 30 * 60_000;
+const CACHE_KEY = "pronosia_matches_cache_v3";
+const CACHE_TS_KEY = "pronosia_matches_ts_v3";
+const CACHE_MAX_AGE = 15 * 60_000;
 
 const SPORT_DURATIONS: Record<string, number> = {
   football: 120,
   tennis: 180,
   basketball: 150,
+  hockey: 150,
+  baseball: 210,
+  nfl: 210,
+  mma: 180,
+  f1: 150,
+  afl: 150,
+  rugby: 120,
 };
 
 const FINISHED_STATUSES = [
@@ -274,12 +281,13 @@ function removeResolvedMatches(matches: MatchWithFlags[], resolvedFixtureIds: Se
 }
 
 export function useMatches() {
-  const initialMatches = loadFromLocalStorage() ?? [];
-  const cacheRef = useRef<MatchWithFlags[]>(initialMatches);
+  const initialMatches = loadFromLocalStorage();
+  const hasCache = initialMatches !== null && initialMatches.length > 0;
+  const cacheRef = useRef<MatchWithFlags[]>(hasCache ? initialMatches : []);
 
   return useQuery({
     queryKey: ["cached-matches"],
-    initialData: initialMatches,
+    ...(hasCache ? { initialData: initialMatches } : {}),
     queryFn: async () => {
       try {
         const [matchesResponse, resolvedFixtureIds] = await Promise.all([
