@@ -174,7 +174,7 @@ export function TopPickSection({ matches }: TopPickProps) {
                 >
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Brain className="h-3.5 w-3.5" /> Pronostic IA</span>
-                    <span className="text-sm font-bold text-destructive">{winner} gagne</span>
+                    <span className="text-sm font-bold text-destructive">{isDraw ? "Match nul" : `${winner} gagne`}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">⚠️ Confiance</span>
