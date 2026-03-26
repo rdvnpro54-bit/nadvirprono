@@ -99,4 +99,4 @@ export function SmartNotifications() {
       </AnimatePresence>
     </div>
   );
-});
+}
