@@ -1,3 +1,4 @@
+import React from "react";
 import { Link } from "react-router-dom";
 import { Zap, TrendingUp, Shield, BarChart3, ChevronRight, Star, RefreshCw, Brain, Sparkles, Flame, Crown, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
