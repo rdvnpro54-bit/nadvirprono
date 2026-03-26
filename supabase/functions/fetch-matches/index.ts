@@ -384,7 +384,7 @@ async function fetchSofaScore(sport: string, dateISO: string): Promise<Normalize
       if (!ts || ts <= now) continue;
       const tournamentName = e.tournament?.name || "";
       if (sport === "tennis" && tournamentName.toLowerCase().includes("doubles")) continue;
-      if (count >= 30) break;
+      if (count >= 50) break;
       results.push({
         id: `sofa_${e.id}`, sport,
         league: tournamentName || "Unknown", country: e.tournament?.category?.name || "",
