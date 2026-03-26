@@ -502,9 +502,13 @@ async function fetchESPN(sport: string, dateCompact: string): Promise<Normalized
       const json = await res.json();
       const results: NormalizedMatch[] = [];
       for (const evt of (json.events || [])) {
-        if (evt.status?.type?.state !== "pre") continue;
+        const state = evt.status?.type?.state;
+        // Include upcoming ("pre") AND live ("in") matches — never exclude
+        if (state !== "pre" && state !== "in") continue;
         const eventDate = evt.date ? new Date(evt.date).getTime() : 0;
-        if (!eventDate || eventDate <= now) continue;
+        if (!eventDate) continue;
+        // For upcoming: must be in the future. For live: always include.
+        if (state === "pre" && eventDate <= now) continue;
         const competitors = evt.competitions?.[0]?.competitors || [];
         const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
         const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
@@ -523,7 +527,7 @@ async function fetchESPN(sport: string, dateCompact: string): Promise<Normalized
   const allFetched = await Promise.all(fetches);
   for (const r of allFetched) all.push(...r);
   all.sort((a, b) => a.timestamp - b.timestamp);
-  console.log(`[API: ESPN] ${sport.toUpperCase()} - ${all.length} upcoming total`);
+  console.log(`[API: ESPN] ${sport.toUpperCase()} - ${all.length} upcoming+live total`);
   return all;
 }
 
