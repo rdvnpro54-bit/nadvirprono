@@ -151,7 +151,7 @@ export default function Compte() {
             {/* Trust */}
             <motion.div variants={staggerItem} className="flex flex-col items-center gap-1 pt-2">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                <Shield className="h-3.5 w-3.5 text-primary" />
                 <span>Inscription gratuite en 10 secondes</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
