@@ -301,20 +301,29 @@ export default function Matches() {
             })}
           </div>
           <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5 overflow-x-auto max-w-full">
-            {sportFilters.map(f => (
-              <motion.button
-                key={f.value}
-                onClick={() => setSport(f.value)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={cn(
-                  "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-colors whitespace-nowrap",
-                  sport === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {f.emoji} {f.label}
-              </motion.button>
-            ))}
+            {sportFilters.map(f => {
+              const count = f.value === "all" ? (matches?.length || 0) : (matches?.filter(m => m.sport === f.value).length || 0);
+              const isActive = sport === f.value;
+              return (
+                <motion.button
+                  key={f.value}
+                  onClick={() => setSport(f.value)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={cn(
+                    "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-all whitespace-nowrap relative",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {f.emoji} {f.label}
+                  {count > 0 && isActive && (
+                    <span className="ml-0.5 text-[8px] opacity-70">({count})</span>
+                  )}
+                </motion.button>
+              );
+            })}
           </div>
           <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5">
             {confidenceFilters.map(f => (
