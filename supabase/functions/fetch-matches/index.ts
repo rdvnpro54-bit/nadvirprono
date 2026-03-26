@@ -357,7 +357,7 @@ async function fetchSportsRC(dateISO: string): Promise<NormalizedMatch[]> {
   } catch (e) { console.error(`[SportSRC] error:`, e); return []; }
 }
 
-// ─── FETCH SOFASCORE (TENNIS) ───────────────────────────────────────
+// ─── FETCH SOFASCORE (TENNIS / BASKETBALL) ─────────────────────────
 const SOFASCORE_BASE = "https://api.sofascore.com/api/v1/sport";
 
 async function fetchSofaScore(sport: string, dateISO: string): Promise<NormalizedMatch[]> {
@@ -367,9 +367,10 @@ async function fetchSofaScore(sport: string, dateISO: string): Promise<Normalize
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json", "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.sofascore.com/", "Origin": "https://www.sofascore.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
+        "Cache-Control": "no-cache",
       },
     });
     if (!res.ok) { console.error(`[SofaScore] ${sport} error: ${res.status}`); await res.text(); return []; }
@@ -397,6 +398,38 @@ async function fetchSofaScore(sport: string, dateISO: string): Promise<Normalize
     console.log(`[API: SofaScore] ${sport.toUpperCase()} - ${results.length} upcoming`);
     return results;
   } catch (e) { console.error(`[SofaScore] ${sport} error:`, e); return []; }
+}
+
+// ─── FETCH TENNIS FROM THESPORTSDB (FREE FALLBACK) ─────────────────
+async function fetchTennisFromTheSportsDB(dateISO: string): Promise<NormalizedMatch[]> {
+  const url = `https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${dateISO}&s=Tennis`;
+  console.log(`[API: TheSportsDB] TENNIS - ${dateISO} - fetching`);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) { console.error(`[TheSportsDB] Tennis error: ${res.status}`); return []; }
+    const json = await res.json();
+    const events = json.events || [];
+    const now = Date.now();
+    const results: NormalizedMatch[] = [];
+    for (const e of events) {
+      if (e.strStatus === "Match Finished" || e.strStatus === "FT") continue;
+      const dateStr = `${e.dateEvent}T${e.strTime || "12:00:00"}+00:00`;
+      const ts = new Date(dateStr).getTime();
+      if (!ts || isNaN(ts) || ts <= now) continue;
+      const leagueName = e.strLeague || "ATP/WTA";
+      if (leagueName.toLowerCase().includes("doubles")) continue;
+      results.push({
+        id: `tsdb_${e.idEvent}`, sport: "tennis",
+        league: leagueName, country: e.strCountry || "",
+        homeTeam: e.strHomeTeam || "Player A", awayTeam: e.strAwayTeam || "Player B",
+        homeLogo: e.strHomeTeamBadge || null, awayLogo: e.strAwayTeamBadge || null,
+        timestamp: ts, source: "thesportsdb",
+      });
+    }
+    results.sort((a, b) => a.timestamp - b.timestamp);
+    console.log(`[API: TheSportsDB] TENNIS - ${results.length} upcoming`);
+    return results;
+  } catch (e) { console.error(`[TheSportsDB] Tennis error:`, e); return []; }
 }
 
 // ─── ESPN LEAGUES CONFIG ────────────────────────────────────────────
