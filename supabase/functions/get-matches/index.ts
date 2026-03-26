@@ -21,6 +21,57 @@ const PRED_FIELDS_TO_STRIP = [
   "pred_analysis",
 ] as const;
 
+const PREFERRED_FREE_SPORTS = ["football", "tennis", "basketball"] as const;
+
+function getParisDayBounds() {
+  const now = new Date();
+  const parisDate = now.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  const [year, month, day] = parisDate.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day - 1, 23, 0, 0)).toISOString();
+  const end = new Date(Date.UTC(year, month - 1, day, 23, 0, 0)).toISOString();
+  return { start, end };
+}
+
+function getConfidenceRank(confidence: unknown): number {
+  const normalized = String(confidence || "").toUpperCase();
+  if (normalized === "SAFE") return 3;
+  if (normalized === "MODÉRÉ" || normalized === "MODERE") return 2;
+  if (normalized === "RISQUÉ" || normalized === "RISQUE" || normalized === "RISK") return 1;
+  return 0;
+}
+
+function getPredictionStrength(match: Record<string, unknown>): number {
+  const home = Number(match.pred_home_win ?? 0);
+  const away = Number(match.pred_away_win ?? 0);
+  const draw = Number(match.pred_draw ?? 0);
+  return Math.max(home, away, draw);
+}
+
+function isSameSport(match: Record<string, unknown>, sport: string): boolean {
+  return String(match.sport || "").toLowerCase() === sport;
+}
+
+function sortForFreePicks(a: Record<string, unknown>, b: Record<string, unknown>): number {
+  const confidenceDiff = getConfidenceRank(b.pred_confidence) - getConfidenceRank(a.pred_confidence);
+  if (confidenceDiff !== 0) return confidenceDiff;
+  const predictionDiff = getPredictionStrength(b) - getPredictionStrength(a);
+  if (predictionDiff !== 0) return predictionDiff;
+  const aiScoreDiff = Number(b.ai_score ?? 0) - Number(a.ai_score ?? 0);
+  if (aiScoreDiff !== 0) return aiScoreDiff;
+  return String(a.id).localeCompare(String(b.id));
+}
+
+function sortForTopPick(a: Record<string, unknown>, b: Record<string, unknown>): number {
+  const aRisky = getConfidenceRank(a.pred_confidence) === 1 ? 1 : 0;
+  const bRisky = getConfidenceRank(b.pred_confidence) === 1 ? 1 : 0;
+  if (aRisky !== bRisky) return bRisky - aRisky;
+  const aiScoreDiff = Number(b.ai_score ?? 0) - Number(a.ai_score ?? 0);
+  if (aiScoreDiff !== 0) return aiScoreDiff;
+  const predictionDiff = getPredictionStrength(b) - getPredictionStrength(a);
+  if (predictionDiff !== 0) return predictionDiff;
+  return String(a.id).localeCompare(String(b.id));
+}
+
 function stripPredictions(match: Record<string, unknown>): Record<string, unknown> {
   const stripped = { ...match };
   for (const field of PRED_FIELDS_TO_STRIP) {
@@ -37,25 +88,21 @@ function stripPredictions(match: Record<string, unknown>): Record<string, unknow
  * Falls back to any available sport.
  */
 function pickFreeMatches(matches: Record<string, unknown>[]): Set<string> {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+  const { start: todayStart, end: tomorrowStart } = getParisDayBounds();
 
   // Only today's matches
   const todayMatches = matches.filter(
     (m) => (m.kickoff as string) >= todayStart && (m.kickoff as string) < tomorrowStart
   );
 
-  const pool = todayMatches.length > 0 ? todayMatches : matches.slice(0, 10);
-
-  const sportOrder = ["football", "tennis", "basketball"];
+  const pool = [...(todayMatches.length > 0 ? todayMatches : matches.slice(0, 20))].sort(sortForFreePicks);
   const picked: string[] = [];
   const usedIds = new Set<string>();
 
   // 1st pass: one per sport
-  for (const sport of sportOrder) {
+  for (const sport of PREFERRED_FREE_SPORTS) {
     const match = pool.find(
-      (m) => (m.sport as string)?.toLowerCase() === sport && !usedIds.has(m.id as string)
+      (m) => isSameSport(m, sport) && !usedIds.has(m.id as string)
     );
     if (match) {
       picked.push(match.id as string);
@@ -75,6 +122,19 @@ function pickFreeMatches(matches: Record<string, unknown>[]): Set<string> {
   }
 
   return new Set(picked.slice(0, 3));
+}
+
+function pickTopPick(matches: Record<string, unknown>[], excludedIds: Set<string>): string | null {
+  const { start, end } = getParisDayBounds();
+  const pool = matches
+    .filter((m) => {
+      const kickoff = String(m.kickoff || "");
+      const confidence = String(m.pred_confidence || "").toUpperCase();
+      return kickoff >= start && kickoff < end && !excludedIds.has(String(m.id)) && confidence !== "LOCKED";
+    })
+    .sort(sortForTopPick);
+
+  return pool[0]?.id ? String(pool[0].id) : null;
 }
 
 Deno.serve(async (req) => {
@@ -159,19 +219,21 @@ Deno.serve(async (req) => {
           .select("id, sport, kickoff")
           .order("kickoff", { ascending: true });
 
-        const freeIds = pickFreeMatches((allMatches.data || []) as Record<string, unknown>[]);
+        const publicMatches = (allMatches.data || []) as Record<string, unknown>[];
+        const freeIds = pickFreeMatches(publicMatches);
+        const topPickId = pickTopPick(publicMatches, freeIds);
         
-        if (!freeIds.has(matchId)) {
+        if (!freeIds.has(matchId) && topPickId !== matchId) {
           return new Response(
-            JSON.stringify(stripPredictions(match as Record<string, unknown>)),
+            JSON.stringify({ ...stripPredictions(match as Record<string, unknown>), is_top_pick: false }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-      }
 
-      return new Response(JSON.stringify(match), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        return new Response(JSON.stringify({ ...match, is_top_pick: topPickId === matchId }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // All matches list
@@ -189,21 +251,27 @@ Deno.serve(async (req) => {
 
     const allMatches = (matches || []) as Record<string, unknown>[];
 
+    const freeIds = pickFreeMatches(allMatches);
+    const topPickId = pickTopPick(allMatches, freeIds);
+
     if (isPremium) {
       // Premium: full data
-      return new Response(JSON.stringify(allMatches), {
+      return new Response(JSON.stringify(allMatches.map((m) => ({ ...m, is_top_pick: topPickId === m.id }))), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Non-premium: strip predictions except 3 free matches
-    const freeIds = pickFreeMatches(allMatches);
+    // Non-premium: strip predictions except 3 free matches + top pick public
 
     const result = allMatches.map((m) => {
+      const isTopPick = topPickId === m.id;
       if (freeIds.has(m.id as string)) {
-        return { ...m, is_free: true };
+        return { ...m, is_free: true, is_top_pick: isTopPick };
       }
-      return { ...stripPredictions(m), is_free: false };
+      if (isTopPick) {
+        return { ...m, is_free: false, is_top_pick: true };
+      }
+      return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });
 
     return new Response(JSON.stringify(result), {
