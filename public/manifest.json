@@ -1,0 +1,22 @@
+{
+  "name": "Pronosia — Pronostics IA",
+  "short_name": "Pronosia",
+  "description": "Pronostics sportifs propulsés par l'intelligence artificielle",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/app-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}
