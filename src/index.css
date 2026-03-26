@@ -154,11 +154,13 @@
 @layer utilities {
   .gradient-text {
     @apply bg-clip-text text-transparent;
+    -webkit-background-clip: text;
     background-image: var(--gradient-primary);
   }
 
   .gradient-text-accent {
     @apply bg-clip-text text-transparent;
+    -webkit-background-clip: text;
     background-image: var(--gradient-accent);
   }
 
