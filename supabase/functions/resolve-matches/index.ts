@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
         predicted_confidence: m.pred_confidence,
         actual_home_score: actualHome,
         actual_away_score: actualAway,
-        result: isWon ? "won" : "lost",
+        result: isWon ? "win" : "loss",
         resolved_at: new Date().toISOString(),
       });
     }

@@ -644,7 +644,7 @@ Deno.serve(async (req) => {
     const allRaw = [
       ...footMatches, ...tennisMatches, ...basketMatches,
       ...hockeyMatches, ...baseballMatches,
-      ...nflMatches, ...mmaMatches, ...f1Matches, ...aflMatches,
+      ...nflMatches, ...mmaMatches, ...f1Matches, ...aflMatches, ...rugbyMatches,
     ];
     const seen = new Set<string>();
     const deduped: NormalizedMatch[] = [];
