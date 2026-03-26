@@ -347,10 +347,7 @@ export default function Matches() {
         {/* Loading */}
         {isLoading && (
           <div className="mt-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-[10px] sm:text-xs text-muted-foreground">Analyse IA en cours...</span>
-            </div>
+            <RotatingLoader />
             <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <motion.div
