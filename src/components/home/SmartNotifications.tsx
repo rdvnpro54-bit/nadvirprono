@@ -12,7 +12,7 @@ interface Notification {
   type: "match" | "info";
 }
 
-export const SmartNotifications = forwardRef<HTMLDivElement>(function SmartNotifications(_props, ref) {
+export function SmartNotifications() {
   const { data: matches } = useMatches();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const shownCount = useRef(0);
