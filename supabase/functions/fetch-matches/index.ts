@@ -668,10 +668,13 @@ Deno.serve(async (req) => {
     };
 
     const fetchTennis = async (): Promise<NormalizedMatch[]> => {
-      // Try SofaScore first, fallback to ESPN tennis
+      // Try SofaScore first, then TheSportsDB, then ESPN
       const sofaMatches = await fetchSofaScore("tennis", iso);
       if (sofaMatches.length > 0) return sofaMatches;
-      console.log(`[TENNIS] SofaScore unavailable → trying ESPN tennis`);
+      console.log(`[TENNIS] SofaScore unavailable → trying TheSportsDB`);
+      const tsdbMatches = await fetchTennisFromTheSportsDB(iso);
+      if (tsdbMatches.length > 0) return tsdbMatches;
+      console.log(`[TENNIS] TheSportsDB unavailable → trying ESPN tennis`);
       const espnTennis = await fetchESPNExtended("tennis", compact, tomorrowCompact);
       if (espnTennis.length > 0) return espnTennis;
       console.log(`[TENNIS] No tennis matches found from any source`);
