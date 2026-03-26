@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
         .order("kickoff", { ascending: true });
 
       const all = (allIds || []) as Record<string, unknown>[];
-      const freeIds = new Set(pickTop2Free(all, dateKey));
+      const freeIds = pickTop2Free(all, dateKey);
       const topPickId = pickTopPick(all, freeIds, dateKey);
 
       if (freeIds.has(matchId) || topPickId === matchId) {
