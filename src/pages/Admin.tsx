@@ -185,7 +185,7 @@ export default function Admin() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || (user?.email === ADMIN_EMAIL && !isAllowedAdmin)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -193,7 +193,7 @@ export default function Admin() {
     );
   }
 
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!isAllowedAdmin) {
     return <Navigate to="/" replace />;
   }
 
