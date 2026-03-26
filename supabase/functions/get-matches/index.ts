@@ -240,10 +240,18 @@ Deno.serve(async (req) => {
     }
 
     // ─── ALL MATCHES LIST ───
-    const { data: matches, error } = await adminClient
-      .from("cached_matches")
-      .select("*")
-      .order("kickoff", { ascending: true });
+    const [{ data: matches, error }, { data: resolvedRows }] = await Promise.all([
+      adminClient
+        .from("cached_matches")
+        .select("*")
+        .order("kickoff", { ascending: true }),
+      adminClient
+        .from("match_results")
+        .select("fixture_id")
+        .not("result", "is", null)
+        .order("kickoff", { ascending: false })
+        .limit(1000),
+    ]);
 
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), {
@@ -252,7 +260,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const allMatches = (matches || []) as Record<string, unknown>[];
+    const resolvedFixtureIds = new Set((resolvedRows || []).map((row: { fixture_id: number }) => Number(row.fixture_id)));
+    const allMatches = ((matches || []) as Record<string, unknown>[]).filter((match) => {
+      const fixtureId = Number(match.fixture_id);
+      if (resolvedFixtureIds.has(fixtureId)) return false;
+      if (isFinishedMatch(match)) return false;
+      return true;
+    });
     const freeIds = pickTop2Free(allMatches);
     const topPickId = pickTopPick(allMatches, freeIds);
 
