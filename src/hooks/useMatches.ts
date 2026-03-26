@@ -252,6 +252,27 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return {};
 }
 
+async function getResolvedFixtureIds(): Promise<Set<number>> {
+  const { data, error } = await supabase
+    .from("match_results")
+    .select("fixture_id")
+    .not("result", "is", null)
+    .order("kickoff", { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.warn("[useMatches] Impossible de charger les matchs résolus", error);
+    return new Set<number>();
+  }
+
+  return new Set((data ?? []).map((row) => Number(row.fixture_id)).filter(Number.isFinite));
+}
+
+function removeResolvedMatches(matches: MatchWithFlags[], resolvedFixtureIds: Set<number>): MatchWithFlags[] {
+  if (resolvedFixtureIds.size === 0) return matches;
+  return matches.filter((match) => !resolvedFixtureIds.has(Number(match.fixture_id)));
+}
+
 export function useMatches() {
   const initialMatches = loadFromLocalStorage() ?? getFallbackMatches();
   const cacheRef = useRef<MatchWithFlags[]>(initialMatches);
@@ -261,10 +282,14 @@ export function useMatches() {
     initialData: initialMatches,
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("get-matches", {
-          headers: await getAuthHeaders(),
-        });
+        const [matchesResponse, resolvedFixtureIds] = await Promise.all([
+          supabase.functions.invoke("get-matches", {
+            headers: await getAuthHeaders(),
+          }),
+          getResolvedFixtureIds(),
+        ]);
 
+        const { data, error } = matchesResponse;
         if (error) throw error;
 
         const matches = Array.isArray(data) ? (data as MatchWithFlags[]) : [];
@@ -273,9 +298,9 @@ export function useMatches() {
           return cacheRef.current.length > 0 ? cacheRef.current : getFallbackMatches();
         }
 
-        let result = normalizeMatches(matches);
-        result = mergeMatches(cacheRef.current, result);
-        result = normalizeMatches(result);
+        let result = normalizeMatches(removeResolvedMatches(matches, resolvedFixtureIds));
+        result = mergeMatches(removeResolvedMatches(cacheRef.current, resolvedFixtureIds), result);
+        result = normalizeMatches(removeResolvedMatches(result, resolvedFixtureIds));
 
         if (result.length === 0) {
           console.warn("[useMatches] Résultat vide après normalisation, fallback cache/mock");
