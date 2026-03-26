@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain } from "lucide-react";
+import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -80,6 +80,22 @@ export default function Matches() {
       return true;
     });
   }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier]);
+
+  // Trending matches: top ELITE matches with highest engagement potential
+  const trendingMatches = useMemo(() => {
+    if (!matches) return [];
+    return matches
+      .filter(m => (m.ai_score || 0) >= 80 && !["FT", "FINISHED"].includes(m.status.toUpperCase()))
+      .sort((a, b) => {
+        // Prioritize: LIVE > high ai_score > soonest kickoff
+        const aLive = new Date(a.kickoff).getTime() <= Date.now() ? 1 : 0;
+        const bLive = new Date(b.kickoff).getTime() <= Date.now() ? 1 : 0;
+        if (aLive !== bLive) return bLive - aLive;
+        if ((b.ai_score || 0) !== (a.ai_score || 0)) return (b.ai_score || 0) - (a.ai_score || 0);
+        return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
+      })
+      .slice(0, 4);
+  }, [matches]);
 
   const grouped = useMemo(() => {
     const groups: Record<string, CachedMatch[]> = {};
@@ -243,6 +259,21 @@ export default function Matches() {
               {freeMatches.slice(0, 3).map((match, i) => (
                 <MatchCard key={match.id} match={match} index={i} />
               ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* 🔥 Trending Matches */}
+        {!isLoading && !error && trendingMatches.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mt-5 sm:mt-6">
+            <h2 className="font-display text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-1.5">
+              <Flame className="h-4 w-4 text-destructive" /> Trending — Matchs les plus suivis
+            </h2>
+            <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {trendingMatches.map((match, i) => {
+                const isLocked = !isPremium && !match.is_free && match.pred_confidence === "LOCKED";
+                return <MatchCard key={match.id} match={match} locked={isLocked} index={i} />;
+              })}
             </div>
           </motion.div>
         )}
