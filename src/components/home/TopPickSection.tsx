@@ -33,7 +33,20 @@ export function TopPickSection({ matches }: TopPickProps) {
     return analyzedFallback[0] ?? null;
   }, [matches]);
 
-  if (!topPick) return null;
+  if (!topPick && !matches?.length) return null;
+
+  if (!topPick) {
+    return (
+      <section className="border-t border-border/20 py-6 sm:py-10">
+        <div className="container px-3 sm:px-4">
+          <div className="mx-auto max-w-lg glass-card-elevated p-5 sm:p-6 animate-pulse">
+            <div className="h-5 w-40 rounded bg-muted mb-4 mx-auto" />
+            <div className="h-20 rounded-xl bg-muted/70" />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const confidence = Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0);
   const winner = (topPick.pred_home_win || 0) >= (topPick.pred_away_win || 0) ? topPick.home_team : topPick.away_team;
