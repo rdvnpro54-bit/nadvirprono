@@ -104,8 +104,29 @@ export default function Matches() {
   }, [matches]);
 
   const grouped = useMemo(() => {
+    const now = Date.now();
+    const FINISHED_STATUSES = ["FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD", "FINISHED", "COMPLETED", "ENDED"];
+    
+    const getStatus = (m: CachedMatch) => {
+      const statusUp = m.status.toUpperCase();
+      if (FINISHED_STATUSES.includes(statusUp)) return "finished";
+      if (m.home_score !== null && m.away_score !== null) return "finished";
+      const kickoff = new Date(m.kickoff).getTime();
+      if (now >= kickoff) return "live";
+      return "upcoming";
+    };
+
+    const sortedFiltered = [...filtered].sort((a, b) => {
+      const statusA = getStatus(a);
+      const statusB = getStatus(b);
+      const order: Record<string, number> = { live: 0, upcoming: 1, finished: 2 };
+      if (order[statusA] !== order[statusB]) return order[statusA] - order[statusB];
+      // Live & upcoming: soonest first; finished: most recent first
+      if (statusA === "finished") return new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime();
+      return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
+    });
+
     const groups: Record<string, CachedMatch[]> = {};
-    const sortedFiltered = [...filtered].sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
     sortedFiltered.forEach(m => {
       const date = new Date(m.kickoff).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
       if (!groups[date]) groups[date] = [];
