@@ -111,6 +111,18 @@ const UserActivity = React.forwardRef<HTMLSpanElement, { fixtureId: number; spor
 UserActivity.displayName = "UserActivity";
 
 function getPredictionText(match: CachedMatch): string {
+  const scoreHome = match.pred_score_home;
+  const scoreAway = match.pred_score_away;
+  // If predicted score is a draw, say draw
+  if (scoreHome != null && scoreAway != null && scoreHome === scoreAway) {
+    return "Match nul probable";
+  }
+  // If predicted score clearly shows a winner, use that
+  if (scoreHome != null && scoreAway != null && scoreHome !== scoreAway) {
+    const winner = scoreHome > scoreAway ? match.home_team : match.away_team;
+    return `${shortName(winner)} gagne`;
+  }
+  // Fallback to probabilities
   if (match.pred_draw > match.pred_home_win && match.pred_draw > match.pred_away_win) {
     return "Match nul probable";
   }

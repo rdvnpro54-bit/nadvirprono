@@ -48,8 +48,15 @@ export function TopPickSection({ matches }: TopPickProps) {
     );
   }
 
-  const confidence = Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0);
-  const winner = (topPick.pred_home_win || 0) >= (topPick.pred_away_win || 0) ? topPick.home_team : topPick.away_team;
+  const isDraw = topPick.pred_score_home != null && topPick.pred_score_away != null && topPick.pred_score_home === topPick.pred_score_away;
+  const confidence = isDraw
+    ? Number(topPick.pred_draw) || Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0)
+    : Math.max(Number(topPick.pred_home_win) || 0, Number(topPick.pred_away_win) || 0);
+  const winner = isDraw
+    ? null
+    : (topPick.pred_score_home != null && topPick.pred_score_away != null)
+      ? (topPick.pred_score_home > topPick.pred_score_away ? topPick.home_team : topPick.away_team)
+      : ((topPick.pred_home_win || 0) >= (topPick.pred_away_win || 0) ? topPick.home_team : topPick.away_team);
   const time = new Date(topPick.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
   const now = Date.now();
@@ -167,7 +174,7 @@ export function TopPickSection({ matches }: TopPickProps) {
                 >
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Brain className="h-3.5 w-3.5" /> Pronostic IA</span>
-                    <span className="text-sm font-bold text-destructive">{winner} gagne</span>
+                    <span className="text-sm font-bold text-destructive">{isDraw ? "Match nul" : `${winner} gagne`}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">⚠️ Confiance</span>
