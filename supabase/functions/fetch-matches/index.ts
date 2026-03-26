@@ -384,7 +384,7 @@ async function fetchSofaScore(sport: string, dateISO: string): Promise<Normalize
       if (!ts || ts <= now) continue;
       const tournamentName = e.tournament?.name || "";
       if (sport === "tennis" && tournamentName.toLowerCase().includes("doubles")) continue;
-      if (count >= 30) break;
+      if (count >= 50) break;
       results.push({
         id: `sofa_${e.id}`, sport,
         league: tournamentName || "Unknown", country: e.tournament?.category?.name || "",
@@ -424,6 +424,38 @@ const ESPN_LEAGUES: Record<string, { path: string; label: string }[]> = {
     { path: "soccer/sui.1", label: "Super League Suisse" },
     { path: "soccer/aus.1", label: "A-League" },
     { path: "soccer/jpn.1", label: "J1 League" },
+    { path: "soccer/chn.1", label: "Chinese Super League" },
+    { path: "soccer/kor.1", label: "K League 1" },
+    { path: "soccer/ind.1", label: "Indian Super League" },
+    { path: "soccer/col.1", label: "Liga BetPlay" },
+    { path: "soccer/chi.1", label: "Primera División Chile" },
+    { path: "soccer/den.1", label: "Superliga Denmark" },
+    { path: "soccer/nor.1", label: "Eliteserien" },
+    { path: "soccer/swe.1", label: "Allsvenskan" },
+    { path: "soccer/pol.1", label: "Ekstraklasa" },
+    { path: "soccer/cze.1", label: "Czech First League" },
+    { path: "soccer/aut.1", label: "Austrian Bundesliga" },
+    { path: "soccer/srp.1", label: "Serbian SuperLiga" },
+    { path: "soccer/ukr.1", label: "Ukrainian Premier League" },
+    { path: "soccer/rus.1", label: "Russian Premier League" },
+    { path: "soccer/isl.1", label: "Úrvalsdeild Iceland" },
+    { path: "soccer/cro.1", label: "Croatian First Football League" },
+    { path: "soccer/per.1", label: "Liga 1 Peru" },
+    { path: "soccer/ecu.1", label: "LigaPro Ecuador" },
+    { path: "soccer/par.1", label: "Division Profesional Paraguay" },
+    { path: "soccer/uru.1", label: "Primera División Uruguay" },
+    { path: "soccer/ven.1", label: "Primera División Venezuela" },
+    { path: "soccer/egy.1", label: "Egyptian Premier League" },
+    { path: "soccer/rsa.1", label: "South African Premier Division" },
+    { path: "soccer/sau.1", label: "Saudi Pro League" },
+    { path: "soccer/conmebol.libertadores", label: "Copa Libertadores" },
+    { path: "soccer/conmebol.sudamericana", label: "Copa Sudamericana" },
+    { path: "soccer/concacaf.champions", label: "CONCACAF Champions Cup" },
+    { path: "soccer/fifa.friendly", label: "International Friendlies" },
+  ],
+  tennis: [
+    { path: "tennis/atp", label: "ATP Tour" },
+    { path: "tennis/wta", label: "WTA Tour" },
   ],
   rugby: [
     { path: "rugby/270557", label: "Top 14" },
@@ -470,9 +502,13 @@ async function fetchESPN(sport: string, dateCompact: string): Promise<Normalized
       const json = await res.json();
       const results: NormalizedMatch[] = [];
       for (const evt of (json.events || [])) {
-        if (evt.status?.type?.state !== "pre") continue;
+        const state = evt.status?.type?.state;
+        // Include upcoming ("pre") AND live ("in") matches — never exclude
+        if (state !== "pre" && state !== "in") continue;
         const eventDate = evt.date ? new Date(evt.date).getTime() : 0;
-        if (!eventDate || eventDate <= now) continue;
+        if (!eventDate) continue;
+        // For upcoming: must be in the future. For live: always include.
+        if (state === "pre" && eventDate <= now) continue;
         const competitors = evt.competitions?.[0]?.competitors || [];
         const home = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
         const away = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
@@ -491,7 +527,7 @@ async function fetchESPN(sport: string, dateCompact: string): Promise<Normalized
   const allFetched = await Promise.all(fetches);
   for (const r of allFetched) all.push(...r);
   all.sort((a, b) => a.timestamp - b.timestamp);
-  console.log(`[API: ESPN] ${sport.toUpperCase()} - ${all.length} upcoming total`);
+  console.log(`[API: ESPN] ${sport.toUpperCase()} - ${all.length} upcoming+live total`);
   return all;
 }
 
@@ -514,7 +550,7 @@ async function fetchESPNExtended(sport: string, compact: string, tomorrowCompact
       const k = dedupKey(m);
       if (!seen.has(k)) { seen.add(k); allMatches.push(m); }
     }
-    if (allMatches.length >= 10) break;
+    if (allMatches.length >= 30) break;
   }
 
   return allMatches;
@@ -571,49 +607,45 @@ Deno.serve(async (req) => {
 
     // ─── Fetch ALL sports in parallel ────────────────────────
     const fetchFootball = async (): Promise<NormalizedMatch[]> => {
-      let matches = await fetchSportsRC(iso);
-      if (matches.length === 0) {
-        console.log(`[FALLBACK] SportSRC 0 → trying ESPN football today+tomorrow`);
-        const [today, tomorrow] = await Promise.all([
-          fetchESPN("football", compact),
-          fetchESPN("football", tomorrowCompact),
-        ]);
-        const seen = new Set<string>();
-        matches = [];
-        for (const m of [...today, ...tomorrow]) {
-          const k = dedupKey(m);
-          if (!seen.has(k)) { seen.add(k); matches.push(m); }
-        }
+      // Always fetch ESPN football with extended range for maximum coverage
+      let sportsrcMatches = await fetchSportsRC(iso);
+      const espnMatches = await fetchESPNExtended("football", compact, tomorrowCompact);
+      
+      // Merge SportSRC + ESPN, deduplicate
+      const seen = new Set<string>();
+      const merged: NormalizedMatch[] = [];
+      for (const m of [...sportsrcMatches, ...espnMatches]) {
+        const k = dedupKey(m);
+        if (!seen.has(k)) { seen.add(k); merged.push(m); }
       }
-      return matches;
+      console.log(`[FOOTBALL] SportSRC: ${sportsrcMatches.length}, ESPN: ${espnMatches.length} → merged: ${merged.length}`);
+      return merged;
     };
 
     const fetchTennis = async (): Promise<NormalizedMatch[]> => {
-      const matches = await fetchSofaScore("tennis", iso);
-      if (matches.length > 0) return matches;
-      console.log(`[TENNIS] SofaScore unavailable, keeping existing tennis cache`);
+      // Try SofaScore first, fallback to ESPN tennis
+      const sofaMatches = await fetchSofaScore("tennis", iso);
+      if (sofaMatches.length > 0) return sofaMatches;
+      console.log(`[TENNIS] SofaScore unavailable → trying ESPN tennis`);
+      const espnTennis = await fetchESPNExtended("tennis", compact, tomorrowCompact);
+      if (espnTennis.length > 0) return espnTennis;
+      console.log(`[TENNIS] No tennis matches found from any source`);
       return [];
     };
 
     const fetchBasketball = async (): Promise<NormalizedMatch[]> => {
-      const [b1, b2] = await Promise.all([fetchESPN("basketball", compact), fetchESPN("basketball", tomorrowCompact)]);
-      const seen = new Set<string>();
-      const espnMatches = [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      const espnMatches = await fetchESPNExtended("basketball", compact, tomorrowCompact);
       if (espnMatches.length > 0) return espnMatches;
       console.log(`[FALLBACK] ESPN basketball 0 → trying SofaScore`);
       return fetchSofaScore("basketball", iso);
     };
 
     const fetchHockey = async (): Promise<NormalizedMatch[]> => {
-      const [h1, h2] = await Promise.all([fetchESPN("hockey", compact), fetchESPN("hockey", tomorrowCompact)]);
-      const seen = new Set<string>();
-      return [...h1, ...h2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      return fetchESPNExtended("hockey", compact, tomorrowCompact);
     };
 
     const fetchBaseball = async (): Promise<NormalizedMatch[]> => {
-      const [b1, b2] = await Promise.all([fetchESPN("baseball", compact), fetchESPN("baseball", tomorrowCompact)]);
-      const seen = new Set<string>();
-      return [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      return fetchESPNExtended("baseball", compact, tomorrowCompact);
     };
 
     const fetchNFL = () => fetchESPNExtended("nfl", compact, tomorrowCompact);
