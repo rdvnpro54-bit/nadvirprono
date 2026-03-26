@@ -122,9 +122,31 @@ export default function Matches() {
     });
   }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier]);
 
+  // Auto-trigger AI for LOCKED matches
+  const triggerAIPredictions = useCallback(async () => {
+    if (!matches) return;
+    const lockedCount = matches.filter(m => m.pred_confidence === "LOCKED").length;
+    if (lockedCount === 0) return;
+    console.log(`[AI-TRIGGER] ${lockedCount} LOCKED matches, triggering ai-predict...`);
+    try {
+      await supabase.functions.invoke("ai-predict", { body: { batch: 10 } });
+      // Refetch matches after AI processes them
+      setTimeout(() => refetch(), 5000);
+    } catch (e) {
+      console.warn("[AI-TRIGGER] Failed:", e);
+    }
+  }, [matches, refetch]);
+
+  // Auto-trigger on load and retry every 60s
+  useEffect(() => {
+    triggerAIPredictions();
+    const interval = setInterval(triggerAIPredictions, 60_000);
+    return () => clearInterval(interval);
+  }, [triggerAIPredictions]);
+
   const trendingMatches = useMemo(() => {
-    if (!matches) return [];
-    return matches
+    if (!filtered || filtered.length === 0) return [];
+    return filtered
       .filter(m => (m.ai_score || 0) >= 80 && !["FT", "FINISHED"].includes(m.status.toUpperCase()))
       .sort((a, b) => {
         const aLive = new Date(a.kickoff).getTime() <= Date.now() ? 1 : 0;
@@ -134,7 +156,7 @@ export default function Matches() {
         return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
       })
       .slice(0, 4);
-  }, [matches]);
+  }, [filtered]);
 
   const grouped = useMemo(() => {
     const now = Date.now();
