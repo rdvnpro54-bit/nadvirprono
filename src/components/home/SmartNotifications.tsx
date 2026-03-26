@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, forwardRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Flame } from "lucide-react";
 import { Link } from "react-router-dom";
