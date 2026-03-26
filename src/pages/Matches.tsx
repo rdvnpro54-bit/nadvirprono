@@ -263,6 +263,21 @@ export default function Matches() {
           </motion.div>
         )}
 
+        {/* 🔥 Trending Matches */}
+        {!isLoading && !error && trendingMatches.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mt-5 sm:mt-6">
+            <h2 className="font-display text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-1.5">
+              <Flame className="h-4 w-4 text-destructive" /> Trending — Matchs les plus suivis
+            </h2>
+            <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {trendingMatches.map((match, i) => {
+                const isLocked = !isPremium && !match.is_free && match.pred_confidence === "LOCKED";
+                return <MatchCard key={match.id} match={match} locked={isLocked} index={i} />;
+              })}
+            </div>
+          </motion.div>
+        )}
+
         {/* Grouped matches — ALL visible, no hiding */}
         {!isLoading && !error && Object.entries(grouped).map(([date, dateMatches]) => (
           <div key={date} className="mt-5 sm:mt-6">
