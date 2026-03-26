@@ -1,0 +1,1 @@
+DELETE FROM public.cached_matches WHERE fixture_id IN (SELECT fixture_id FROM public.match_results WHERE result IS NOT NULL); DELETE FROM public.cached_matches WHERE status IN ('FT','AET','PEN','AWD','WO','CANC','ABD','ABANDONED','FINISHED','COMPLETED','ENDED') OR (home_score IS NOT NULL AND away_score IS NOT NULL) OR kickoff < now() - interval '4 hours';
