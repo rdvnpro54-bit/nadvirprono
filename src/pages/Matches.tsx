@@ -212,7 +212,9 @@ export default function Matches() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
               >
-                {matches?.length || 0} matchs analysés • Tous les sports
+                {filtered.length} matchs affichés
+                {sport !== "all" && ` • ${sportFilters.find(f => f.value === sport)?.label || sport}`}
+                {sport === "all" && " • Tous les sports"}
               </motion.p>
             </div>
             <CooldownTimer lastUpdate={dataUpdatedAt} intervalMs={3 * 60 * 1000} />
