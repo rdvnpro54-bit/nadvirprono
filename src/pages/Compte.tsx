@@ -155,7 +155,7 @@ export default function Compte() {
                 <span>Inscription gratuite en 10 secondes</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <CreditCard className="h-3.5 w-3.5 text-emerald-500" />
+                <CreditCard className="h-3.5 w-3.5 text-primary" />
                 <span>Aucune carte bancaire requise</span>
               </div>
             </motion.div>
