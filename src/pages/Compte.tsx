@@ -290,7 +290,7 @@ export default function Compte() {
             </motion.div>
 
             <motion.div variants={staggerItem} className="mt-4">
-              <Button variant="ghost" size="sm" className="w-full text-[11px] text-muted-foreground" onClick={checkSubscription}>
+              <Button variant="ghost" size="sm" className="w-full text-[11px] text-muted-foreground" onClick={() => { void checkSubscription(); }}>
                 Vérifier le statut d'abonnement
               </Button>
             </motion.div>
