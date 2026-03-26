@@ -189,6 +189,35 @@ export default function Resultats() {
           </motion.div>
         )}
 
+        {/* 30-day Winrate Progression */}
+        {results && results.filter(r => r.result === "win" || r.result === "loss").length >= 2 && (
+          <WinrateProgressChart results={results} />
+        )}
+
+        {/* Streak Tracker */}
+        {eliteStats && eliteStats.streak.count >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={cn(
+              "mt-4 rounded-xl border p-3 flex items-center gap-3",
+              eliteStats.streak.type === "win"
+                ? "border-success/30 bg-success/5"
+                : "border-destructive/30 bg-destructive/5"
+            )}
+          >
+            <span className="text-2xl">{eliteStats.streak.type === "win" ? "🔥" : "❄️"}</span>
+            <div>
+              <p className="text-sm font-bold">
+                Série de {eliteStats.streak.count} {eliteStats.streak.type === "win" ? "victoires" : "défaites"} consécutives
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {eliteStats.streak.type === "win" ? "L'IA est en feu ! 🎯" : "Phase de recalibration"}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {isLoading ? (
           <div className="mt-6 space-y-3">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
