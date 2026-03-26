@@ -22,6 +22,9 @@ const ESPN_SPORT_MAP: Record<string, string> = {
   nfl: "football/nfl",
   mma: "mma/ufc",
   tennis: "tennis/atp",
+  rugby: "rugby/270557",
+  f1: "racing/f1",
+  afl: "australian-football/afl",
 };
 
 interface CachedMatch {
@@ -217,7 +220,7 @@ Deno.serve(async (req) => {
         predicted_confidence: m.pred_confidence,
         actual_home_score: actualHome,
         actual_away_score: actualAway,
-        result: isWon ? "won" : "lost",
+        result: isWon ? "win" : "loss",
         resolved_at: new Date().toISOString(),
       });
     }

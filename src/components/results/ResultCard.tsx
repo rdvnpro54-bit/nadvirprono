@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AiScoreBadge } from "@/components/matches/AiScoreBadge";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
+import { ConfidenceGraph } from "@/components/matches/ConfidenceGraph";
 import type { MatchResult } from "@/hooks/useResults";
 
 function estimateOdds(probability: number): number {
@@ -12,15 +13,8 @@ function estimateOdds(probability: number): number {
 }
 
 const sportEmojis: Record<string, string> = {
-  football: "⚽",
-  tennis: "🎾",
-  basketball: "🏀",
-  hockey: "🏒",
-  baseball: "⚾",
-  nfl: "🏈",
-  mma: "🥊",
-  f1: "🏎️",
-  afl: "🏉",
+  football: "⚽", tennis: "🎾", basketball: "🏀", hockey: "🏒",
+  baseball: "⚾", nfl: "🏈", mma: "🥊", f1: "🏎️", afl: "🏉", rugby: "🏉",
 };
 
 function getAiScoreFromConfidence(result: MatchResult): number {
@@ -31,6 +25,16 @@ function getAiScoreFromConfidence(result: MatchResult): number {
   return 55;
 }
 
+function getValueScore(result: MatchResult): { score: number; label: string } {
+  const maxProb = Math.max(result.pred_home_win, result.pred_away_win);
+  const odds = estimateOdds(maxProb);
+  const ev = (maxProb / 100) * odds;
+  if (ev >= 1.15) return { score: 95, label: "Excellente" };
+  if (ev >= 1.05) return { score: 75, label: "Bonne" };
+  if (ev >= 0.95) return { score: 55, label: "Neutre" };
+  return { score: 30, label: "Faible" };
+}
+
 export function ResultCard({ result, index }: { result: MatchResult; index: number }) {
   const date = new Date(result.kickoff).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
   const time = new Date(result.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -39,9 +43,11 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
   const isPending = !isWin && !isLoss;
   const emoji = sportEmojis[result.sport] || "⚽";
   const aiScore = getAiScoreFromConfidence(result);
+  const valueScore = getValueScore(result);
 
   const winProb = result.predicted_winner === result.home_team ? result.pred_home_win : result.pred_away_win;
   const odds = estimateOdds(winProb);
+  const drawProb = 100 - result.pred_home_win - result.pred_away_win;
 
   let realWinner = "—";
   if (result.actual_home_score != null && result.actual_away_score != null) {
@@ -55,6 +61,7 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.5) }}
+      whileHover={{ scale: 1.01, y: -2 }}
       className={cn(
         "rounded-xl border p-3 sm:p-4 space-y-2 transition-all",
         isWin && "border-success/30 bg-success/5",
@@ -70,15 +77,19 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
           <ConfidenceBadge confidence={result.predicted_confidence as any} />
           <AiScoreBadge score={aiScore} />
         </div>
-        <span className={cn(
-          "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shrink-0",
-          isWin && "bg-success/15 text-success",
-          isLoss && "bg-destructive/15 text-destructive",
-          isPending && "bg-muted text-muted-foreground"
-        )}>
-          {isWin ? <CheckCircle className="h-3.5 w-3.5" /> : isLoss ? <XCircle className="h-3.5 w-3.5" /> : null}
-          {isWin ? "GAGNÉ ✅" : isLoss ? "PERDU ❌" : "EN ATTENTE"}
-        </span>
+        <motion.span
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shrink-0",
+            isWin && "bg-success/15 text-success",
+            isLoss && "bg-destructive/15 text-destructive",
+            isPending && "bg-muted text-muted-foreground"
+          )}
+        >
+          {isWin ? <CheckCircle className="h-3.5 w-3.5" /> : isLoss ? <XCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5 animate-pulse" />}
+          {isWin ? "GAGNÉ ✅" : isLoss ? "PERDU ❌" : "EN ATTENTE ⏳"}
+        </motion.span>
       </div>
 
       {/* Teams & Score */}
@@ -88,22 +99,43 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
           <p className="text-[10px] text-muted-foreground mt-0.5">{date} • {time}</p>
         </div>
         {result.actual_home_score != null && result.actual_away_score != null && (
-          <div className="text-center shrink-0">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="text-center shrink-0"
+          >
             <p className="text-lg font-bold font-display">{result.actual_home_score} - {result.actual_away_score}</p>
             <p className="text-[9px] text-muted-foreground">Score final</p>
-          </div>
+          </motion.div>
         )}
       </div>
 
+      {/* Confidence Graph */}
+      <ConfidenceGraph
+        homeWin={result.pred_home_win}
+        draw={Math.max(drawProb, 0)}
+        awayWin={result.pred_away_win}
+        homeTeam={result.home_team}
+        awayTeam={result.away_team}
+        size="sm"
+      />
+
       {/* Prediction vs Reality */}
-      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
+      <div className="grid grid-cols-3 gap-2 pt-1 border-t border-border/50">
         <div>
-          <p className="text-[9px] text-muted-foreground uppercase">🎯 Prédiction IA</p>
+          <p className="text-[9px] text-muted-foreground uppercase">🎯 Prédiction</p>
           <p className="text-xs font-semibold mt-0.5">{result.predicted_winner}</p>
         </div>
         <div>
-          <p className="text-[9px] text-muted-foreground uppercase">🏆 Résultat réel</p>
+          <p className="text-[9px] text-muted-foreground uppercase">🏆 Résultat</p>
           <p className="text-xs font-semibold mt-0.5">{realWinner}</p>
+        </div>
+        <div>
+          <p className="text-[9px] text-muted-foreground uppercase">💎 Valeur</p>
+          <p className={cn("text-xs font-semibold mt-0.5", valueScore.score >= 75 ? "text-success" : valueScore.score >= 55 ? "text-warning" : "text-muted-foreground")}>
+            {valueScore.label}
+          </p>
         </div>
       </div>
 

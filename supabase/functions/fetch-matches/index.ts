@@ -408,6 +408,27 @@ const ESPN_LEAGUES: Record<string, { path: string; label: string }[]> = {
     { path: "soccer/ita.1", label: "Serie A" },
     { path: "soccer/fra.1", label: "Ligue 1" },
     { path: "soccer/uefa.champions", label: "Champions League" },
+    { path: "soccer/uefa.europa", label: "Europa League" },
+    { path: "soccer/uefa.europa.conf", label: "Conference League" },
+    { path: "soccer/por.1", label: "Liga Portugal" },
+    { path: "soccer/ned.1", label: "Eredivisie" },
+    { path: "soccer/tur.1", label: "Süper Lig" },
+    { path: "soccer/bel.1", label: "Pro League" },
+    { path: "soccer/rou.1", label: "Liga 1 Romania" },
+    { path: "soccer/sco.1", label: "Scottish Premiership" },
+    { path: "soccer/bra.1", label: "Brasileirão" },
+    { path: "soccer/arg.1", label: "Liga Argentina" },
+    { path: "soccer/mex.1", label: "Liga MX" },
+    { path: "soccer/usa.1", label: "MLS" },
+    { path: "soccer/gre.1", label: "Super League Greece" },
+    { path: "soccer/sui.1", label: "Super League Suisse" },
+    { path: "soccer/aus.1", label: "A-League" },
+    { path: "soccer/jpn.1", label: "J1 League" },
+  ],
+  rugby: [
+    { path: "rugby/270557", label: "Top 14" },
+    { path: "rugby/242041", label: "Premiership" },
+    { path: "rugby/244293", label: "URC" },
   ],
   basketball: [
     { path: "basketball/nba", label: "NBA" },
@@ -599,21 +620,23 @@ Deno.serve(async (req) => {
     const fetchMMA = () => fetchESPNExtended("mma", compact, tomorrowCompact);
     const fetchF1 = () => fetchESPNExtended("f1", compact, tomorrowCompact);
     const fetchAFL = () => fetchESPNExtended("afl", compact, tomorrowCompact);
+    const fetchRugby = () => fetchESPNExtended("rugby", compact, tomorrowCompact);
 
     const [
       footMatches, tennisMatches, basketMatches,
       hockeyMatches, baseballMatches,
-      nflMatches, mmaMatches, f1Matches, aflMatches,
+      nflMatches, mmaMatches, f1Matches, aflMatches, rugbyMatches,
     ] = await Promise.all([
       fetchFootball(), fetchTennis(), fetchBasketball(),
       fetchHockey(), fetchBaseball(),
-      fetchNFL(), fetchMMA(), fetchF1(), fetchAFL(),
+      fetchNFL(), fetchMMA(), fetchF1(), fetchAFL(), fetchRugby(),
     ]);
 
     const sportResults: Record<string, number> = {
       football: footMatches.length, tennis: tennisMatches.length, basketball: basketMatches.length,
       hockey: hockeyMatches.length, baseball: baseballMatches.length,
       nfl: nflMatches.length, mma: mmaMatches.length, f1: f1Matches.length, afl: aflMatches.length,
+      rugby: rugbyMatches.length,
     };
     console.log(`[RESULTS] ${JSON.stringify(sportResults)}`);
 
@@ -621,7 +644,7 @@ Deno.serve(async (req) => {
     const allRaw = [
       ...footMatches, ...tennisMatches, ...basketMatches,
       ...hockeyMatches, ...baseballMatches,
-      ...nflMatches, ...mmaMatches, ...f1Matches, ...aflMatches,
+      ...nflMatches, ...mmaMatches, ...f1Matches, ...aflMatches, ...rugbyMatches,
     ];
     const seen = new Set<string>();
     const deduped: NormalizedMatch[] = [];

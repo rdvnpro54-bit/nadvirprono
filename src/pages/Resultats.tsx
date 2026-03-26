@@ -5,9 +5,10 @@ import { useResultStats } from "@/hooks/useResults";
 import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Flame, Lock, Crown, Sparkles, Zap, TrendingUp } from "lucide-react";
+import { Flame, Lock, Crown, Sparkles, Zap, TrendingUp, Trophy } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
+import { WinrateProgressChart } from "@/components/results/WinrateProgressChart";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -184,6 +185,35 @@ export default function Resultats() {
               <Zap className="h-4 w-4 text-primary mx-auto mb-1" />
               <p className="font-display text-lg font-bold">{eliteStats.total}</p>
               <p className="text-[9px] text-muted-foreground">Pronostics analysés</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 30-day Winrate Progression */}
+        {results && results.filter(r => r.result === "win" || r.result === "loss").length >= 2 && (
+          <WinrateProgressChart results={results} />
+        )}
+
+        {/* Streak Tracker */}
+        {eliteStats && eliteStats.streak.count >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={cn(
+              "mt-4 rounded-xl border p-3 flex items-center gap-3",
+              eliteStats.streak.type === "win"
+                ? "border-success/30 bg-success/5"
+                : "border-destructive/30 bg-destructive/5"
+            )}
+          >
+            <span className="text-2xl">{eliteStats.streak.type === "win" ? "🔥" : "❄️"}</span>
+            <div>
+              <p className="text-sm font-bold">
+                Série de {eliteStats.streak.count} {eliteStats.streak.type === "win" ? "victoires" : "défaites"} consécutives
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {eliteStats.streak.type === "win" ? "L'IA est en feu ! 🎯" : "Phase de recalibration"}
+              </p>
             </div>
           </motion.div>
         )}
