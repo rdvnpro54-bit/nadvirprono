@@ -5,7 +5,7 @@ import { AiScoreBadge } from "./AiScoreBadge";
 import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap, Info, Users, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useGlobalActivity } from "@/components/home/ActivityProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites, useToggleFavorite } from "@/hooks/useFavorites";
