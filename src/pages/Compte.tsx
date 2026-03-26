@@ -229,7 +229,7 @@ export default function Compte() {
                   </motion.div>
                 ) : null}
                 <div className="mt-3 flex gap-2">
-                  <Link to="/admin" className="flex-1">
+                  <Link to="/admin" reloadDocument className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1.5 text-[11px] border-destructive/30 text-destructive hover:bg-destructive/10">
                       <Shield className="h-3.5 w-3.5" /> Panneau Admin
                     </Button>
