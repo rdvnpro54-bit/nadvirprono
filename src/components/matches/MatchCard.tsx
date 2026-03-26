@@ -180,7 +180,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
       >
         <Link to={locked ? "#" : `/match/${match.id}`} onClick={handleLockedClick} className="block">
           <div className={cn(
-            "glass-card match-card-hover p-4 group relative overflow-hidden w-full active:scale-[0.98] transition-transform duration-200",
+            "glass-card match-card-hover p-3 sm:p-4 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
             locked && "opacity-80",
             getAiScoreGlow(aiScore)
           )}>
@@ -188,24 +188,24 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive live-bar-pulse" />}
 
             {/* === ROW 1: Sport + League + Badges === */}
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1.5 mb-2.5 overflow-hidden">
+              <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
                 {(() => {
                   const sportKey = (match.sport || "football").toLowerCase();
                   const sportInfo = SPORT_ICONS[sportKey] || { icon: Trophy, label: sportKey };
                   const SportIcon = sportInfo.icon;
                   return (
-                    <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary shrink-0">
+                    <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-primary shrink-0">
                       <SportIcon className="h-3 w-3" />
                       {sportInfo.label}
                     </span>
                   );
                 })()}
-                <span className="text-[10px] text-muted-foreground truncate">
-                  {match.league_name}{match.league_country ? ` • ${match.league_country}` : ""}
+                <span className="text-[9px] sm:text-[10px] text-muted-foreground truncate min-w-0">
+                  {match.league_name}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                 {!locked && <ConfidenceBadge confidence={match.pred_confidence as any} />}
                 {!locked && aiScore > 0 && <AiScoreBadge score={aiScore} />}
                 {match.pred_value_bet && (
@@ -217,12 +217,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             </div>
 
             {/* === ROW 2: Teams + Time/Live === */}
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-2 mb-2.5 overflow-hidden">
               {/* Home team */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
                 <TeamLogo name={match.home_team} logo={bothLogos ? match.home_logo : null} />
                 <span className={cn(
-                  "text-[13px] font-semibold truncate",
+                  "text-xs sm:text-[13px] font-semibold truncate min-w-0",
                   !locked && fav === "home" && "text-primary"
                 )}>
                   {shortName(match.home_team)}
@@ -230,10 +230,10 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
 
               {/* Center: Time or LIVE */}
-              <div className="flex flex-col items-center shrink-0 min-w-[52px]">
+              <div className="flex flex-col items-center shrink-0 px-1">
                 {isLive ? (
                   <>
-                    <span className="flex items-center gap-1 text-[11px] font-bold">
+                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold">
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive/60" />
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
@@ -248,7 +248,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   </>
                 ) : (
                   <>
-                    <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5 text-[10px] sm:text-[11px] text-muted-foreground">
                       <Clock className="h-3 w-3" /> {time}
                     </span>
                     <Countdown kickoff={match.kickoff} />
@@ -257,9 +257,9 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
 
               {/* Away team */}
-              <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+              <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden justify-end">
                 <span className={cn(
-                  "text-[13px] font-semibold truncate text-right",
+                  "text-xs sm:text-[13px] font-semibold truncate min-w-0 text-right",
                   !locked && fav === "away" && "text-primary"
                 )}>
                   {shortName(match.away_team)}
@@ -270,12 +270,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* === ROW 3: Social proof (ELITE only) === */}
             {!locked && aiScore >= 80 && (
-              <div className="flex items-center gap-3 mb-2.5 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Users className="h-2.5 w-2.5" /> {12 + (match.fixture_id % 38)} suivent ce pick
+              <div className="flex items-center gap-2 mb-2 text-[9px] sm:text-[10px] text-muted-foreground overflow-hidden">
+                <span className="flex items-center gap-1 truncate">
+                  <Users className="h-2.5 w-2.5 shrink-0" /> {12 + (match.fixture_id % 38)} suivent
                 </span>
                 {aiScore >= 85 && (
-                  <span className="flex items-center gap-0.5 font-semibold text-amber-400">
+                  <span className="flex items-center gap-0.5 font-semibold text-amber-400 shrink-0">
                     <Flame className="h-2.5 w-2.5" /> Trending
                   </span>
                 )}
@@ -284,12 +284,12 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* === ROW 4: AI Prediction (unlocked) === */}
             {!locked && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2.5">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 sm:p-3 space-y-2">
                 {/* Prediction header */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex items-center justify-between gap-1.5 overflow-hidden">
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
                     <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span className="text-xs font-bold text-primary truncate">
+                    <span className="text-[11px] sm:text-xs font-bold text-primary truncate min-w-0">
                       🔥 {getPredictionText(match)}
                     </span>
                   </div>
@@ -309,7 +309,7 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
                 {/* Confidence bar */}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">💎 Confiance</span>
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground whitespace-nowrap shrink-0">💎 Confiance</span>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <motion.div
                       className="h-full rounded-full bg-primary prob-bar-shimmer"
@@ -318,13 +318,13 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                       transition={{ duration: 0.8, delay: (index || 0) * 0.1 }}
                     />
                   </div>
-                  <span className="text-[11px] font-bold text-foreground shrink-0">{confidence}%</span>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-foreground shrink-0">{confidence}%</span>
                 </div>
 
                 {/* Predicted score */}
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground">🎯 Score prédit</span>
-                  <span className="text-xs font-bold text-foreground">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-foreground">
                     {match.pred_score_home} - {match.pred_score_away}
                   </span>
                 </div>
@@ -380,13 +380,13 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* === ROW 5: Probability bar + Activity === */}
             {!locked && (
-              <div className="mt-3">
+              <div className="mt-2.5">
                 <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
                   <motion.div className="bg-primary" initial={{ width: 0 }} animate={{ width: `${match.pred_home_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 }} />
                   <motion.div className="bg-muted-foreground/30" initial={{ width: 0 }} animate={{ width: `${match.pred_draw}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.1 }} />
                   <motion.div className="bg-secondary" initial={{ width: 0 }} animate={{ width: `${match.pred_away_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.2 }} />
                 </div>
-                <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                <div className="mt-1 flex items-center justify-between text-[9px] sm:text-[10px] text-muted-foreground">
                   <span>🏠 {match.pred_home_win}%</span>
                   <UserActivity fixtureId={match.fixture_id} sport={match.sport || "football"} />
                   <span>✈️ {match.pred_away_win}%</span>
@@ -395,11 +395,11 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
             )}
 
             {/* === ROW 6: Favorite button === */}
-            <div className="mt-2.5 flex items-center justify-between">
+            <div className="mt-2 flex items-center justify-between">
               <button
                 onClick={handleFav}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium transition-all active:scale-95",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium transition-all active:scale-95 min-h-[32px]",
                   isFav
                     ? "bg-warning/15 text-warning"
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
