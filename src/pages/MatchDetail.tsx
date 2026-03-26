@@ -96,13 +96,36 @@ export default function MatchDetail() {
       <div className="min-h-screen bg-background pb-20">
         <Navbar />
         <div className="container max-w-3xl pt-20 pb-16 px-3 sm:px-4">
-          <div className="flex items-center gap-2 mb-6">
+          <motion.div 
+            className="flex items-center gap-2 mb-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             <span className="text-xs text-muted-foreground">Analyse IA en cours...</span>
-          </div>
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-10 rounded-md mt-4" />
-          <div className="mt-4 grid gap-4"><Skeleton className="h-40 rounded-xl" /></div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          >
+            <Skeleton className="h-64 rounded-xl" />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+          >
+            <Skeleton className="h-10 rounded-md mt-4" />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+            className="mt-4"
+          >
+            <Skeleton className="h-40 rounded-xl" />
+          </motion.div>
         </div>
       </div>
     );

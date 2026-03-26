@@ -1,11 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Zap, CheckCircle, Lock } from "lucide-react";
 import { useAuth, STRIPE_PLANS } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface PremiumModalProps {
   open: boolean;
@@ -15,7 +16,22 @@ interface PremiumModalProps {
 export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
   const { user, isPremium } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Auto-close on route change to prevent black screen overlay
+  useEffect(() => {
+    if (open) {
+      onOpenChange(false);
+    }
+  }, [location.pathname]);
+
+  // Safety: auto-close after 30s max to prevent stuck overlays
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => onOpenChange(false), 30000);
+    return () => clearTimeout(timer);
+  }, [open, onOpenChange]);
 
   const handleCheckout = async (priceId: string, planKey: string) => {
     if (!user) {
@@ -28,6 +44,7 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error("Session expirée, reconnecte-toi");
+        onOpenChange(false);
         navigate("/login");
         return;
       }
@@ -37,6 +54,7 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
       });
       if (error) throw error;
       if (data?.url) {
+        onOpenChange(false);
         window.location.href = data.url;
       } else {
         throw new Error("URL de paiement manquante");
@@ -72,9 +90,13 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
       <DialogContent className="bg-card border-primary/20 max-w-md p-0 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-br from-primary/20 to-primary/5 p-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
+          <motion.div 
+            className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20"
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
             {user ? <Zap className="h-6 w-6 text-primary" /> : <Lock className="h-6 w-6 text-primary" />}
-          </div>
+          </motion.div>
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               {user ? "🚀 Débloque tous les pronostics" : "🔒 Accès Premium requis"}
@@ -90,11 +112,17 @@ export function PremiumModal({ open, onOpenChange }: PremiumModalProps) {
         <div className="p-6 space-y-4">
           {/* Features */}
           <ul className="space-y-2">
-            {["Pronostics IA complets", "Value bets détectés", "Score prédit & confiance", "Analyses en temps réel"].map(f => (
-              <li key={f} className="flex items-center gap-2 text-sm">
+            {["Pronostics IA complets", "Value bets détectés", "Score prédit & confiance", "Analyses en temps réel"].map((f, i) => (
+              <motion.li 
+                key={f} 
+                className="flex items-center gap-2 text-sm"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+              >
                 <CheckCircle className="h-4 w-4 text-primary shrink-0" />
                 {f}
-              </li>
+              </motion.li>
             ))}
           </ul>
 
