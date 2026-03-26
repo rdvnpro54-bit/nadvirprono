@@ -607,49 +607,45 @@ Deno.serve(async (req) => {
 
     // ─── Fetch ALL sports in parallel ────────────────────────
     const fetchFootball = async (): Promise<NormalizedMatch[]> => {
-      let matches = await fetchSportsRC(iso);
-      if (matches.length === 0) {
-        console.log(`[FALLBACK] SportSRC 0 → trying ESPN football today+tomorrow`);
-        const [today, tomorrow] = await Promise.all([
-          fetchESPN("football", compact),
-          fetchESPN("football", tomorrowCompact),
-        ]);
-        const seen = new Set<string>();
-        matches = [];
-        for (const m of [...today, ...tomorrow]) {
-          const k = dedupKey(m);
-          if (!seen.has(k)) { seen.add(k); matches.push(m); }
-        }
+      // Always fetch ESPN football with extended range for maximum coverage
+      let sportsrcMatches = await fetchSportsRC(iso);
+      const espnMatches = await fetchESPNExtended("football", compact, tomorrowCompact);
+      
+      // Merge SportSRC + ESPN, deduplicate
+      const seen = new Set<string>();
+      const merged: NormalizedMatch[] = [];
+      for (const m of [...sportsrcMatches, ...espnMatches]) {
+        const k = dedupKey(m);
+        if (!seen.has(k)) { seen.add(k); merged.push(m); }
       }
-      return matches;
+      console.log(`[FOOTBALL] SportSRC: ${sportsrcMatches.length}, ESPN: ${espnMatches.length} → merged: ${merged.length}`);
+      return merged;
     };
 
     const fetchTennis = async (): Promise<NormalizedMatch[]> => {
-      const matches = await fetchSofaScore("tennis", iso);
-      if (matches.length > 0) return matches;
-      console.log(`[TENNIS] SofaScore unavailable, keeping existing tennis cache`);
+      // Try SofaScore first, fallback to ESPN tennis
+      const sofaMatches = await fetchSofaScore("tennis", iso);
+      if (sofaMatches.length > 0) return sofaMatches;
+      console.log(`[TENNIS] SofaScore unavailable → trying ESPN tennis`);
+      const espnTennis = await fetchESPNExtended("tennis", compact, tomorrowCompact);
+      if (espnTennis.length > 0) return espnTennis;
+      console.log(`[TENNIS] No tennis matches found from any source`);
       return [];
     };
 
     const fetchBasketball = async (): Promise<NormalizedMatch[]> => {
-      const [b1, b2] = await Promise.all([fetchESPN("basketball", compact), fetchESPN("basketball", tomorrowCompact)]);
-      const seen = new Set<string>();
-      const espnMatches = [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      const espnMatches = await fetchESPNExtended("basketball", compact, tomorrowCompact);
       if (espnMatches.length > 0) return espnMatches;
       console.log(`[FALLBACK] ESPN basketball 0 → trying SofaScore`);
       return fetchSofaScore("basketball", iso);
     };
 
     const fetchHockey = async (): Promise<NormalizedMatch[]> => {
-      const [h1, h2] = await Promise.all([fetchESPN("hockey", compact), fetchESPN("hockey", tomorrowCompact)]);
-      const seen = new Set<string>();
-      return [...h1, ...h2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      return fetchESPNExtended("hockey", compact, tomorrowCompact);
     };
 
     const fetchBaseball = async (): Promise<NormalizedMatch[]> => {
-      const [b1, b2] = await Promise.all([fetchESPN("baseball", compact), fetchESPN("baseball", tomorrowCompact)]);
-      const seen = new Set<string>();
-      return [...b1, ...b2].filter(m => { const k = dedupKey(m); if (seen.has(k)) return false; seen.add(k); return true; });
+      return fetchESPNExtended("baseball", compact, tomorrowCompact);
     };
 
     const fetchNFL = () => fetchESPNExtended("nfl", compact, tomorrowCompact);
