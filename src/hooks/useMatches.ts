@@ -131,9 +131,13 @@ function filterActiveMatches(matches: MatchWithFlags[]): MatchWithFlags[] {
     const kickoff = new Date(m.kickoff).getTime();
     const duration = getSportDuration(m.sport);
     if (Number.isNaN(kickoff)) return false;
-    if (isFinishedByAPI(m.status) && now > kickoff + duration) return false;
-    if (m.home_score !== null && m.away_score !== null && now > kickoff + duration) return false;
-    if (now > kickoff + duration + 30 * 60 * 1000) return false;
+    // Hide matches with a finished status immediately
+    if (isFinishedByAPI(m.status)) return false;
+    // Hide matches that have final scores
+    if (m.home_score !== null && m.away_score !== null) return false;
+    // Hide matches past their expected duration (no API status update yet)
+    if (now > kickoff + duration) return false;
+    // Hide matches too far in the future
     if (kickoff > now + 48 * 60 * 60 * 1000) return false;
     return true;
   });
