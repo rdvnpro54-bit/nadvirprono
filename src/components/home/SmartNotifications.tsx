@@ -53,8 +53,8 @@ export function SmartNotifications() {
       if (shownFixtures.current.has(m.fixture_id)) return false;
       const kickoff = new Date(m.kickoff).getTime();
       const diff = kickoff - now;
-      // Show matches starting in the next 90 minutes or started less than 5 min ago
-      return diff > -5 * 60_000 && diff < 90 * 60_000;
+      // Show upcoming SAFE matches (next 24h) or recently started (< 15 min ago)
+      return diff > -15 * 60_000 && diff < 24 * 60 * 60_000;
     });
 
     if (safeMatches.length === 0) return;
