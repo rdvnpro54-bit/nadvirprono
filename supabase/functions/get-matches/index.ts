@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     let isPremium = false;
+    let isPremiumPlus = false;
 
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
@@ -187,6 +188,7 @@ Deno.serve(async (req) => {
 
       if (!claimsError && claimsData?.claims) {
         const userId = claimsData.claims.sub as string;
+        const userEmail = claimsData.claims.email as string | undefined;
         const adminClient = createClient(supabaseUrl, serviceKey);
 
         const { data: sub } = await adminClient
@@ -206,7 +208,36 @@ Deno.serve(async (req) => {
           .eq("role", "admin")
           .maybeSingle();
 
-        if (roleData) isPremium = true;
+        if (roleData) {
+          isPremium = true;
+          isPremiumPlus = true;
+        }
+
+        // Check Stripe for Premium+ products
+        if (userEmail && !isPremiumPlus) {
+          try {
+            const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+            if (stripeKey) {
+              const { default: Stripe } = await import("https://esm.sh/stripe@18.5.0");
+              const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+              const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
+              if (customers.data.length > 0) {
+                const subs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "active", limit: 5 });
+                for (const s of subs.data) {
+                  const prodId = s.items.data[0]?.price?.product;
+                  if (PREMIUM_PLUS_PRODUCTS.includes(prodId as string)) {
+                    isPremiumPlus = true;
+                    isPremium = true;
+                  } else if (prodId) {
+                    isPremium = true;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[get-matches] Stripe check failed:", e);
+          }
+        }
       }
     }
 
