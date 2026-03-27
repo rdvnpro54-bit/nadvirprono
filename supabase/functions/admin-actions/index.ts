@@ -131,42 +131,55 @@ Deno.serve(async (req) => {
 
     // ─── FORCE REFRESH PREDICTIONS ────────────────────────────
     if (action === "force-refresh") {
-      console.log("[ADMIN] Force refresh triggered by", user.email);
+      console.log("[ADMIN] Top 2 refresh triggered by", user.email);
 
-      // 1. Delete ALL existing cached matches to force fresh data
-      const { error: delErr } = await supabase.from("cached_matches").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      if (delErr) console.error("Delete error:", delErr);
+      const { data: candidates, error: candidatesErr } = await supabase
+        .from("cached_matches")
+        .select("id, fixture_id, sport, pred_confidence, kickoff, status")
+        .in("pred_confidence", ["SAFE", "MODÉRÉ"])
+        .gte("kickoff", new Date().toISOString())
+        .order("kickoff", { ascending: true })
+        .limit(24);
 
-      // 2. Reset cache metadata to force re-fetch
-      await supabase.from("cache_metadata").upsert({
-        id: "api_football",
-        last_fetched_at: new Date(0).toISOString(), // epoch = force re-fetch
-        request_count_today: 0,
-        last_reset_date: new Date().toISOString().split("T")[0],
-      });
+      if (candidatesErr) throw candidatesErr;
 
-      // 3. Trigger fetch-matches to get fresh data
-      const fetchUrl = `${supabaseUrl}/functions/v1/fetch-matches`;
-      const fetchRes = await fetch(fetchUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-        },
-      });
-      const fetchData = await fetchRes.json();
+      const eligible = (candidates || []).filter((match: any) => !["FT", "AET", "PEN", "CANC", "ABD"].includes(match.status));
 
-      // 4. Log the action
+      if (eligible.length < 2) {
+        return new Response(JSON.stringify({ error: "Pas assez de matchs SAFE/MODÉRÉ disponibles pour renouveler le Top 2" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const currentTopTwo = eligible.slice(0, 2);
+      const rotatedPool = eligible.slice(2).length >= 2 ? eligible.slice(2) : eligible;
+      const nextTopTwo = rotatedPool.slice(0, 2);
+
+      const currentIds = currentTopTwo.map((m: any) => m.fixture_id);
+      const nextIds = nextTopTwo.map((m: any) => m.fixture_id);
+
+      await supabase
+        .from("cached_matches")
+        .update({ is_free: false })
+        .in("fixture_id", currentIds);
+
+      await supabase
+        .from("cached_matches")
+        .update({ is_free: true })
+        .in("fixture_id", nextIds);
+
       await supabase.from("admin_logs").insert({
-        action: "force_refresh",
-        details: { result: fetchData },
+        action: "refresh_top2",
+        details: { previous_fixture_ids: currentIds, next_fixture_ids: nextIds },
         admin_email: user.email!,
       });
 
       return new Response(JSON.stringify({
         success: true,
-        message: "Pronostics rafraîchis avec succès",
-        ...fetchData,
+        message: "Top 2 du jour rafraîchi",
+        previous_fixture_ids: currentIds,
+        next_fixture_ids: nextIds,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -292,16 +305,30 @@ Deno.serve(async (req) => {
         });
       }
 
+      const { data: existingResult, error: existingErr } = await supabase
+        .from("match_results")
+        .select("id, home_team, away_team, predicted_winner, result")
+        .eq("id", matchId)
+        .single();
+
+      if (existingErr) throw existingErr;
+
+      const correctedWinner = newResult === "win"
+        ? existingResult.predicted_winner
+        : newResult === "loss"
+          ? (existingResult.predicted_winner === existingResult.home_team ? existingResult.away_team : existingResult.home_team)
+          : existingResult.predicted_winner;
+
       const { error: updateErr } = await supabase
         .from("match_results")
-        .update({ result: newResult })
+        .update({ result: newResult, predicted_winner: correctedWinner })
         .eq("id", matchId);
 
       if (updateErr) throw updateErr;
 
       await supabase.from("admin_logs").insert({
         action: "update_result",
-        details: { match_id: matchId, new_result: newResult },
+        details: { match_id: matchId, new_result: newResult, corrected_winner: correctedWinner },
         admin_email: user.email!,
       });
 
