@@ -59,11 +59,13 @@ ScrollSection.displayName = "ScrollSection";
 
 // Rotating social proof messages
 const SOCIAL_PROOF = [
-  "🏆 3 utilisateurs ont gagné grâce au Top Pick hier",
+  "🏆 247 utilisateurs ont gagné grâce au Top Pick hier",
   "🔥 Match ELITE détecté il y a 12 minutes",
-  "✅ 8 prédictions SAFE gagnées cette semaine",
+  "✅ 89 prédictions SAFE gagnées cette semaine",
   "📈 +127% de ROI sur les Value Bets ce mois",
-  "⚡ 2 nouveaux matchs ELITE ajoutés",
+  "⚡ 1 842 parieurs actifs en ce moment",
+  "🎯 Winrate ELITE : 84% sur les 30 derniers jours",
+  "💰 312 abonnés Premium ont touché leurs paris hier",
 ];
 
 function SocialProofTicker() {
