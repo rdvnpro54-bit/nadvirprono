@@ -46,7 +46,24 @@ export const STRIPE_PLANS = {
     label: "Mensuel",
     price: "29,90€/mois",
   },
+  premiumPlusWeekly: {
+    priceId: "price_1TFONPGpVYXx1jPPgBirAF7o",
+    productId: "prod_UDq3Yi5NV5UBwi",
+    label: "Premium+ Hebdo",
+    price: "9,90€/sem",
+  },
+  premiumPlusMonthly: {
+    priceId: "price_1TFONgGpVYXx1jPPqdYyj1U8",
+    productId: "prod_UDq3gv6WVIiSIn",
+    label: "Premium+ Mensuel",
+    price: "39,90€/mois",
+  },
 } as const;
+
+const PREMIUM_PLUS_PRODUCT_IDS = [
+  STRIPE_PLANS.premiumPlusWeekly.productId,
+  STRIPE_PLANS.premiumPlusMonthly.productId,
+] as const;
 
 const DEFAULT_SUB: SubscriptionState = { subscribed: false, productId: null, subscriptionEnd: null, isAdmin: false };
 
