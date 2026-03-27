@@ -56,6 +56,20 @@ interface PresenceUser {
   joined_at: string;
 }
 
+interface MatchResultEntry {
+  id: string;
+  home_team: string;
+  away_team: string;
+  league_name: string;
+  sport: string;
+  predicted_winner: string;
+  predicted_confidence: string;
+  result: string | null;
+  kickoff: string;
+  actual_home_score: number | null;
+  actual_away_score: number | null;
+}
+
 interface AdminPanelContentProps {
   embedded?: boolean;
 }
