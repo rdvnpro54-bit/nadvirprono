@@ -82,6 +82,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [premiumEmail, setPremiumEmail] = useState("");
   const [premiumDuration, setPremiumDuration] = useState<"weekly" | "monthly">("weekly");
+  const [premiumTier, setPremiumTier] = useState<"premium" | "premium_plus">("premium");
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);

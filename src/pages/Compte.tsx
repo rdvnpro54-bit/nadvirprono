@@ -95,7 +95,12 @@ export default function Compte() {
           <h1 className="font-display text-2xl font-bold">Mon <span className="gradient-text">Compte</span></h1>
         </motion.div>
 
-        {!user ? (
+        {authLoading ? (
+          <div className="mt-20 flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Chargement du compte…</p>
+          </div>
+        ) : !user ? (
           <motion.div
             variants={staggerContainer}
             initial="hidden"
