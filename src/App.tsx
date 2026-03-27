@@ -79,6 +79,7 @@ const App = () => {
             <ActivityProvider>
               <AnimatedRoutes />
               <SmartNotifications />
+              <IOSInstallPrompt />
             </ActivityProvider>
           </AuthProvider>
         </BrowserRouter>
