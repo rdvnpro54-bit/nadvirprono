@@ -320,23 +320,28 @@ Deno.serve(async (req) => {
     console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
 
     if (isPremium) {
-      return new Response(JSON.stringify(allMatches.map(m => ({
-        ...m,
-        is_free: freeIds.has(String(m.id)),
-        is_top_pick: topPickId === String(m.id),
-      }))), {
+      // Premium but not Premium+: strip predicted scores
+      const mapFn = (m: Record<string, unknown>) => {
+        const base = isPremiumPlus ? m : stripScoresOnly(m);
+        return {
+          ...base,
+          is_free: freeIds.has(String(m.id)),
+          is_top_pick: topPickId === String(m.id),
+        };
+      };
+      return new Response(JSON.stringify(allMatches.map(mapFn)), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Non-premium: show predictions only for free + top pick
+    // Non-premium: show predictions only for free + top pick, always strip scores
     const result = allMatches.map(m => {
       const id = String(m.id);
       const isFree = freeIds.has(id);
       const isTopPick = topPickId === id;
 
       if (isFree || isTopPick) {
-        return { ...m, is_free: isFree, is_top_pick: isTopPick };
+        return { ...stripScoresOnly(m), is_free: isFree, is_top_pick: isTopPick };
       }
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });
