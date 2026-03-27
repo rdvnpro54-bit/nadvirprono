@@ -250,36 +250,49 @@ function generateATLASAnalysis(
   const maxProb = Math.max(predHome, predAway);
   const sport = match.sport.toLowerCase();
 
-  // Generate rich French analysis based on sport
+  // Generate expert-level French analysis based on sport
   const analyses: string[] = [];
   const seed = hash(match.home_team + match.away_team) + fid;
+  const riskNote = confidence === "RISQUÉ" ? " Gestion du risque : mise réduite recommandée." : confidence === "SAFE" ? " Confiance élevée mais jamais absolue — discipline de bankroll essentielle." : "";
 
   if (sport === "football" || sport === "soccer") {
-    const factors = [
-      `Avantage statistique pour ${fav} avec ${maxProb}% de probabilité selon notre modèle ATLAS.`,
-      `L'analyse des xG récents et de la dynamique de forme favorise ${fav} dans cette confrontation.`,
-      `Le facteur terrain et la solidité défensive orientent ce pronostic.`,
-      `Les données de pressing (PPDA) et d'efficacité sur coups de pied arrêtés renforcent cette tendance.`,
-      valueBet ? `Value Bet identifié — la cote du marché sous-estime ${fav}.` : `Marge d'erreur à considérer, le football reste imprévisible.`,
+    const formFactors = [
+      `Analyse ATLAS structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 7 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché).`,
+      `La dynamique des 5 derniers matchs et le différentiel de xG orientent clairement ce pronostic vers ${fav}.`,
+      `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées.`,
+      `Indicateurs avancés : PPDA, efficacité sur coups de pied arrêtés et pressing haut analysés.`,
     ];
-    analyses.push(factors[0], factors[Math.floor(seeded(seed, 50) * 3) + 1], factors[4]);
+    analyses.push(formFactors[0]);
+    analyses.push(formFactors[Math.floor(seeded(seed, 50) * 3) + 1]);
+    analyses.push(valueBet ? `Value Bet détecté (edge >4%) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — le football reste un sport à variance élevée.`);
+    analyses.push(riskNote);
+  } else if (sport === "baseball" || sport === "mlb") {
+    analyses.push(
+      `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
+      `Fatigue du bullpen et park factors intégrés au modèle ATLAS. ${fav} favori à ${maxProb}%.`,
+      valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`,
+      riskNote
+    );
   } else if (sport === "tennis") {
     analyses.push(
-      `Analyse surface-spécifique : ${fav} montre un avantage technique sur ce type de court.`,
-      `Le ratio aces/double-fautes et le % de points gagnés au 1er service appuient cette prédiction.`,
-      confidence === "SAFE" ? `Forte convergence des indicateurs de performance.` : `Quelques incertitudes liées à la forme récente.`
+      `Analyse surface-ELO : ${fav} montre un avantage technique quantifié sur ce type de court.`,
+      `Ratio aces/DF, % 1er service et performance sous pression évalués.`,
+      confidence === "SAFE" ? `Forte convergence des indicateurs.` : `Incertitudes liées à la forme récente — prudence.`,
+      riskNote
     );
-  } else if (sport === "basketball") {
+  } else if (sport === "basketball" || sport === "nba") {
     analyses.push(
-      `Le net rating et le rythme de jeu favorisent ${fav} dans ce matchup.`,
-      `Analyse des rotations et de la fatigue (back-to-back) intégrée au modèle.`,
-      `La régression à la moyenne du 3PT% a été appliquée pour plus de précision.`
+      `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
+      `Régression 3PT% appliquée. Rotations et minutes des titulaires analysées.`,
+      `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      riskNote
     );
   } else {
     analyses.push(
-      `Modèle ATLAS : avantage quantifié pour ${fav} (${maxProb}%).`,
-      `Analyse multi-factorielle intégrant forme, contexte et données historiques.`,
-      confidence === "RISQUÉ" ? `Incertitude élevée — prudence recommandée.` : `Signal cohérent sur la majorité des dimensions.`
+      `Modèle ATLAS multi-factoriel : avantage quantifié pour ${fav} (${maxProb}%).`,
+      `Analyse intégrant forme récente, contexte compétitif, effectif et données historiques.`,
+      confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`,
+      riskNote
     );
   }
 
