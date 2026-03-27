@@ -75,6 +75,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+        <VideoBackground />
         <BrowserRouter>
           <AuthProvider>
             <ActivityProvider>
