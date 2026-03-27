@@ -334,13 +334,22 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   <span className="text-[10px] sm:text-[11px] font-bold text-foreground shrink-0">{confidence}%</span>
                 </div>
 
-                {/* Predicted score */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
-                  <span className="text-[11px] sm:text-xs font-bold text-foreground">
-                    {match.pred_score_home} - {match.pred_score_away}
-                  </span>
-                </div>
+                {/* Predicted score — Premium+ only */}
+                {match.pred_score_home != null && match.pred_score_away != null ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
+                    <span className="text-[11px] sm:text-xs font-bold text-foreground">
+                      {match.pred_score_home} - {match.pred_score_away}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
+                    <span className="text-[9px] sm:text-[10px] text-amber-400 font-semibold">
+                      🔒 Premium+
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

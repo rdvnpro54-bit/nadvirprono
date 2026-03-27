@@ -8,10 +8,19 @@ const corsHeaders = {
 
 const PRED_FIELDS_TO_STRIP = [
   "pred_home_win", "pred_draw", "pred_away_win",
-  "pred_score_home", "pred_score_away",
   "pred_over_under", "pred_over_prob", "pred_btts_prob",
   "pred_value_bet", "pred_confidence", "pred_analysis",
 ] as const;
+
+const SCORE_FIELDS_TO_STRIP = [
+  "pred_score_home", "pred_score_away",
+] as const;
+
+// Premium+ product IDs
+const PREMIUM_PLUS_PRODUCTS = [
+  "prod_UDq3Yi5NV5UBwi", // Premium+ Hebdo
+  "prod_UDq3gv6WVIiSIn", // Premium+ Mensuel
+];
 
 const FINISHED_STATUSES = [
   "FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD",
@@ -71,7 +80,14 @@ function isFinishedMatch(match: Record<string, unknown>): boolean {
 function stripPredictions(match: Record<string, unknown>): Record<string, unknown> {
   const stripped = { ...match };
   for (const field of PRED_FIELDS_TO_STRIP) stripped[field] = null;
+  for (const field of SCORE_FIELDS_TO_STRIP) stripped[field] = null;
   stripped.pred_confidence = "LOCKED";
+  return stripped;
+}
+
+function stripScoresOnly(match: Record<string, unknown>): Record<string, unknown> {
+  const stripped = { ...match };
+  for (const field of SCORE_FIELDS_TO_STRIP) stripped[field] = null;
   return stripped;
 }
 
@@ -160,6 +176,7 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     let isPremium = false;
+    let isPremiumPlus = false;
 
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
@@ -171,6 +188,7 @@ Deno.serve(async (req) => {
 
       if (!claimsError && claimsData?.claims) {
         const userId = claimsData.claims.sub as string;
+        const userEmail = claimsData.claims.email as string | undefined;
         const adminClient = createClient(supabaseUrl, serviceKey);
 
         const { data: sub } = await adminClient
@@ -190,7 +208,36 @@ Deno.serve(async (req) => {
           .eq("role", "admin")
           .maybeSingle();
 
-        if (roleData) isPremium = true;
+        if (roleData) {
+          isPremium = true;
+          isPremiumPlus = true;
+        }
+
+        // Check Stripe for Premium+ products
+        if (userEmail && !isPremiumPlus) {
+          try {
+            const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+            if (stripeKey) {
+              const { default: Stripe } = await import("https://esm.sh/stripe@18.5.0");
+              const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+              const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
+              if (customers.data.length > 0) {
+                const subs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "active", limit: 5 });
+                for (const s of subs.data) {
+                  const prodId = s.items.data[0]?.price?.product;
+                  if (PREMIUM_PLUS_PRODUCTS.includes(prodId as string)) {
+                    isPremiumPlus = true;
+                    isPremium = true;
+                  } else if (prodId) {
+                    isPremium = true;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[get-matches] Stripe check failed:", e);
+          }
+        }
       }
     }
 
@@ -214,7 +261,8 @@ Deno.serve(async (req) => {
       }
 
       if (isPremium) {
-        return new Response(JSON.stringify({ ...match, is_top_pick: false }), {
+        const matchData = isPremiumPlus ? match : stripScoresOnly(match as Record<string, unknown>);
+        return new Response(JSON.stringify({ ...matchData, is_top_pick: false }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -229,7 +277,7 @@ Deno.serve(async (req) => {
       const topPickId = pickTopPick(all, freeIds);
 
       if (freeIds.has(matchId) || topPickId === matchId) {
-        return new Response(JSON.stringify({ ...match, is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
+        return new Response(JSON.stringify({ ...stripScoresOnly(match as Record<string, unknown>), is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -273,23 +321,28 @@ Deno.serve(async (req) => {
     console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
 
     if (isPremium) {
-      return new Response(JSON.stringify(allMatches.map(m => ({
-        ...m,
-        is_free: freeIds.has(String(m.id)),
-        is_top_pick: topPickId === String(m.id),
-      }))), {
+      // Premium but not Premium+: strip predicted scores
+      const mapFn = (m: Record<string, unknown>) => {
+        const base = isPremiumPlus ? m : stripScoresOnly(m);
+        return {
+          ...base,
+          is_free: freeIds.has(String(m.id)),
+          is_top_pick: topPickId === String(m.id),
+        };
+      };
+      return new Response(JSON.stringify(allMatches.map(mapFn)), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Non-premium: show predictions only for free + top pick
+    // Non-premium: show predictions only for free + top pick, always strip scores
     const result = allMatches.map(m => {
       const id = String(m.id);
       const isFree = freeIds.has(id);
       const isTopPick = topPickId === id;
 
       if (isFree || isTopPick) {
-        return { ...m, is_free: isFree, is_top_pick: isTopPick };
+        return { ...stripScoresOnly(m), is_free: isFree, is_top_pick: isTopPick };
       }
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });

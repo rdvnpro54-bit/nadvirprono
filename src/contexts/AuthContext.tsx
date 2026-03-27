@@ -16,6 +16,7 @@ interface AuthContextType {
   subscription: SubscriptionState;
   isPremium: boolean;
   isMonthlyPremium: boolean;
+  isPremiumPlus: boolean;
   isAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -45,7 +46,24 @@ export const STRIPE_PLANS = {
     label: "Mensuel",
     price: "29,90€/mois",
   },
+  premiumPlusWeekly: {
+    priceId: "price_1TFONPGpVYXx1jPPgBirAF7o",
+    productId: "prod_UDq3Yi5NV5UBwi",
+    label: "Premium+ Hebdo",
+    price: "9,90€/sem",
+  },
+  premiumPlusMonthly: {
+    priceId: "price_1TFONgGpVYXx1jPPqdYyj1U8",
+    productId: "prod_UDq3gv6WVIiSIn",
+    label: "Premium+ Mensuel",
+    price: "39,90€/mois",
+  },
 } as const;
+
+const PREMIUM_PLUS_PRODUCT_IDS = [
+  STRIPE_PLANS.premiumPlusWeekly.productId,
+  STRIPE_PLANS.premiumPlusMonthly.productId,
+] as const;
 
 const DEFAULT_SUB: SubscriptionState = { subscribed: false, productId: null, subscriptionEnd: null, isAdmin: false };
 
@@ -146,10 +164,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isPremium = subscription.subscribed;
   const isMonthlyPremium = subscription.subscribed && subscription.productId === STRIPE_PLANS.monthly.productId;
+  const isPremiumPlus = subscription.subscribed && (
+    PREMIUM_PLUS_PRODUCT_IDS.includes(subscription.productId as any) || subscription.isAdmin
+  );
   const isAdmin = subscription.isAdmin;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscription, isPremium, isMonthlyPremium, isAdmin, signUp, signIn, signOut, checkSubscription }}>
+    <AuthContext.Provider value={{ user, session, loading, subscription, isPremium, isMonthlyPremium, isPremiumPlus, isAdmin, signUp, signIn, signOut, checkSubscription }}>
       {children}
     </AuthContext.Provider>
   );

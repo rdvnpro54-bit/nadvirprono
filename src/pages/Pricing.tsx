@@ -192,7 +192,7 @@ export default function Pricing() {
         )}
 
         <motion.div
-          className="mt-8 grid gap-4 sm:grid-cols-3"
+          className="mt-8 grid gap-4 sm:grid-cols-2"
           variants={staggerContainer}
           initial="hidden"
           animate="show"
@@ -216,61 +216,106 @@ export default function Pricing() {
             )}
           </motion.div>
 
-          {/* Weekly */}
-          <motion.div variants={staggerItem} whileHover={{ y: -6 }} className="glass-card flex flex-col p-6">
-            <h2 className="font-display text-lg font-bold">Hebdo</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">7 jours d'accès</p>
+          {/* Premium Mensuel */}
+          <motion.div
+            variants={staggerItem}
+            whileHover={{ y: -6 }}
+            className="glass-card flex flex-col p-6"
+          >
+            <h2 className="font-display text-lg font-bold">Premium</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Hebdo 9,90€ · Mensuel 29,90€</p>
             <p className="mt-4 font-display text-3xl font-extrabold">9,90€<span className="text-sm font-normal text-muted-foreground">/sem</span></p>
             <ul className="mt-5 flex-1 space-y-2.5 text-xs">
-              {["Prédictions illimitées", "Analyses détaillées", "Value Bets", "12 sports couverts"].map(f => (
+              {["Prédictions illimitées", "Analyses détaillées", "Value Bets", "12 sports couverts", "Résultats & statistiques IA"].map(f => (
                 <li key={f} className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> {f}</li>
               ))}
             </ul>
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-              <Button
-                size="sm"
-                className="mt-5 w-full gap-1.5 btn-shimmer"
-                onClick={() => handleCheckout(STRIPE_PLANS.weekly.priceId, "weekly")}
-                disabled={loadingPlan === "weekly" || (isPremium && subscription.productId === STRIPE_PLANS.weekly.productId)}
-              >
-                {loadingPlan === "weekly" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-                {!user ? "Créer un compte" : isPremium && subscription.productId === STRIPE_PLANS.weekly.productId ? "Plan Actuel" : "Essayer 7 jours"}
-              </Button>
-            </motion.div>
+            <div className="mt-5 flex gap-2">
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1 text-xs"
+                  onClick={() => handleCheckout(STRIPE_PLANS.weekly.priceId, "weekly")}
+                  disabled={loadingPlan === "weekly" || (isPremium && subscription.productId === STRIPE_PLANS.weekly.productId)}
+                >
+                  {loadingPlan === "weekly" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  {isPremium && subscription.productId === STRIPE_PLANS.weekly.productId ? "Actuel" : "Hebdo"}
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
+                <Button
+                  size="sm"
+                  className="w-full gap-1 text-xs btn-shimmer"
+                  onClick={() => handleCheckout(STRIPE_PLANS.monthly.priceId, "monthly")}
+                  disabled={loadingPlan === "monthly" || (isPremium && subscription.productId === STRIPE_PLANS.monthly.productId)}
+                >
+                  {loadingPlan === "monthly" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                  {isPremium && subscription.productId === STRIPE_PLANS.monthly.productId ? "Actuel" : "Mensuel"}
+                </Button>
+              </motion.div>
+            </div>
           </motion.div>
+        </motion.div>
 
-          {/* Monthly — Best */}
+        {/* Premium+ Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-6"
+        >
           <motion.div
-            variants={staggerItem}
             whileHover={{ y: -8, boxShadow: "0 20px 40px -15px hsl(var(--primary) / 0.25)" }}
             className="glass-card flex flex-col p-6 glow-border relative"
           >
             <motion.span
-              className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-bold text-primary-foreground"
+              className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-bold text-black"
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              ⚡ MEILLEUR CHOIX
+              ⭐ PREMIUM+
             </motion.span>
-            <h2 className="font-display text-lg font-bold">Mensuel</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">30 jours d'accès</p>
-            <p className="mt-4 font-display text-3xl font-extrabold">29,90€<span className="text-sm font-normal text-muted-foreground">/mois</span></p>
-            <ul className="mt-5 flex-1 space-y-2.5 text-xs">
-              {["Tout l'accès Hebdo", "Matchs ELITE en priorité", "Résultats & statistiques IA", "Filtres avancés", "Support prioritaire", "Économisez 40%"].map(f => (
-                <li key={f} className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> {f}</li>
+            <h2 className="font-display text-xl font-bold mt-2">Premium<span className="text-amber-400">+</span></h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Tout le Premium + Scores prédits IA exclusifs</p>
+            <p className="mt-4 font-display text-3xl font-extrabold">9,90€<span className="text-sm font-normal text-muted-foreground">/sem</span> <span className="text-lg text-muted-foreground mx-1">ou</span> 39,90€<span className="text-sm font-normal text-muted-foreground">/mois</span></p>
+            <ul className="mt-5 space-y-2.5 text-xs">
+              {[
+                "✅ Tout l'accès Premium inclus",
+                "🎯 Scores prédits par l'IA pour chaque match",
+                "📊 Analyses ultra-détaillées avec probabilités",
+                "⚡ Matchs ELITE en priorité absolue",
+                "🏆 Statistiques avancées exclusives",
+                "💎 Support VIP prioritaire",
+              ].map(f => (
+                <li key={f} className="flex items-start gap-2 text-foreground">{f}</li>
               ))}
             </ul>
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-              <Button
-                size="sm"
-                className="mt-5 w-full gap-1.5 text-sm font-semibold btn-shimmer"
-                onClick={() => handleCheckout(STRIPE_PLANS.monthly.priceId, "monthly")}
-                disabled={loadingPlan === "monthly" || (isPremium && subscription.productId === STRIPE_PLANS.monthly.productId)}
-              >
-                {loadingPlan === "monthly" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-                {!user ? "Créer un compte" : isPremium && subscription.productId === STRIPE_PLANS.monthly.productId ? "Plan Actuel" : "Passer Premium"}
-              </Button>
-            </motion.div>
+            <div className="mt-5 flex gap-2">
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                  onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusWeekly.priceId, "premiumPlusWeekly")}
+                  disabled={loadingPlan === "premiumPlusWeekly" || (subscription.productId === STRIPE_PLANS.premiumPlusWeekly.productId)}
+                >
+                  {loadingPlan === "premiumPlusWeekly" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  {subscription.productId === STRIPE_PLANS.premiumPlusWeekly.productId ? "Actuel" : "Hebdo 9,90€"}
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
+                <Button
+                  size="sm"
+                  className="w-full gap-1 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-black"
+                  onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusMonthly.priceId, "premiumPlusMonthly")}
+                  disabled={loadingPlan === "premiumPlusMonthly" || (subscription.productId === STRIPE_PLANS.premiumPlusMonthly.productId)}
+                >
+                  {loadingPlan === "premiumPlusMonthly" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                  {subscription.productId === STRIPE_PLANS.premiumPlusMonthly.productId ? "Actuel" : "Mensuel 39,90€"}
+                </Button>
+              </motion.div>
+            </div>
             <p className="mt-2 text-center text-[10px] text-muted-foreground">Sans engagement • Annulation facile</p>
           </motion.div>
         </motion.div>
