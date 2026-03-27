@@ -55,8 +55,8 @@ export function WinrateProgressChart({ results }: WinrateProgressChartProps) {
           <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="winrateGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={isPositive ? "hsl(145 80% 42%)" : "hsl(0 72% 51%)"} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={isPositive ? "hsl(145 80% 42%)" : "hsl(0 72% 51%)"} stopOpacity={0} />
+                <stop offset="5%" stopColor={isPositive ? "hsl(42 90% 55%)" : "hsl(0 72% 51%)"} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={isPositive ? "hsl(42 90% 55%)" : "hsl(0 72% 51%)"} stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(225 10% 15%)" />
@@ -70,7 +70,7 @@ export function WinrateProgressChart({ results }: WinrateProgressChartProps) {
             <Area
               type="monotone"
               dataKey="winrate"
-              stroke={isPositive ? "hsl(145 80% 42%)" : "hsl(0 72% 51%)"}
+              stroke={isPositive ? "hsl(42 90% 55%)" : "hsl(0 72% 51%)"}
               strokeWidth={2}
               fill="url(#winrateGrad)"
             />

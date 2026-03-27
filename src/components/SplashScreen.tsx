@@ -25,7 +25,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
           <motion.div
             className="absolute w-[300px] h-[300px] rounded-full"
             style={{
-              background: "radial-gradient(circle, hsl(145 80% 42% / 0.15), transparent 70%)",
+              background: "radial-gradient(circle, hsl(42 90% 55% / 0.15), transparent 70%)",
             }}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: [0, 1.5, 1.2], opacity: [0, 0.8, 0.4] }}
@@ -56,7 +56,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
               className="flex h-20 w-20 items-center justify-center rounded-2xl border border-primary/30"
               style={{
                 background: "linear-gradient(135deg, hsl(225 18% 10%), hsl(225 18% 6%))",
-                boxShadow: "0 0 40px -8px hsl(145 80% 42% / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.05)",
+                boxShadow: "0 0 40px -8px hsl(42 90% 55% / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.05)",
               }}
               initial={{ rotate: -10 }}
               animate={{ rotate: 0 }}
