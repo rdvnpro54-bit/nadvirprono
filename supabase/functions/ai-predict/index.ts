@@ -147,19 +147,34 @@ function generateATLASPrediction(
   // Generate probabilities
   let rawHome: number, rawDraw: number, rawAway: number;
   if (profile.drawPossible) {
-    rawHome = clamp(0.5 + diff * 1.6, 0.08, 0.85);
-    rawAway = clamp(0.5 - diff * 1.6, 0.08, 0.85);
+    rawHome = clamp(0.5 + diff * 1.6, 0.08, 0.75);
+    rawAway = clamp(0.5 - diff * 1.6, 0.08, 0.75);
     rawDraw = clamp(0.28 - Math.abs(diff) * 1.8, 0.06, 0.35);
   } else {
-    rawHome = clamp(0.5 + diff * 2.0, 0.1, 0.9);
-    rawAway = clamp(1 - rawHome, 0.1, 0.9);
+    rawHome = clamp(0.5 + diff * 2.0, 0.12, 0.82);
+    rawAway = clamp(1 - rawHome, 0.12, 0.82);
     rawDraw = 0;
   }
 
   const total = rawHome + rawDraw + rawAway;
-  const predHome = Math.round((rawHome / total) * 100);
-  const predDraw = Math.round((rawDraw / total) * 100);
-  const predAway = 100 - predHome - predDraw;
+  let predHome = Math.round((rawHome / total) * 100);
+  let predDraw = Math.round((rawDraw / total) * 100);
+  let predAway = 100 - predHome - predDraw;
+
+  // Cap max probability at 85% (no unrealistic certainty)
+  const maxP = Math.max(predHome, predAway);
+  if (maxP > 85) {
+    const excess = maxP - 85;
+    if (predHome > predAway) {
+      predHome -= excess;
+      predDraw += Math.round(excess * 0.4);
+      predAway = 100 - predHome - predDraw;
+    } else {
+      predAway -= excess;
+      predDraw += Math.round(excess * 0.4);
+      predHome = 100 - predAway - predDraw;
+    }
+  }
 
   // Generate predicted scores
   const [minS, maxS] = profile.scoreRange;
