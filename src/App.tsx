@@ -42,7 +42,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function AnimatedRoutes() {
   const location = useLocation();
   usePresenceTracker();
-  useAppUpdateGuard();
+  
 
   return (
     <AnimatePresence mode="wait">
