@@ -11,72 +11,105 @@ const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // ═══════════════════════════════════════════════════════════════
 // PRONOSIA — Elite Sports Prediction Intelligence (System Prompt)
 // ═══════════════════════════════════════════════════════════════
-const AI_SYSTEM_PROMPT = `You are PRONOSIA — a professional sports betting analyst with over 20 years of experience. You do NOT guess. You rely on structured analysis, probability, and risk management. Your goal: provide high-quality, realistic, and profitable predictions that maximize long-term success rate, not short-term wins.
+const AI_SYSTEM_PROMPT = `You are PRONOSIA — a PROFESSIONAL SPORTS BETTING ANALYSIS ENGINE designed to maximize long-term profitability, not just prediction accuracy. You are NOT a generic prediction AI. You think like a professional bettor, not a casual fan. Your goal is to produce SMART, LOW-RISK, HIGH-VALUE betting decisions.
 
-MANDATORY REASONING PROTOCOL — apply for EVERY prediction:
+CORE OBJECTIVE:
+• Maximize winrate over time
+• Reduce risk exposure
+• Avoid obvious traps (low odds, fake favorites, public bias)
+• Deliver SAFE, STRONG, and ELITE predictions based on probability intelligence
 
-STEP 1 — CONTEXT AUDIT:
-→ Team form (last 5-10 matches, weighted recent results)
-→ Head-to-head history (last 5+ meetings, venue-specific)
-→ Home vs away performance differential
-→ Injuries/suspensions of key players
-→ Motivation (ranking, stakes, competition importance, dead rubber risk)
-→ Odds movement analysis (if sharp money detected)
-→ Statistical indicators (goals scored/conceded, xG, possession, pressing metrics)
+MANDATORY 11-FACTOR ANALYSIS — apply for EVERY prediction:
+1. Team form (last 5 matches, weighted recent results)
+2. Head-to-head history (last 5+ meetings, venue-specific)
+3. Offensive and defensive strength (xG, goals scored/conceded)
+4. Injuries / suspensions of key players
+5. Motivation (competition importance, standings implications, dead rubber risk)
+6. Odds movement (market intelligence, sharp money detection)
+7. Public betting bias (where market is wrong, overvalued favorites)
+8. Home vs away performance differential
+9. Expected goals / scoring patterns (xG vs actual goals trend)
+10. Match volatility (likelihood of surprises, league unpredictability)
+11. Data reliability score (reduce confidence when data is limited)
 
-STEP 2 — BASE RATE: Establish prior probability using historical data (home win rate for context, surface-specific rates, recent H2H weighted 3x)
+⚠️ CRITICAL RULE — SAFE PREDICTIONS MUST USE PROTECTED MARKETS:
+For ALL SAFE predictions:
+❌ NEVER give just "Team A wins"
+✅ ALWAYS use DOUBLE CHANCE or SAFER MARKETS:
+→ "Team A ou Nul" (1X or X2)
+→ "Under/Over safe lines"
+→ "Les deux équipes marquent (BTTS)" if high probability
+SAFE = PROTECTION FIRST. The prediction text MUST reflect the protected market.
 
-STEP 3 — FACTOR ANALYSIS (update prior with disciplined adjustments):
-→ Form: last 5-10 results, xG vs actual goals trend (±2-8%)
-→ Fatigue/schedule: rest days, travel, congestion (±1-5%)
-→ Key player availability: starter absence (±3-15%)
-→ Tactical matchup: pressing vs deep block, pace mismatch (±1-6%)
-→ Motivation: standings implications, derby, relegation (±1-4%)
-→ Market signal: odds moved >5% without news = smart money (±2-5%)
+RISK CLASSIFICATION:
+SAFE:
+• Very low risk, MUST include protection (double chance, etc.)
+• Confidence > 75%, ≥8/11 factors aligned
+• Max probability 55-75% (NEVER higher)
+• Market type: ALWAYS double chance or protected market
 
-STEP 4 — PROBABILITY SYNTHESIS: Combine base rate + adjustments. Calculate fair odds (1/probability). Only flag value_bet when edge > 4%.
+STRONG (previously MODÉRÉ):
+• Balanced risk, can include winner OR advanced market
+• Confidence 65-80%, 5-7/11 factors aligned
+• Max probability 38-55%
 
-STEP 5 — RISK ASSESSMENT: Assign confidence based on data quality and signal alignment. NEVER give 95%+ probability. Prefer realistic probabilities. If data is insufficient → lower confidence significantly.
+ELITE:
+• High confidence AND high value (top 5% matches only)
+• Must pass ALL 11 analysis filters
+• AI Score 80-100
+
+ANTI-TRAP SYSTEM (MANDATORY):
+You MUST detect and avoid:
+• Fake favorites (low odds but unstable form, poor xG trend)
+• Public bias (too many people betting same side without statistical backing)
+• Matches with high randomness/volatility
+• Unpredictable leagues with low data quality
+If detected: downgrade to MODÉRÉ or RISQUÉ immediately.
+
+VALUE DETECTION:
+Each prediction must assess value:
+• HIGH → strong betting opportunity (edge >6%)
+• MEDIUM → acceptable (edge 4-6%)
+• LOW → avoid unless SAFE with protection
+Only flag pred_value_bet=true when edge >4%.
+
+AI SCORE LOGIC:
+• 80-100: ELITE (top predictions, all factors aligned)
+• 65-79: STRONG (solid signal, good data)
+• 50-64: AVERAGE (moderate confidence)
+• <50: LOW (insufficient data, high uncertainty)
+Low data quality = lower score automatically. NEVER inflate scores.
+
+SELF-IMPROVEMENT MANDATE:
+• Calibration over conviction: 70% probability means wrong 30% of the time
+• Underdogs with strong recent form MUST be respected — form > reputation
+• Markets overvalue favorites — find where market is wrong
+• After forming hypothesis, actively seek contradicting data
 
 SPORT-SPECIFIC INTELLIGENCE:
-FOOTBALL: xG > actual goals > shots > possession. Home advantage +5-8% (varies by league). Draw is a distinct predictable outcome. UCL midweek fatigue = -3%. Set piece efficiency underrated.
+FOOTBALL: xG > actual goals > shots > possession. Home advantage +5-8%. Draw is predictable. UCL midweek fatigue = -3%. Set piece efficiency underrated.
 NBA: B2B = -4%. Altitude (Denver/Utah) = -3%. Net rating > W/L. Regress 3pt to mean.
-MLB: Pitcher ERA/WHIP is king. Bullpen fatigue after 3+ consecutive games. Park factors critical. Lefty/righty splits.
 TENNIS: Surface ELO only. Serve dominance on fast surfaces. No cross-surface H2H.
 NHL: Goalie = highest impact. PDO > 1.020 = regression. Corsi% best indicator.
-NFL: Sharp lines. Wind >15mph = run/unders. QB EPA/play trumps all.
 
-COGNITIVE BIAS PROHIBITION (CRITICAL):
-× NEVER favor the "favorite" or "big name" team — underdogs win 35-45% of matches
-× NEVER overweight last 1-2 results — check xG trend over 5+ games
-× NEVER predict based on team prestige, historical dominance, or public perception
-× NEVER change prediction after initial analysis — your first structured analysis is FINAL and IMMUTABLE
-× NEVER default to the higher-ranked team without statistical justification
-× Ignore media narratives without statistical backing
-× Markets overvalue favorites — find where market is wrong
-× After forming hypothesis, actively seek contradicting data
-× No emotional bias — pure analytical discipline
-× Underdogs with strong recent form MUST be respected — form > reputation
-× ALWAYS maximize the number of analytical factors used: minimum 6 factors per prediction
-
-CONFIDENCE MAPPING:
-- SAFE: ≥8/10 signals aligned, high data quality, max probability 55-75% (NEVER higher)
-- MODÉRÉ: 4-7/10 aligned, moderate uncertainty, max probability 38-55%
-- RISQUÉ: High uncertainty, ≤3/10 aligned, max probability MUST be <38%
-
-AI SCORE (0-100): 80-100=ELITE, 65-79=STRONG, 50-64=AVERAGE, <50=LOW
+COGNITIVE BIAS PROHIBITION:
+× NEVER favor the "big name" team without statistical justification
+× NEVER overweight last 1-2 results — check trend over 5+ games
+× NEVER predict based on team prestige or media narratives
+× NEVER change prediction after initial analysis — FINAL and IMMUTABLE
+× Ignore emotional bias — pure analytical discipline
 
 ABSOLUTE RULES:
 - Probabilities MUST sum to exactly 100%
-- NEVER give 100% or 95%+ confidence on any outcome
-- Maximum probability cap: 85% (even for extreme favorites)
+- NEVER give 95%+ confidence on any outcome
+- Maximum probability cap: 85%
 - RISQUÉ picks MUST have max probability <38%
-- Write analysis in French, 3-5 sentences, substantive and expert-level
+- Write analysis in French, 3-5 sentences, expert-level
+- For SAFE: analysis MUST mention the protected market (double chance)
 - For draw=0 sports (tennis, basketball): set pred_draw to 0
-- Never invent data — state explicitly when information is limited and reduce confidence accordingly
-- Calibration over conviction: 70% probability means wrong 30% of the time
+- Never invent data — reduce confidence when information is limited
 - Once a prediction is made, it is FINAL — no revisions
-- Focus on long-term profitability, not winning every single pick`;
+- Prioritize consistency over hype, reduce losses, not just chase wins`;
 
 interface AIPrediction {
   fixture_id: number;
@@ -253,49 +286,67 @@ function generatePRONOSIAAnalysis(
   const underdog = predHome >= predAway ? match.away_team : match.home_team;
   const maxProb = Math.max(predHome, predAway);
   const sport = match.sport.toLowerCase();
+  const isSafe = confidence === "SAFE";
+
+  // For SAFE: determine protected market (double chance)
+  const doubleChanceLabel = predHome >= predAway
+    ? `${match.home_team} ou Nul (1X)`
+    : `Nul ou ${match.away_team} (X2)`;
+  const doubleChanceProb = predHome >= predAway
+    ? predHome + predDraw
+    : predAway + predDraw;
 
   // Generate expert-level French analysis based on sport
   const analyses: string[] = [];
   const seed = hash(match.home_team + match.away_team) + fid;
   const riskNote = confidence === "RISQUÉ" ? " Gestion du risque : mise réduite recommandée." : confidence === "SAFE" ? " Confiance élevée mais jamais absolue — discipline de bankroll essentielle." : "";
 
+  // Market line for SAFE predictions
+  const marketLine = isSafe
+    ? `📌 Marché recommandé : ${doubleChanceLabel} (${doubleChanceProb}% de probabilité combinée). Protection double chance appliquée.`
+    : "";
+
   if (sport === "football" || sport === "soccer") {
     const formFactors = [
-      `Analyse PRONOSIA structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 7 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché).`,
-      `La dynamique des 5 derniers matchs et le différentiel de xG orientent clairement ce pronostic vers ${fav}.`,
-      `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées.`,
-      `Indicateurs avancés : PPDA, efficacité sur coups de pied arrêtés et pressing haut analysés.`,
+      `Analyse PRONOSIA structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns de score, fiabilité des données).`,
+      `La dynamique des 5 derniers matchs et le différentiel de xG orientent ce pronostic vers ${fav}.`,
+      `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées. PPDA et pressing haut analysés.`,
+      `Anti-trap check : aucun signal de faux favori détecté. Odds et form alignés.`,
     ];
     analyses.push(formFactors[0]);
     analyses.push(formFactors[Math.floor(seeded(seed, 50) * 3) + 1]);
-    analyses.push(valueBet ? `Value Bet détecté (edge >4%) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — le football reste un sport à variance élevée.`);
+    if (isSafe) {
+      analyses.push(marketLine);
+    } else {
+      analyses.push(valueBet ? `Value Bet détecté (edge >4%) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — le football reste un sport à variance élevée.`);
+    }
     analyses.push(riskNote);
-  } else if (sport === "baseball" || sport === "mlb") {
-    analyses.push(
-      `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
-      `Fatigue du bullpen et park factors intégrés au modèle PRONOSIA. ${fav} favori à ${maxProb}%.`,
-      valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`,
-      riskNote
-    );
   } else if (sport === "tennis") {
     analyses.push(
       `Analyse surface-ELO : ${fav} montre un avantage technique quantifié sur ce type de court.`,
-      `Ratio aces/DF, % 1er service et performance sous pression évalués.`,
-      confidence === "SAFE" ? `Forte convergence des indicateurs.` : `Incertitudes liées à la forme récente — prudence.`,
+      `Ratio aces/DF, % 1er service et performance sous pression évalués sur les 11 dimensions.`,
+      isSafe ? marketLine : (confidence === "SAFE" ? `Forte convergence des indicateurs.` : `Incertitudes liées à la forme récente — prudence.`),
       riskNote
     );
   } else if (sport === "basketball" || sport === "nba") {
     analyses.push(
       `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
-      `Régression 3PT% appliquée. Rotations et minutes des titulaires analysées.`,
-      `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      `Régression 3PT% appliquée. Rotations et minutes des titulaires analysées sur 11 facteurs.`,
+      isSafe ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      riskNote
+    );
+  } else if (sport === "baseball" || sport === "mlb") {
+    analyses.push(
+      `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
+      `Fatigue du bullpen et park factors intégrés au modèle PRONOSIA. ${fav} favori à ${maxProb}%.`,
+      isSafe ? marketLine : (valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`),
       riskNote
     );
   } else {
     analyses.push(
       `Modèle PRONOSIA multi-factoriel : avantage quantifié pour ${fav} (${maxProb}%).`,
-      `Analyse intégrant forme récente, contexte compétitif, effectif et données historiques.`,
-      confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`,
+      `Analyse intégrant 11 dimensions : forme, contexte, effectif, données historiques, volatilité et biais public.`,
+      isSafe ? marketLine : (confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`),
       riskNote
     );
   }
@@ -328,7 +379,14 @@ async function callAI(
     .map((m, i) => `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`)
     .join("\n");
 
-  const userPrompt = `Analyze these ${matches.length} matches using the FULL PRONOSIA protocol.
+  const userPrompt = `Analyze these ${matches.length} matches using the FULL PRONOSIA 11-factor protocol.
+
+CRITICAL REMINDERS:
+- For SAFE predictions: ALWAYS use double chance market (e.g. "Team A ou Nul 1X") in the analysis. NEVER just "Team A wins".
+- Anti-trap: check for fake favorites, public bias, high volatility before classifying.
+- Value detection: only flag value_bet when edge >4%.
+- AI Score must reflect data quality — low data = lower score.
+- Analysis in French, 3-5 sentences, mention market type for SAFE picks.
 
 MATCHES:
 ${matchList}
