@@ -261,7 +261,8 @@ Deno.serve(async (req) => {
       }
 
       if (isPremium) {
-        return new Response(JSON.stringify({ ...match, is_top_pick: false }), {
+        const matchData = isPremiumPlus ? match : stripScoresOnly(match as Record<string, unknown>);
+        return new Response(JSON.stringify({ ...matchData, is_top_pick: false }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
