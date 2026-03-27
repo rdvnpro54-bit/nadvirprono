@@ -166,7 +166,7 @@ export default function Resultats() {
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="font-display text-xl sm:text-2xl font-bold">
-            Résultats <span className="gradient-text">ATLAS</span>
+            Résultats <span className="gradient-text">PRONOSIA</span>
           </h1>
           <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">Performances vérifiables • Statistiques détaillées</p>
         </motion.div>
@@ -242,7 +242,7 @@ export default function Resultats() {
                 Série de {eliteStats.streak.count} {eliteStats.streak.type === "win" ? "victoires" : "défaites"}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {eliteStats.streak.type === "win" ? "L'IA ATLAS est en feu ! 🎯" : "Phase de recalibration"}
+                {eliteStats.streak.type === "win" ? "L'IA PRONOSIA est en feu ! 🎯" : "Phase de recalibration"}
               </p>
             </div>
           </motion.div>
@@ -426,7 +426,7 @@ export default function Resultats() {
         </Tabs>
 
         <p className="text-[9px] text-muted-foreground/60 text-center mt-6">
-          ⚠️ Les prédictions ATLAS sont probabilistes et verrouillées dès leur génération.
+          ⚠️ Les prédictions PRONOSIA sont probabilistes et verrouillées dès leur génération.
         </p>
       </div>
     </div>

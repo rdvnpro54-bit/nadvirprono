@@ -151,7 +151,7 @@ const Index = () => {
             <motion.span animate={{ rotate: [0, 360] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
               <Sparkles className="h-3 w-3" />
             </motion.span>
-            Moteur ATLAS • Prédictions Nouvelle Génération
+            Moteur PRONOSIA • Prédictions Nouvelle Génération
           </motion.span>
 
           <motion.h1
@@ -288,7 +288,7 @@ const Index = () => {
                 Aperçu des Prédictions <span className="text-primary">Premium</span>
               </h2>
               <p className="mt-1 text-[10px] sm:text-xs text-muted-foreground/60">
-                {matchCount - 2} matchs supplémentaires analysés par ATLAS
+                {matchCount - 2} matchs supplémentaires analysés par PRONOSIA
               </p>
             </motion.div>
 
@@ -365,7 +365,7 @@ const Index = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
             >
-              Performance ATLAS en temps réel
+              Performance PRONOSIA en temps réel
             </motion.p>
             <div className="mx-auto grid max-w-2xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
               {[
@@ -457,12 +457,12 @@ const Index = () => {
                 Pourquoi <span className="gradient-text">Pronosia</span> ?
               </h2>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground/70 max-w-md mx-auto">
-                Le moteur ATLAS analyse chaque match sur 11 dimensions
+                Le moteur PRONOSIA analyse chaque match sur 11 dimensions
               </p>
             </motion.div>
             <div className="mx-auto grid max-w-4xl gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { icon: Brain, title: "Moteur ATLAS", desc: "Protocole de raisonnement forcé en 5 étapes : audit contextuel, base rate, analyse factorielle, synthèse, calibration." },
+                { icon: Brain, title: "Moteur PRONOSIA", desc: "Protocole de raisonnement forcé en 5 étapes : audit contextuel, base rate, analyse factorielle, synthèse, calibration." },
                 { icon: Sparkles, title: "Sélection ELITE", desc: "Seuls les matchs avec un AI Score ≥80 sont ELITE. Aucun compromis sur la qualité." },
                 { icon: TrendingUp, title: "Value Bets", desc: "Détection automatique quand la cote du marché sous-estime la vraie probabilité (edge > 4%)." },
                 { icon: Target, title: "Anti-Biais Cognitif", desc: "Protection contre le biais de récence, prestige, et favori-longshot. L'IA cherche les contradictions." },
@@ -502,7 +502,7 @@ const Index = () => {
               viewport={{ once: true }}
             >
               <h2 className="font-display text-lg sm:text-xl font-bold">
-                Comment fonctionne <span className="gradient-text">ATLAS</span> ?
+                Comment fonctionne <span className="gradient-text">PRONOSIA</span> ?
               </h2>
             </motion.div>
 
@@ -558,12 +558,12 @@ const Index = () => {
               </motion.div>
               <h2 className="font-display text-lg sm:text-xl font-bold relative z-10">Passe à Premium</h2>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground relative z-10">
-                Accède à tous les matchs analysés par ATLAS. Prédictions complètes, Value Bets, et alertes ELITE.
+                Accède à tous les matchs analysés par PRONOSIA. Prédictions complètes, Value Bets, et alertes ELITE.
               </p>
               <div className="mt-4 space-y-2 text-[10px] sm:text-xs relative z-10">
                 {[
                   `${matchCount}+ matchs analysés aujourd'hui`,
-                  "Moteur ATLAS : 11 dimensions d'analyse",
+                  "Moteur PRONOSIA : 11 dimensions d'analyse",
                   "Value Bets à edge > 4% détectés",
                   "Alertes matchs ELITE en temps réel",
                 ].map((item, i) => (
