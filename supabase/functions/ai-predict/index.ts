@@ -479,11 +479,11 @@ Deno.serve(async (req) => {
     // Fetch matches needing AI
     let query = supabase
       .from("cached_matches")
-      .select("fixture_id, home_team, away_team, sport, league_name, kickoff, pred_analysis, ai_score")
+      .select("fixture_id, home_team, away_team, sport, league_name, kickoff, pred_analysis, ai_score, pred_home_win, pred_away_win")
       .order("kickoff", { ascending: true });
 
     if (!forceAll) {
-      query = query.or("pred_analysis.is.null,ai_score.eq.0,pred_analysis.not.like.🤖%");
+      query = query.or("pred_home_win.is.null,pred_away_win.is.null,pred_analysis.is.null");
     }
 
     const { data: matches, error } = await query.range(offset, offset + batchSize - 1);
@@ -524,8 +524,8 @@ Deno.serve(async (req) => {
       const pred = predMap.get(m.fixture_id) || predictions[i];
       if (!pred) continue;
 
-      // LOCK: Never overwrite an existing valid prediction (ai_score > 0 + has analysis)
-      if (!forceAll && m.ai_score > 0 && m.pred_analysis && String(m.pred_analysis).startsWith("🤖")) {
+      // LOCK: Never overwrite an existing prediction once it exists
+      if (!forceAll && m.pred_home_win != null && m.pred_away_win != null && m.pred_analysis) {
         continue;
       }
 

@@ -296,6 +296,19 @@ function generateFallbackPrediction(homeTeam: string, awayTeam: string, fixtureI
   };
 }
 
+function computePredictionAiScore(prediction: Pick<AIPrediction, "pred_home_win" | "pred_draw" | "pred_away_win" | "pred_confidence">): number {
+  const maxProb = Math.max(
+    Number(prediction.pred_home_win || 0),
+    Number(prediction.pred_draw || 0),
+    Number(prediction.pred_away_win || 0),
+  );
+  const confidence = String(prediction.pred_confidence || "").toUpperCase();
+
+  if (confidence === "SAFE") return Math.min(95, Math.max(78, maxProb + 12));
+  if (confidence === "MODÉRÉ" || confidence === "MODERE") return Math.min(79, Math.max(63, maxProb + 5));
+  return Math.min(61, Math.max(45, maxProb + 3));
+}
+
 // ─── NORMALIZED MATCH TYPE ──────────────────────────────────────────
 interface NormalizedMatch {
   id: string;
@@ -594,6 +607,10 @@ async function fetchESPNExtended(sport: string, compact: string, tomorrowCompact
 function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction) {
   const fixtureId = hash(m.id);
   const prediction = aiPrediction || generateFallbackPrediction(m.homeTeam, m.awayTeam, fixtureId, m.sport);
+  const normalizedAnalysis = prediction.pred_analysis?.startsWith("🤖")
+    ? prediction.pred_analysis
+    : `🤖 ${prediction.pred_analysis}`;
+
   return {
     fixture_id: fixtureId,
     sport: m.sport, league_name: m.league, league_country: m.country || null,
@@ -603,6 +620,8 @@ function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction)
     status: "NS", home_score: null, away_score: null,
     is_free: isFree, fetched_at: new Date().toISOString(),
     ...prediction,
+    pred_analysis: normalizedAnalysis,
+    ai_score: computePredictionAiScore(prediction),
   };
 }
 
@@ -864,13 +883,13 @@ Deno.serve(async (req) => {
       const existingIds = rows.map(r => r.fixture_id);
       const { data: existingMatches } = await supabase
         .from("cached_matches")
-        .select("fixture_id, ai_score, pred_analysis")
+        .select("fixture_id, pred_home_win, pred_away_win, pred_analysis")
         .in("fixture_id", existingIds);
 
       const lockedSet = new Set<number>();
       if (existingMatches) {
         for (const em of existingMatches) {
-          if (em.ai_score > 0 && em.pred_analysis && String(em.pred_analysis).startsWith("🤖")) {
+          if (em.pred_home_win != null && em.pred_away_win != null && em.pred_analysis) {
             lockedSet.add(em.fixture_id);
           }
         }

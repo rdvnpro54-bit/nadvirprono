@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function VideoBackground() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -6,12 +6,23 @@ export function VideoBackground() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    // Ensure autoplay on iOS
-    video.play().catch(() => {});
+
+    const tryPlay = async () => {
+      try {
+        await video.play();
+      } catch {
+        // Autoplay can be blocked briefly on some iOS states.
+      }
+    };
+
+    void tryPlay();
   }, []);
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none"
+    >
       <video
         ref={videoRef}
         autoPlay
@@ -19,16 +30,19 @@ export function VideoBackground() {
         muted
         playsInline
         preload="auto"
-        className="absolute inset-0 w-full h-full object-cover will-change-transform"
-        style={{ filter: "blur(1px) brightness(0.4)" }}
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{
+          willChange: "transform",
+          transform: "translateZ(0)",
+          opacity: 0.32,
+          filter: "saturate(0.9) brightness(0.72)",
+        }}
       >
         <source src="/videos/bg-ambient.mp4" type="video/mp4" />
       </video>
-      {/* Dark overlay */}
-      <div
-        className="absolute inset-0"
-        style={{ background: "rgba(0, 0, 0, 0.65)" }}
-      />
+
+      <div className="absolute inset-0 bg-background/75" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/45 via-background/20 to-background/80" />
     </div>
   );
 }
