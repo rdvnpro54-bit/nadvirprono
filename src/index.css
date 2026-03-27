@@ -139,8 +139,8 @@
   }
   .match-card-hover:hover {
     box-shadow: 
-      0 8px 32px -8px hsl(145 80% 42% / 0.15),
-      0 0 0 1px hsl(145 80% 42% / 0.15);
+      0 8px 32px -8px hsl(42 90% 55% / 0.15),
+      0 0 0 1px hsl(42 90% 55% / 0.15);
     transform: translateY(-3px);
   }
   .match-card-hover:active {
