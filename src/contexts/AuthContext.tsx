@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionState>(DEFAULT_SUB);
+  const initialSyncDoneRef = useRef(false);
 
   const checkSubscription = useCallback(async (currentSession?: Session | null) => {
     try {
@@ -110,10 +111,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    const syncAuthState = async (currentSession: Session | null) => {
+    const syncAuthState = async (currentSession: Session | null, isInitialSync = false) => {
       if (!isMounted) return;
 
-      setLoading(true);
+      if (isInitialSync && !initialSyncDoneRef.current) {
+        setLoading(true);
+      }
+
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
@@ -128,22 +132,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSubscription(DEFAULT_SUB);
       } finally {
         if (isMounted) {
+          initialSyncDoneRef.current = true;
           setLoading(false);
         }
       }
     };
 
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        await syncAuthState(newSession);
+      (_event, newSession) => {
+        void syncAuthState(newSession, false);
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      await syncAuthState(s);
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      void syncAuthState(s, true);
     });
 
-    const interval = setInterval(() => checkSubscription(), 60000);
+    const interval = setInterval(() => {
+      void checkSubscription();
+    }, 60000);
 
     return () => {
       isMounted = false;
