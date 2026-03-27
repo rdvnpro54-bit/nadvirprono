@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type CachedMatch = Tables<"cached_matches">;
 export type MatchWithFlags = CachedMatch & { is_top_pick?: boolean };
 
-const CACHE_KEY = "pronosia_matches_cache_v3";
-const CACHE_TS_KEY = "pronosia_matches_ts_v3";
-const CACHE_MAX_AGE = 15 * 60_000;
+const CACHE_KEY = "pronosia_matches_cache_v4";
+const CACHE_TS_KEY = "pronosia_matches_ts_v4";
+const CACHE_MAX_AGE = 10 * 60_000;
 
 const SPORT_DURATIONS: Record<string, number> = {
   football: 120,
@@ -330,7 +330,7 @@ export function useMatches() {
   const hasCache = initialMatches !== null && initialMatches.length > 0;
   const cacheRef = useRef<MatchWithFlags[]>(hasCache ? initialMatches : []);
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["cached-matches"],
     ...(hasCache ? { initialData: initialMatches } : {}),
     queryFn: async () => {
@@ -348,7 +348,8 @@ export function useMatches() {
         const matches = Array.isArray(data) ? (data as MatchWithFlags[]) : [];
         if (matches.length === 0) {
           console.warn("[useMatches] API vide, conservation du cache courant");
-          return removeResolvedMatches(cacheRef.current, resolvedFixtureIds);
+          const cached = removeResolvedMatches(cacheRef.current, resolvedFixtureIds);
+          return cached.length > 0 ? cached : getFallbackMatches();
         }
 
         let result = normalizeMatches(removeResolvedMatches(matches, resolvedFixtureIds));
@@ -366,15 +367,43 @@ export function useMatches() {
         return result;
       } catch (error) {
         console.warn("[useMatches] Fetch failed, conservation du cache courant", error);
-        return cacheRef.current;
+        return cacheRef.current.length > 0 ? cacheRef.current : getFallbackMatches();
       }
     },
     staleTime: 2 * 60_000,
     refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: true,
     retry: 1,
     retryDelay: 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+
+  useEffect(() => {
+    const refetchMatches = () => {
+      void query.refetch();
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        refetchMatches();
+      }
+    };
+
+    window.addEventListener("focus", refetchMatches);
+    window.addEventListener("pageshow", refetchMatches);
+    window.addEventListener("online", refetchMatches);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      window.removeEventListener("focus", refetchMatches);
+      window.removeEventListener("pageshow", refetchMatches);
+      window.removeEventListener("online", refetchMatches);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [query]);
+
+  return query;
 }
 
 export function useMatch(id: string) {
