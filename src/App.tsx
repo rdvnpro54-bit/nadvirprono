@@ -74,17 +74,21 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
-        <VideoBackground />
-        <BrowserRouter>
-          <AuthProvider>
-            <ActivityProvider>
-              <AnimatedRoutes />
-              <SmartNotifications />
-              <IOSInstallPrompt />
-            </ActivityProvider>
-          </AuthProvider>
-        </BrowserRouter>
+        <div className="relative min-h-screen isolation-isolate">
+          {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+          <VideoBackground />
+          <div className="relative z-10 min-h-screen">
+            <BrowserRouter>
+              <AuthProvider>
+                <ActivityProvider>
+                  <AnimatedRoutes />
+                  <SmartNotifications />
+                  <IOSInstallPrompt />
+                </ActivityProvider>
+              </AuthProvider>
+            </BrowserRouter>
+          </div>
+        </div>
       </TooltipProvider>
     </QueryClientProvider>
   );
