@@ -7,13 +7,11 @@ export function VideoBackground() {
     const video = videoRef.current;
     if (!video) return;
 
-    // Force load + play
     video.load();
     const tryPlay = async () => {
       try {
         await video.play();
       } catch {
-        // Retry after interaction
         const onClick = () => {
           video.play().catch(() => {});
           document.removeEventListener("click", onClick);
@@ -42,15 +40,15 @@ export function VideoBackground() {
         style={{
           willChange: "transform",
           transform: "translateZ(0)",
-          opacity: 0.35,
-          filter: "saturate(0.85) brightness(0.65)",
+          opacity: 0.55,
+          filter: "saturate(1.1) brightness(0.85)",
         }}
         src="/bg-video.mp4"
       />
 
-      {/* Subtle overlay to blend with dark theme */}
-      <div className="absolute inset-0 bg-background/60" />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/70" />
+      {/* Light overlay — don't kill the video visibility */}
+      <div className="absolute inset-0 bg-background/40" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/25 via-transparent to-background/50" />
     </div>
   );
 }
