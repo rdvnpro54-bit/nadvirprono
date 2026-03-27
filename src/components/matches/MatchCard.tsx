@@ -320,17 +320,30 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   </TooltipProvider>
                 </div>
 
-                {/* Double Chance badge for SAFE predictions */}
-                {match.pred_confidence === "SAFE" && (
-                  <div className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1">
-                    <ShieldCheck className="h-3 w-3 text-emerald-400 shrink-0" />
-                    <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-400">
-                      Double Chance • {match.pred_home_win >= match.pred_away_win
-                        ? `${shortName(match.home_team)} ou Nul`
-                        : `Nul ou ${shortName(match.away_team)}`}
-                    </span>
-                  </div>
-                )}
+                {/* Double Chance / Protected market badge for SAFE predictions */}
+                {match.pred_confidence === "SAFE" && (() => {
+                  const sport = (match.sport || "football").toLowerCase();
+                  const noDrawSports = ["tennis", "basketball", "nba", "baseball", "nfl", "mma"];
+                  const isNoDraw = noDrawSports.includes(sport);
+                  const favTeam = match.pred_home_win >= match.pred_away_win
+                    ? shortName(match.home_team)
+                    : shortName(match.away_team);
+                  const label = isNoDraw
+                    ? `${favTeam} vainqueur`
+                    : match.pred_home_win >= match.pred_away_win
+                      ? `${shortName(match.home_team)} ou Nul`
+                      : `Nul ou ${shortName(match.away_team)}`;
+                  const icon = isNoDraw ? "🎯" : "🛡️";
+                  const marketType = isNoDraw ? "Pari protégé" : "Double Chance";
+                  return (
+                    <div className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1">
+                      <ShieldCheck className="h-3 w-3 text-emerald-400 shrink-0" />
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-400">
+                        {icon} {marketType} • {label}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 {/* Confidence bar */}
                 <div className="flex items-center gap-2">
