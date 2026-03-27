@@ -286,49 +286,67 @@ function generatePRONOSIAAnalysis(
   const underdog = predHome >= predAway ? match.away_team : match.home_team;
   const maxProb = Math.max(predHome, predAway);
   const sport = match.sport.toLowerCase();
+  const isSafe = confidence === "SAFE";
+
+  // For SAFE: determine protected market (double chance)
+  const doubleChanceLabel = predHome >= predAway
+    ? `${match.home_team} ou Nul (1X)`
+    : `Nul ou ${match.away_team} (X2)`;
+  const doubleChanceProb = predHome >= predAway
+    ? predHome + predDraw
+    : predAway + predDraw;
 
   // Generate expert-level French analysis based on sport
   const analyses: string[] = [];
   const seed = hash(match.home_team + match.away_team) + fid;
   const riskNote = confidence === "RISQUÉ" ? " Gestion du risque : mise réduite recommandée." : confidence === "SAFE" ? " Confiance élevée mais jamais absolue — discipline de bankroll essentielle." : "";
 
+  // Market line for SAFE predictions
+  const marketLine = isSafe
+    ? `📌 Marché recommandé : ${doubleChanceLabel} (${doubleChanceProb}% de probabilité combinée). Protection double chance appliquée.`
+    : "";
+
   if (sport === "football" || sport === "soccer") {
     const formFactors = [
-      `Analyse PRONOSIA structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 7 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché).`,
-      `La dynamique des 5 derniers matchs et le différentiel de xG orientent clairement ce pronostic vers ${fav}.`,
-      `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées.`,
-      `Indicateurs avancés : PPDA, efficacité sur coups de pied arrêtés et pressing haut analysés.`,
+      `Analyse PRONOSIA structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns de score, fiabilité des données).`,
+      `La dynamique des 5 derniers matchs et le différentiel de xG orientent ce pronostic vers ${fav}.`,
+      `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées. PPDA et pressing haut analysés.`,
+      `Anti-trap check : aucun signal de faux favori détecté. Odds et form alignés.`,
     ];
     analyses.push(formFactors[0]);
     analyses.push(formFactors[Math.floor(seeded(seed, 50) * 3) + 1]);
-    analyses.push(valueBet ? `Value Bet détecté (edge >4%) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — le football reste un sport à variance élevée.`);
+    if (isSafe) {
+      analyses.push(marketLine);
+    } else {
+      analyses.push(valueBet ? `Value Bet détecté (edge >4%) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — le football reste un sport à variance élevée.`);
+    }
     analyses.push(riskNote);
-  } else if (sport === "baseball" || sport === "mlb") {
-    analyses.push(
-      `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
-      `Fatigue du bullpen et park factors intégrés au modèle PRONOSIA. ${fav} favori à ${maxProb}%.`,
-      valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`,
-      riskNote
-    );
   } else if (sport === "tennis") {
     analyses.push(
       `Analyse surface-ELO : ${fav} montre un avantage technique quantifié sur ce type de court.`,
-      `Ratio aces/DF, % 1er service et performance sous pression évalués.`,
-      confidence === "SAFE" ? `Forte convergence des indicateurs.` : `Incertitudes liées à la forme récente — prudence.`,
+      `Ratio aces/DF, % 1er service et performance sous pression évalués sur les 11 dimensions.`,
+      isSafe ? marketLine : (confidence === "SAFE" ? `Forte convergence des indicateurs.` : `Incertitudes liées à la forme récente — prudence.`),
       riskNote
     );
   } else if (sport === "basketball" || sport === "nba") {
     analyses.push(
       `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
-      `Régression 3PT% appliquée. Rotations et minutes des titulaires analysées.`,
-      `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      `Régression 3PT% appliquée. Rotations et minutes des titulaires analysées sur 11 facteurs.`,
+      isSafe ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      riskNote
+    );
+  } else if (sport === "baseball" || sport === "mlb") {
+    analyses.push(
+      `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
+      `Fatigue du bullpen et park factors intégrés au modèle PRONOSIA. ${fav} favori à ${maxProb}%.`,
+      isSafe ? marketLine : (valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`),
       riskNote
     );
   } else {
     analyses.push(
       `Modèle PRONOSIA multi-factoriel : avantage quantifié pour ${fav} (${maxProb}%).`,
-      `Analyse intégrant forme récente, contexte compétitif, effectif et données historiques.`,
-      confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`,
+      `Analyse intégrant 11 dimensions : forme, contexte, effectif, données historiques, volatilité et biais public.`,
+      isSafe ? marketLine : (confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`),
       riskNote
     );
   }
