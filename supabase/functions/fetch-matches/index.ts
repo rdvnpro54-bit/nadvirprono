@@ -24,6 +24,23 @@ function seeded(seed: number, offset = 0): number {
 }
 function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
 
+const SPORT_DURATIONS_MINUTES: Record<string, number> = {
+  football: 120,
+  tennis: 150,
+  basketball: 150,
+  hockey: 150,
+  baseball: 210,
+  nfl: 210,
+  mma: 180,
+  f1: 150,
+  afl: 150,
+  rugby: 120,
+};
+
+function getSportDurationMs(sport: string): number {
+  return (SPORT_DURATIONS_MINUTES[sport?.toLowerCase()] || 120) * 60 * 1000;
+}
+
 function getTodayParis(): { iso: string; compact: string; tomorrowCompact: string } {
   const now = new Date();
   const parisStr = now.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
@@ -773,15 +790,24 @@ Deno.serve(async (req) => {
     }
 
     // ─── Resolve finished matches with REAL scores ─────────
-    const threeHoursAgo = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+    const resolutionCutoff = new Date(Date.now() - 90 * 60 * 1000).toISOString();
     const { data: pendingMatches } = await supabase
       .from("cached_matches")
       .select("fixture_id, sport, home_team, away_team, league_name, kickoff, pred_home_win, pred_away_win, pred_confidence, home_score, away_score, status")
-      .lt("kickoff", threeHoursAgo);
+      .lt("kickoff", resolutionCutoff);
 
     if (pendingMatches && pendingMatches.length > 0) {
-      const matchesNeedingScores = pendingMatches.filter(m => m.home_score == null || m.away_score == null);
-      const matchesWithScores = pendingMatches.filter(m => m.home_score != null && m.away_score != null);
+      const now = Date.now();
+      const matchesEligibleForResolution = pendingMatches.filter((m) => {
+        const kickoffMs = new Date(m.kickoff).getTime();
+        if (!Number.isFinite(kickoffMs)) return false;
+        const status = String(m.status || "").toUpperCase();
+        if (["FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD", "FINISHED", "COMPLETED", "ENDED"].includes(status)) return true;
+        return now >= kickoffMs + getSportDurationMs(m.sport || "football");
+      });
+
+      const matchesNeedingScores = matchesEligibleForResolution.filter(m => m.home_score == null || m.away_score == null);
+      const matchesWithScores = matchesEligibleForResolution.filter(m => m.home_score != null && m.away_score != null);
 
       const finishedScores = new Map<string, { homeScore: number; awayScore: number }>();
       const datesToCheck = [compact, tomorrowCompact];
@@ -886,9 +912,11 @@ Deno.serve(async (req) => {
         .select("fixture_id, pred_home_win, pred_away_win, pred_analysis")
         .in("fixture_id", existingIds);
 
+      const existingMap = new Map<number, { fixture_id: number; pred_home_win: number | null; pred_away_win: number | null; pred_analysis: string | null }>();
       const lockedSet = new Set<number>();
       if (existingMatches) {
         for (const em of existingMatches) {
+          existingMap.set(em.fixture_id, em);
           if (em.pred_home_win != null && em.pred_away_win != null && em.pred_analysis) {
             lockedSet.add(em.fixture_id);
           }
@@ -898,9 +926,15 @@ Deno.serve(async (req) => {
       for (let i = 0; i < rows.length; i += 50) {
         const batch = rows.slice(i, i + 50).map(row => {
           if (lockedSet.has(row.fixture_id)) {
-            // Strip prediction fields — only update metadata (status, scores, logos)
-            const { pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence, pred_value_bet, pred_analysis, ai_score, ...metadata } = row;
-            return metadata;
+            const existing = existingMap.get(row.fixture_id);
+            if (existing) {
+              return {
+                ...row,
+                pred_home_win: existing.pred_home_win ?? row.pred_home_win,
+                pred_away_win: existing.pred_away_win ?? row.pred_away_win,
+                pred_analysis: existing.pred_analysis ?? row.pred_analysis,
+              };
+            }
           }
           return row;
         });

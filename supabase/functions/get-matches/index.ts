@@ -27,6 +27,19 @@ const FINISHED_STATUSES = [
   "PST", "SUSP", "ABANDONED", "FINISHED", "COMPLETED", "ENDED",
 ] as const;
 
+const SPORT_DURATIONS_MINUTES: Record<string, number> = {
+  football: 120,
+  tennis: 150,
+  basketball: 150,
+  hockey: 150,
+  baseball: 210,
+  nfl: 210,
+  mma: 180,
+  f1: 150,
+  afl: 150,
+  rugby: 120,
+};
+
 // ═══════════════════════════════════════════════════════
 // DETERMINISTIC DAILY SELECTIONS — SAME FOR ALL USERS
 // ═══════════════════════════════════════════════════════
@@ -74,6 +87,12 @@ function isFinishedMatch(match: Record<string, unknown>): boolean {
   const status = String(match.status || "").toUpperCase();
   if (FINISHED_STATUSES.includes(status as (typeof FINISHED_STATUSES)[number])) return true;
   if (match.home_score != null && match.away_score != null) return true;
+  const kickoffMs = new Date(String(match.kickoff || "")).getTime();
+  if (Number.isFinite(kickoffMs)) {
+    const sport = String(match.sport || "football").toLowerCase();
+    const durationMinutes = SPORT_DURATIONS_MINUTES[sport] || 120;
+    if (Date.now() > kickoffMs + durationMinutes * 60 * 1000) return true;
+  }
   return false;
 }
 
