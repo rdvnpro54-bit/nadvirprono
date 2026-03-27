@@ -858,13 +858,37 @@ Deno.serve(async (req) => {
     const twoDaysAgo = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
     await supabase.from("cached_matches").delete().lt("kickoff", twoDaysAgo);
 
-    // ─── Upsert new matches ──────────────────────────────────
+    // ─── Upsert new matches (preserve locked predictions) ──────────────────────────────────
     if (rows.length > 0) {
+      // Get existing matches with locked predictions
+      const existingIds = rows.map(r => r.fixture_id);
+      const { data: existingMatches } = await supabase
+        .from("cached_matches")
+        .select("fixture_id, ai_score, pred_analysis")
+        .in("fixture_id", existingIds);
+
+      const lockedSet = new Set<number>();
+      if (existingMatches) {
+        for (const em of existingMatches) {
+          if (em.ai_score > 0 && em.pred_analysis && String(em.pred_analysis).startsWith("🤖")) {
+            lockedSet.add(em.fixture_id);
+          }
+        }
+      }
+
       for (let i = 0; i < rows.length; i += 50) {
-        const batch = rows.slice(i, i + 50);
+        const batch = rows.slice(i, i + 50).map(row => {
+          if (lockedSet.has(row.fixture_id)) {
+            // Strip prediction fields — only update metadata (status, scores, logos)
+            const { pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence, pred_value_bet, pred_analysis, ai_score, ...metadata } = row;
+            return metadata;
+          }
+          return row;
+        });
         const { error } = await supabase.from("cached_matches").upsert(batch, { onConflict: "fixture_id" });
         if (error) console.error(`Upsert error batch ${i}:`, error);
       }
+      console.log(`[FETCH] Upserted ${rows.length} matches, ${lockedSet.size} predictions preserved`);
     }
 
     // ─── Trigger AI prediction for new matches ───────────────
