@@ -85,11 +85,11 @@ export default function Login() {
 
             <div className="mb-6 text-center relative z-10">
               <motion.div 
-                className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20"
+                className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl overflow-hidden"
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
-                <span className="text-xl font-bold text-primary">P</span>
+                <img src="/pronosia-p-logo.png" alt="Pronosia logo" className="h-full w-full object-cover" />
               </motion.div>
               <motion.h1 
                 className="font-display text-xl font-bold"

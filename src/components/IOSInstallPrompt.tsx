@@ -61,8 +61,8 @@ export function IOSInstallPrompt() {
 
             {/* Header */}
             <div className="px-5 pt-5 pb-3 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
-                <span className="text-lg font-bold text-primary">P</span>
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
+                <img src="/pronosia-p-logo.png" alt="Pronosia logo" className="h-full w-full object-cover" />
               </div>
               <h3 className="text-lg font-bold text-foreground">Installer Pronosia</h3>
               <p className="mt-1 text-xs text-muted-foreground">
