@@ -24,6 +24,7 @@ import {
   Trophy,
   Ban,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Select,
   SelectContent,
@@ -76,6 +77,7 @@ interface AdminPanelContentProps {
 
 export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) {
   const { user, session } = useAuth();
+  const queryClient = useQueryClient();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<UserEntry[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -142,6 +144,10 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       setActionLoading(true);
       await adminCall("update-result", { matchId, newResult });
       toast.success(`Résultat mis à jour → ${newResult}`);
+      queryClient.invalidateQueries({ queryKey: ["match-history"] });
+      queryClient.invalidateQueries({ queryKey: ["global-precision"] });
+      queryClient.invalidateQueries({ queryKey: ["today-winrate"] });
+      queryClient.invalidateQueries({ queryKey: ["high-confidence-precision"] });
       fetchResults();
       fetchDashboard();
     } catch (err: any) {
@@ -236,8 +242,10 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const handleForceRefresh = async () => {
     setActionLoading(true);
     try {
-      await adminCall("force-refresh");
-      toast.success("🔄 Matchs rafraîchis avec succès");
+      const data = await adminCall("force-refresh");
+      toast.success(data?.message || "🔄 Top 2 du jour rafraîchi");
+      queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["trigger-fetch"] });
       fetchDashboard();
     } catch (err: any) {
       toast.error(err.message || "Erreur rafraîchissement");
@@ -316,7 +324,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
             </Button>
             <Button size="sm" onClick={handleForceRefresh} disabled={actionLoading} className="gap-1">
               {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              🔄 Rafraîchir les matchs
+              🔄 Rafraîchir le top 2 du jour
             </Button>
           </div>
         </TabsContent>
