@@ -10,6 +10,7 @@ import { SmartNotifications } from "@/components/home/SmartNotifications";
 import { usePresenceTracker } from "@/hooks/usePresenceTracker";
 import { SplashScreen } from "@/components/SplashScreen";
 import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
+import { VideoBackground } from "@/components/VideoBackground";
 import { useState, useCallback } from "react";
 
 
@@ -74,6 +75,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+        <VideoBackground />
         <BrowserRouter>
           <AuthProvider>
             <ActivityProvider>
