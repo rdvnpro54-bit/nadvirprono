@@ -35,7 +35,7 @@ function getTodayParis(): { iso: string; compact: string; tomorrowCompact: strin
 // ═══════════════════════════════════════════════════════════════════════
 // AI PREDICTION ENGINE — SYSTEM PROMPT
 // ═══════════════════════════════════════════════════════════════════════
-const AI_SYSTEM_PROMPT = `You are ATLAS — an elite sports prediction intelligence with the analytical depth of a professional quant trader. Produce calibrated, high-value predictions by thinking in probabilities, not opinions.
+const AI_SYSTEM_PROMPT = `You are PRONOSIA — an elite sports prediction intelligence with the analytical depth of a professional quant trader. Produce calibrated, high-value predictions by thinking in probabilities, not opinions.
 
 MANDATORY PROTOCOL for every prediction:
 1. CONTEXT AUDIT: Match format, competitive context, key player availability

@@ -9,9 +9,9 @@ const corsHeaders = {
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ═══════════════════════════════════════════════════════════════
-// ATLAS — Elite Sports Prediction Intelligence (System Prompt)
+// PRONOSIA — Elite Sports Prediction Intelligence (System Prompt)
 // ═══════════════════════════════════════════════════════════════
-const AI_SYSTEM_PROMPT = `You are ATLAS — a professional sports betting analyst with over 20 years of experience. You do NOT guess. You rely on structured analysis, probability, and risk management. Your goal: provide high-quality, realistic, and profitable predictions that maximize long-term success rate, not short-term wins.
+const AI_SYSTEM_PROMPT = `You are PRONOSIA — a professional sports betting analyst with over 20 years of experience. You do NOT guess. You rely on structured analysis, probability, and risk management. Your goal: provide high-quality, realistic, and profitable predictions that maximize long-term success rate, not short-term wins.
 
 MANDATORY REASONING PROTOCOL — apply for EVERY prediction:
 
@@ -91,7 +91,7 @@ interface AIPrediction {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ATLAS DETERMINISTIC ENGINE (no credits needed)
+// PRONOSIA DETERMINISTIC ENGINE (no credits needed)
 // ═══════════════════════════════════════════════════════════════
 function hash(str: string): number {
   let h = 0;
@@ -129,7 +129,7 @@ function teamStrength(name: string, fixtureId: number): number {
   return clamp(base * 0.5 + form * 0.3 + depth * 0.2, 0.15, 0.85);
 }
 
-function generateATLASPrediction(
+function generatePRONOSIAPrediction(
   match: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }
 ): AIPrediction {
   const sport = (match.sport || "football").toLowerCase();
@@ -229,16 +229,16 @@ function generateATLASPrediction(
     const h = Math.round(predHome * scale);
     const d = Math.round(predDraw * scale);
     const a = 100 - h - d;
-    return generateATLASAnalysis(match, h, d, a, predScoreHome, predScoreAway, profile.overLine, overProb, bttsProb, confidence, aiScore, fid);
+    return generatePRONOSIAAnalysis(match, h, d, a, predScoreHome, predScoreAway, profile.overLine, overProb, bttsProb, confidence, aiScore, fid);
   }
 
   // Value bet detection (edge > 4%)
   const valueBet = dataQuality >= 0.55 && maxProb >= 48 && seeded(baseSeed, 40) > 0.55;
 
-  return generateATLASAnalysis(match, predHome, predDraw, predAway, predScoreHome, predScoreAway, profile.overLine, overProb, bttsProb, confidence, aiScore, fid, valueBet);
+  return generatePRONOSIAAnalysis(match, predHome, predDraw, predAway, predScoreHome, predScoreAway, profile.overLine, overProb, bttsProb, confidence, aiScore, fid, valueBet);
 }
 
-function generateATLASAnalysis(
+function generatePRONOSIAAnalysis(
   match: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string },
   predHome: number, predDraw: number, predAway: number,
   scoreHome: number, scoreAway: number,
@@ -257,7 +257,7 @@ function generateATLASAnalysis(
 
   if (sport === "football" || sport === "soccer") {
     const formFactors = [
-      `Analyse ATLAS structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 7 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché).`,
+      `Analyse PRONOSIA structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 7 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché).`,
       `La dynamique des 5 derniers matchs et le différentiel de xG orientent clairement ce pronostic vers ${fav}.`,
       `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées.`,
       `Indicateurs avancés : PPDA, efficacité sur coups de pied arrêtés et pressing haut analysés.`,
@@ -269,7 +269,7 @@ function generateATLASAnalysis(
   } else if (sport === "baseball" || sport === "mlb") {
     analyses.push(
       `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
-      `Fatigue du bullpen et park factors intégrés au modèle ATLAS. ${fav} favori à ${maxProb}%.`,
+      `Fatigue du bullpen et park factors intégrés au modèle PRONOSIA. ${fav} favori à ${maxProb}%.`,
       valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`,
       riskNote
     );
@@ -289,7 +289,7 @@ function generateATLASAnalysis(
     );
   } else {
     analyses.push(
-      `Modèle ATLAS multi-factoriel : avantage quantifié pour ${fav} (${maxProb}%).`,
+      `Modèle PRONOSIA multi-factoriel : avantage quantifié pour ${fav} (${maxProb}%).`,
       `Analyse intégrant forme récente, contexte compétitif, effectif et données historiques.`,
       confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`,
       riskNote
@@ -324,7 +324,7 @@ async function callAI(
     .map((m, i) => `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`)
     .join("\n");
 
-  const userPrompt = `Analyze these ${matches.length} matches using the FULL ATLAS protocol.
+  const userPrompt = `Analyze these ${matches.length} matches using the FULL PRONOSIA protocol.
 
 MATCHES:
 ${matchList}
@@ -497,22 +497,22 @@ Deno.serve(async (req) => {
 
     console.log(`[AI-PREDICT] Processing ${matches.length} matches (offset=${offset}, force=${forceAll})`);
 
-    // Try AI gateway first, fallback to deterministic ATLAS engine
+    // Try AI gateway first, fallback to deterministic PRONOSIA engine
     let predictions: AIPrediction[] = [];
-    let source = "atlas-deterministic";
+    let source = "pronosia-deterministic";
 
     if (apiKey) {
       predictions = await callAI(apiKey, matches);
       if (predictions.length > 0) {
-        source = "atlas-ai";
+        source = "pronosia-ai";
       }
     }
 
-    // Fallback: use deterministic ATLAS engine (no credits needed)
+    // Fallback: use deterministic PRONOSIA engine (no credits needed)
     if (predictions.length === 0) {
-      console.log(`[AI-PREDICT] AI unavailable, using ATLAS deterministic engine for ${matches.length} matches`);
-      predictions = matches.map(m => generateATLASPrediction(m));
-      source = "atlas-deterministic";
+      console.log(`[AI-PREDICT] AI unavailable, using PRONOSIA deterministic engine for ${matches.length} matches`);
+      predictions = matches.map(m => generatePRONOSIAPrediction(m));
+      source = "pronosia-deterministic";
     }
 
     const predMap = new Map<number, AIPrediction>();
