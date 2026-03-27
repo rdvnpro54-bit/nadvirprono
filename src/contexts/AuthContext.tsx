@@ -117,14 +117,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
-      if (currentSession?.user) {
-        await checkSubscription(currentSession);
-      } else {
+      try {
+        if (currentSession?.user) {
+          await checkSubscription(currentSession);
+        } else {
+          setSubscription(DEFAULT_SUB);
+        }
+      } catch (err) {
+        console.error("syncAuthState error:", err);
         setSubscription(DEFAULT_SUB);
-      }
-
-      if (isMounted) {
-        setLoading(false);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
