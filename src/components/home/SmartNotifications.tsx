@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Flame } from "lucide-react";
+import { X, Flame, TrendingUp, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useMatches } from "@/hooks/useMatches";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Notification {
   id: string;
@@ -12,12 +13,32 @@ interface Notification {
   type: "match" | "info";
 }
 
+const NOTIFICATION_TEMPLATES = [
+  (home: string, away: string, conf: number, time: string) =>
+    `🔥 Prédiction SAFE — ${home} vs ${away} • Confiance ${conf}% • Coup d'envoi ${time}`,
+  (home: string, away: string, conf: number, time: string) =>
+    `⚡ Alerte PRONOSIA — ${home} vs ${away} détecté à ${conf}% de confiance • ${time}`,
+  (home: string, away: string, conf: number, time: string) =>
+    `💎 Opportunité identifiée — ${home} vs ${away} • Signal fort (${conf}%) • ${time}`,
+  (home: string, away: string, conf: number, time: string) =>
+    `🎯 Match analysé — ${home} vs ${away} • Indice de confiance: ${conf}% • Début ${time}`,
+];
+
+const ICONS = [
+  <Flame className="h-4 w-4" />,
+  <Zap className="h-4 w-4" />,
+  <TrendingUp className="h-4 w-4" />,
+  <Flame className="h-4 w-4" />,
+];
+
 export function SmartNotifications() {
   const { data: matches } = useMatches();
+  const { isPremium } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const shownCount = useRef(0);
   const shownFixtures = useRef(new Set<number>());
-  const maxPerSession = 4;
+  const templateIndex = useRef(0);
+  const maxPerSession = 5;
 
   const dismiss = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
@@ -28,11 +49,12 @@ export function SmartNotifications() {
 
     const now = Date.now();
     const safeMatches = matches.filter(m => {
-      if (m.pred_confidence !== "SAFE" || m.is_free !== true) return false;
+      if (m.pred_confidence !== "SAFE") return false;
       if (shownFixtures.current.has(m.fixture_id)) return false;
       const kickoff = new Date(m.kickoff).getTime();
       const diff = kickoff - now;
-      return diff > -5 * 60_000 && diff < 60 * 60_000;
+      // Show matches starting in the next 90 minutes or started less than 5 min ago
+      return diff > -5 * 60_000 && diff < 90 * 60_000;
     });
 
     if (safeMatches.length === 0) return;
@@ -48,29 +70,34 @@ export function SmartNotifications() {
     shownCount.current++;
     shownFixtures.current.add(match.fixture_id);
 
+    const tplIdx = templateIndex.current % NOTIFICATION_TEMPLATES.length;
+    templateIndex.current++;
+
     const notif: Notification = {
       id,
-      icon: <Flame className="h-4 w-4" />,
-      text: `🔥 Match SAFE détecté — ${match.home_team} vs ${match.away_team} • 💎 Confiance: ${confidence}% • ⏰ ${time}`,
+      icon: ICONS[tplIdx],
+      text: NOTIFICATION_TEMPLATES[tplIdx](match.home_team, match.away_team, confidence, time),
+      // Always redirect to the match page — never to premium/pricing
       link: `/match/${match.id}`,
       type: "match",
     };
 
     setNotifications(prev => [...prev.slice(-1), notif]);
-    setTimeout(() => dismiss(id), 8000);
+    setTimeout(() => dismiss(id), 10000);
   }, [matches, dismiss]);
 
   useEffect(() => {
-    const firstTimer = setTimeout(addNotification, 20000);
+    const firstDelay = isPremium ? 15000 : 25000;
+    const firstTimer = setTimeout(addNotification, firstDelay);
     const interval = setInterval(() => {
       addNotification();
-    }, 45000 + Math.random() * 45000);
+    }, 40000 + Math.random() * 40000);
 
     return () => {
       clearTimeout(firstTimer);
       clearInterval(interval);
     };
-  }, [addNotification]);
+  }, [addNotification, isPremium]);
 
   return (
     <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-2 max-w-sm md:bottom-6">
@@ -82,7 +109,7 @@ export function SmartNotifications() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 80, scale: 0.9 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="relative rounded-xl border border-border/50 bg-card/95 backdrop-blur-lg p-3 pr-8 shadow-lg shadow-black/10"
+            className="relative rounded-xl border border-primary/20 bg-card/95 backdrop-blur-lg p-3 pr-8 shadow-lg shadow-primary/5"
           >
             <button
               onClick={() => dismiss(n.id)}
