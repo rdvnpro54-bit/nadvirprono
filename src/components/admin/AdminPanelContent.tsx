@@ -204,8 +204,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     if (!premiumEmail.trim()) return toast.error("Email requis");
     setActionLoading(true);
     try {
-      await adminCall("activate-premium", { email: premiumEmail.trim(), duration: premiumDuration });
-      toast.success(`Premium activé pour ${premiumEmail} (${premiumDuration === "weekly" ? "7 jours" : "30 jours"})`);
+      await adminCall("activate-premium", { email: premiumEmail.trim(), duration: premiumDuration, tier: premiumTier });
+      const tierLabel = premiumTier === "premium_plus" ? "Premium+" : "Premium";
+      toast.success(`${tierLabel} activé pour ${premiumEmail} (${premiumDuration === "weekly" ? "7 jours" : "30 jours"})`);
       setPremiumEmail("");
       fetchUsers();
       fetchDashboard();
