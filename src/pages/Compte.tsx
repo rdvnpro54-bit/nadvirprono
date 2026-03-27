@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { AdminPanelContent } from "@/components/admin/AdminPanelContent";
 
 interface DashboardStats {
   totalUsers: number;
@@ -191,53 +192,9 @@ export default function Compte() {
               </div>
             </motion.div>
 
-            {/* Admin Console */}
-            {isAdmin && (
-              <motion.div variants={staggerItem} className="mt-3 glass-card p-5 border border-destructive/30">
-                <div className="flex items-center gap-2 mb-4">
-                  <Shield className="h-4 w-4 text-destructive" />
-                  <h2 className="font-display text-sm font-bold">Console Admin</h2>
-                </div>
-                <div className="mb-4 rounded-lg bg-destructive/5 border border-destructive/20 p-3">
-                  <p className="text-[11px] font-semibold text-foreground mb-1">🔄 Rafraîchir les Pronostics</p>
-                  <p className="text-[10px] text-muted-foreground mb-2">Force le rechargement immédiat des pronostics du jour.</p>
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button variant="destructive" size="sm" className="w-full gap-1.5 text-[11px]" onClick={handleForceRefresh} disabled={refreshLoading}>
-                      {refreshLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                      {refreshLoading ? "Rafraîchissement..." : "Forcer le rafraîchissement"}
-                    </Button>
-                  </motion.div>
-                </div>
-                {adminLoading ? (
-                  <div className="flex items-center justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-                ) : adminStats ? (
-                  <motion.div className="grid grid-cols-2 gap-2" variants={staggerContainer} initial="hidden" animate="show">
-                    {[
-                      { icon: Users, label: "Utilisateurs", value: adminStats.totalUsers },
-                      { icon: Zap, label: "Premium", value: adminStats.premiumCount },
-                      { icon: BarChart3, label: "Matchs cachés", value: adminStats.matchCount },
-                      { icon: Activity, label: "Dernier fetch", value: adminStats.apiStatus ? new Date(adminStats.apiStatus.lastFetch).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "N/A", sub: adminStats.apiStatus ? `${adminStats.apiStatus.requestsToday} req/jour` : undefined },
-                    ].map(({ icon: Icon, label, value, sub }) => (
-                      <motion.div key={label} variants={staggerItem} whileHover={{ scale: 1.03 }} className="rounded-lg bg-muted/50 p-3">
-                        <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-                          <Icon className="h-3.5 w-3.5" /><span className="text-[10px] font-medium">{label}</span>
-                        </div>
-                        <p className="font-display text-lg font-bold">{value}</p>
-                        {sub && <p className="text-[9px] text-muted-foreground">{sub}</p>}
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                ) : null}
-                <div className="mt-3 flex gap-2">
-                  <Link to="/admin" reloadDocument className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full gap-1.5 text-[11px] border-destructive/30 text-destructive hover:bg-destructive/10">
-                      <Shield className="h-3.5 w-3.5" /> Panneau Admin
-                    </Button>
-                  </Link>
-                  <Button variant="ghost" size="sm" className="text-[11px]" onClick={fetchAdminStats} disabled={adminLoading}>
-                    {adminLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>
+            {isAdmin && user.email === "rdvnpro54@gmail.com" && (
+              <motion.div variants={staggerItem} className="mt-3 rounded-2xl border border-destructive/20 bg-card/40 p-5">
+                <AdminPanelContent embedded />
               </motion.div>
             )}
 
