@@ -468,6 +468,11 @@ Deno.serve(async (req) => {
       const pred = predMap.get(m.fixture_id) || predictions[i];
       if (!pred) continue;
 
+      // LOCK: Never overwrite an existing valid prediction (ai_score > 0 + has analysis)
+      if (!forceAll && m.ai_score > 0 && m.pred_analysis && String(m.pred_analysis).startsWith("🤖")) {
+        continue;
+      }
+
       const { error: updateError } = await supabase
         .from("cached_matches")
         .update({
