@@ -456,8 +456,95 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
             </div>
           </Card>
         </TabsContent>
+        <TabsContent value="results">
+          <div className="mb-4 flex items-center gap-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un match..."
+              value={resultSearch}
+              onChange={(e) => setResultSearch(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button variant="outline" size="sm" onClick={fetchResults} className="gap-1">
+              <RefreshCw className="h-3 w-3" /> Rafraîchir
+            </Button>
+          </div>
 
-        <TabsContent value="logs">
+          {loadingResults ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Chargement des résultats...
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {matchResults
+                .filter((m) => {
+                  const q = resultSearch.toLowerCase();
+                  return !q || m.home_team.toLowerCase().includes(q) || m.away_team.toLowerCase().includes(q) || m.league_name.toLowerCase().includes(q);
+                })
+                .map((m, i) => (
+                  <motion.div
+                    key={m.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.02 }}
+                    className="flex flex-col gap-2 rounded-lg border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <span>{m.home_team} vs {m.away_team}</span>
+                        {m.result === "win" && <Trophy className="h-3.5 w-3.5 text-success" />}
+                        {m.result === "loss" && <Ban className="h-3.5 w-3.5 text-destructive" />}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>{m.league_name}</span>
+                        <span>•</span>
+                        <span>{new Date(m.kickoff).toLocaleDateString("fr-FR")}</span>
+                        <span>•</span>
+                        <span>Prédit: {m.predicted_winner}</span>
+                        {m.actual_home_score !== null && (
+                          <>
+                            <span>•</span>
+                            <span>Score: {m.actual_home_score}-{m.actual_away_score}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        m.result === "win" ? "bg-success/15 text-success" :
+                        m.result === "loss" ? "bg-destructive/15 text-destructive" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {m.result || "pending"}
+                      </span>
+                      <Select
+                        defaultValue={m.result || "pending"}
+                        onValueChange={(val) => handleUpdateResult(m.id, val)}
+                        disabled={actionLoading}
+                      >
+                        <SelectTrigger className="h-7 w-24 text-[11px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="win">✅ Win</SelectItem>
+                          <SelectItem value="loss">❌ Loss</SelectItem>
+                          <SelectItem value="pending">⏳ Pending</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </motion.div>
+                ))}
+              {matchResults.length === 0 && (
+                <div className="py-8 text-center text-muted-foreground">
+                  <FileEdit className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                  <p className="text-sm">Aucun résultat trouvé</p>
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+
           {loadingStats ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Chargement...
