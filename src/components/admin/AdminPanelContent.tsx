@@ -20,7 +20,17 @@ import {
   RefreshCw,
   Search,
   Radio,
+  FileEdit,
+  Trophy,
+  Ban,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface DashboardStats {
   totalUsers: number;

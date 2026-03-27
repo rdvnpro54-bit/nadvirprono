@@ -262,6 +262,49 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── LIST MATCH RESULTS ──────────────────────────────────
+    if (action === "list-results") {
+      const { data: results, error: resErr } = await supabase
+        .from("match_results")
+        .select("*")
+        .order("kickoff", { ascending: false })
+        .limit(100);
+
+      if (resErr) throw resErr;
+
+      return new Response(JSON.stringify({ results: results || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── UPDATE MATCH RESULT ──────────────────────────────────
+    if (action === "update-result") {
+      const { matchId, newResult } = body;
+      if (!matchId || !newResult) {
+        return new Response(JSON.stringify({ error: "matchId and newResult required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error: updateErr } = await supabase
+        .from("match_results")
+        .update({ result: newResult })
+        .eq("id", matchId);
+
+      if (updateErr) throw updateErr;
+
+      await supabase.from("admin_logs").insert({
+        action: "update_result",
+        details: { match_id: matchId, new_result: newResult },
+        admin_email: user.email!,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
