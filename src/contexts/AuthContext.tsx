@@ -164,10 +164,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isPremium = subscription.subscribed;
   const isMonthlyPremium = subscription.subscribed && subscription.productId === STRIPE_PLANS.monthly.productId;
+  const isPremiumPlus = subscription.subscribed && (
+    PREMIUM_PLUS_PRODUCT_IDS.includes(subscription.productId as any) || subscription.isAdmin
+  );
   const isAdmin = subscription.isAdmin;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscription, isPremium, isMonthlyPremium, isAdmin, signUp, signIn, signOut, checkSubscription }}>
+    <AuthContext.Provider value={{ user, session, loading, subscription, isPremium, isMonthlyPremium, isPremiumPlus, isAdmin, signUp, signIn, signOut, checkSubscription }}>
       {children}
     </AuthContext.Provider>
   );
