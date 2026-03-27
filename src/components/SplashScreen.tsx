@@ -53,16 +53,12 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
             transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             <motion.div
-              className="flex h-20 w-20 items-center justify-center rounded-2xl border border-primary/30"
-              style={{
-                background: "linear-gradient(135deg, hsl(225 18% 10%), hsl(225 18% 6%))",
-                boxShadow: "0 0 40px -8px hsl(42 90% 55% / 0.3), inset 0 1px 0 hsl(0 0% 100% / 0.05)",
-              }}
+              className="flex h-20 w-20 items-center justify-center rounded-2xl overflow-hidden"
               initial={{ rotate: -10 }}
               animate={{ rotate: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             >
-              <span className="text-4xl font-bold gradient-text">P</span>
+              <img src="/pronosia-p-logo.png" alt="Pronosia logo" className="h-full w-full object-cover" />
             </motion.div>
 
             {/* App name */}

@@ -36,12 +36,12 @@ export function Navbar() {
         <div className="container flex h-14 items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
             <motion.div
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 border border-primary/20"
+              className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden"
               whileHover={{ rotate: 10, scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
-              <span className="text-base font-bold text-primary">P</span>
+              <img src="/pronosia-p-logo.png" alt="Pronosia logo" className="h-full w-full object-cover" />
             </motion.div>
             <span className="font-display text-lg font-bold tracking-tight">
               Pronosia
