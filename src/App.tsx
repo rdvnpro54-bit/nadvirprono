@@ -9,6 +9,7 @@ import { ActivityProvider } from "@/components/home/ActivityProvider";
 import { SmartNotifications } from "@/components/home/SmartNotifications";
 import { usePresenceTracker } from "@/hooks/usePresenceTracker";
 import { SplashScreen } from "@/components/SplashScreen";
+import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
 import { useState, useCallback } from "react";
 
 
@@ -78,6 +79,7 @@ const App = () => {
             <ActivityProvider>
               <AnimatedRoutes />
               <SmartNotifications />
+              <IOSInstallPrompt />
             </ActivityProvider>
           </AuthProvider>
         </BrowserRouter>
