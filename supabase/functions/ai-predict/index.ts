@@ -223,9 +223,9 @@ function generateATLASPrediction(
     aiScore = Math.round(clamp(40 + seeded(baseSeed, 33) * 20, 40, 64));
   }
 
-  // Enforce RISQUÉ max prob < 35%
-  if (confidence === "RISQUÉ" && maxProb >= 35) {
-    const scale = 34 / maxProb;
+  // Enforce RISQUÉ max prob < 38%
+  if (confidence === "RISQUÉ" && maxProb >= 38) {
+    const scale = 37 / maxProb;
     const h = Math.round(predHome * scale);
     const d = Math.round(predDraw * scale);
     const a = 100 - h - d;
