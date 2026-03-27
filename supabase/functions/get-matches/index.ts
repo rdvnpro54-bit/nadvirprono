@@ -8,10 +8,19 @@ const corsHeaders = {
 
 const PRED_FIELDS_TO_STRIP = [
   "pred_home_win", "pred_draw", "pred_away_win",
-  "pred_score_home", "pred_score_away",
   "pred_over_under", "pred_over_prob", "pred_btts_prob",
   "pred_value_bet", "pred_confidence", "pred_analysis",
 ] as const;
+
+const SCORE_FIELDS_TO_STRIP = [
+  "pred_score_home", "pred_score_away",
+] as const;
+
+// Premium+ product IDs
+const PREMIUM_PLUS_PRODUCTS = [
+  "prod_UDq3Yi5NV5UBwi", // Premium+ Hebdo
+  "prod_UDq3gv6WVIiSIn", // Premium+ Mensuel
+];
 
 const FINISHED_STATUSES = [
   "FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD",
