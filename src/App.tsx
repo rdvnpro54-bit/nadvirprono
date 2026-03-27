@@ -10,7 +10,7 @@ import { SmartNotifications } from "@/components/home/SmartNotifications";
 import { usePresenceTracker } from "@/hooks/usePresenceTracker";
 import { SplashScreen } from "@/components/SplashScreen";
 import { useState, useCallback } from "react";
-import { useAppUpdateGuard } from "@/hooks/useAppUpdateGuard";
+
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -42,7 +42,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function AnimatedRoutes() {
   const location = useLocation();
   usePresenceTracker();
-  useAppUpdateGuard();
+  
 
   return (
     <AnimatePresence mode="wait">
