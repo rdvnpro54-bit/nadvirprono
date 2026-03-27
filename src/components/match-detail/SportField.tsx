@@ -11,23 +11,23 @@ function FootballPitch() {
       {/* Pitch */}
       <rect x="0" y="0" width="680" height="440" rx="8" fill="hsl(145 60% 12%)" stroke="hsl(145 80% 30% / 0.4)" strokeWidth="2" />
       {/* Center line */}
-      <line x1="340" y1="0" x2="340" y2="440" stroke="hsl(145 80% 42% / 0.3)" strokeWidth="1.5" />
+      <line x1="340" y1="0" x2="340" y2="440" stroke="hsl(42 90% 55% / 0.3)" strokeWidth="1.5" />
       {/* Center circle */}
-      <circle cx="340" cy="220" r="60" fill="none" stroke="hsl(145 80% 42% / 0.3)" strokeWidth="1.5" />
-      <circle cx="340" cy="220" r="3" fill="hsl(145 80% 42% / 0.5)" />
+      <circle cx="340" cy="220" r="60" fill="none" stroke="hsl(42 90% 55% / 0.3)" strokeWidth="1.5" />
+      <circle cx="340" cy="220" r="3" fill="hsl(42 90% 55% / 0.5)" />
       {/* Left penalty area */}
-      <rect x="0" y="120" width="110" height="200" fill="none" stroke="hsl(145 80% 42% / 0.25)" strokeWidth="1.5" />
-      <rect x="0" y="170" width="40" height="100" fill="none" stroke="hsl(145 80% 42% / 0.2)" strokeWidth="1.5" />
-      <circle cx="80" cy="220" r="3" fill="hsl(145 80% 42% / 0.4)" />
+      <rect x="0" y="120" width="110" height="200" fill="none" stroke="hsl(42 90% 55% / 0.25)" strokeWidth="1.5" />
+      <rect x="0" y="170" width="40" height="100" fill="none" stroke="hsl(42 90% 55% / 0.2)" strokeWidth="1.5" />
+      <circle cx="80" cy="220" r="3" fill="hsl(42 90% 55% / 0.4)" />
       {/* Right penalty area */}
-      <rect x="570" y="120" width="110" height="200" fill="none" stroke="hsl(145 80% 42% / 0.25)" strokeWidth="1.5" />
-      <rect x="640" y="170" width="40" height="100" fill="none" stroke="hsl(145 80% 42% / 0.2)" strokeWidth="1.5" />
-      <circle cx="600" cy="220" r="3" fill="hsl(145 80% 42% / 0.4)" />
+      <rect x="570" y="120" width="110" height="200" fill="none" stroke="hsl(42 90% 55% / 0.25)" strokeWidth="1.5" />
+      <rect x="640" y="170" width="40" height="100" fill="none" stroke="hsl(42 90% 55% / 0.2)" strokeWidth="1.5" />
+      <circle cx="600" cy="220" r="3" fill="hsl(42 90% 55% / 0.4)" />
       {/* Corner arcs */}
-      <path d="M0,10 Q10,0 20,0" fill="none" stroke="hsl(145 80% 42% / 0.2)" strokeWidth="1" />
-      <path d="M660,0 Q670,0 680,10" fill="none" stroke="hsl(145 80% 42% / 0.2)" strokeWidth="1" />
-      <path d="M0,430 Q10,440 20,440" fill="none" stroke="hsl(145 80% 42% / 0.2)" strokeWidth="1" />
-      <path d="M660,440 Q670,440 680,430" fill="none" stroke="hsl(145 80% 42% / 0.2)" strokeWidth="1" />
+      <path d="M0,10 Q10,0 20,0" fill="none" stroke="hsl(42 90% 55% / 0.2)" strokeWidth="1" />
+      <path d="M660,0 Q670,0 680,10" fill="none" stroke="hsl(42 90% 55% / 0.2)" strokeWidth="1" />
+      <path d="M0,430 Q10,440 20,440" fill="none" stroke="hsl(42 90% 55% / 0.2)" strokeWidth="1" />
+      <path d="M660,440 Q670,440 680,430" fill="none" stroke="hsl(42 90% 55% / 0.2)" strokeWidth="1" />
     </svg>
   );
 }
@@ -91,7 +91,7 @@ function Octagon() {
 function BaseballDiamond() {
   return (
     <svg viewBox="0 0 500 440" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <rect x="0" y="0" width="500" height="440" rx="8" fill="hsl(145 30% 12%)" stroke="hsl(145 80% 42% / 0.3)" strokeWidth="2" />
+      <rect x="0" y="0" width="500" height="440" rx="8" fill="hsl(42 20% 12%)" stroke="hsl(42 90% 55% / 0.3)" strokeWidth="2" />
       {/* Infield diamond */}
       <polygon
         points="250,80 400,220 250,360 100,220"
@@ -144,10 +144,10 @@ function HockeyRink() {
 function GenericField() {
   return (
     <svg viewBox="0 0 600 400" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <rect x="0" y="0" width="600" height="400" rx="8" fill="hsl(225 18% 10%)" stroke="hsl(145 80% 42% / 0.2)" strokeWidth="2" />
-      <line x1="300" y1="0" x2="300" y2="400" stroke="hsl(145 80% 42% / 0.15)" strokeWidth="1.5" />
-      <circle cx="300" cy="200" r="60" fill="none" stroke="hsl(145 80% 42% / 0.15)" strokeWidth="1.5" />
-      <circle cx="300" cy="200" r="3" fill="hsl(145 80% 42% / 0.3)" />
+      <rect x="0" y="0" width="600" height="400" rx="8" fill="hsl(225 18% 10%)" stroke="hsl(42 90% 55% / 0.2)" strokeWidth="2" />
+      <line x1="300" y1="0" x2="300" y2="400" stroke="hsl(42 90% 55% / 0.15)" strokeWidth="1.5" />
+      <circle cx="300" cy="200" r="60" fill="none" stroke="hsl(42 90% 55% / 0.15)" strokeWidth="1.5" />
+      <circle cx="300" cy="200" r="3" fill="hsl(42 90% 55% / 0.3)" />
     </svg>
   );
 }
