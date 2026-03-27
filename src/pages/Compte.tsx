@@ -21,7 +21,7 @@ const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.
 const staggerItem = { hidden: { opacity: 0, y: 20, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35 } } };
 
 export default function Compte() {
-  const { user, isPremium, isAdmin, subscription, signOut, checkSubscription } = useAuth();
+  const { user, isPremium, isAdmin, subscription, signOut, checkSubscription, loading: authLoading } = useAuth();
   const [portalLoading, setPortalLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const [adminStats, setAdminStats] = useState<DashboardStats | null>(null);
@@ -95,7 +95,12 @@ export default function Compte() {
           <h1 className="font-display text-2xl font-bold">Mon <span className="gradient-text">Compte</span></h1>
         </motion.div>
 
-        {!user ? (
+        {authLoading ? (
+          <div className="mt-20 flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Chargement du compte…</p>
+          </div>
+        ) : !user ? (
           <motion.div
             variants={staggerContainer}
             initial="hidden"

@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
 
     // ─── ACTIVATE PREMIUM ─────────────────────────────────────
     if (action === "activate-premium") {
-      const { email, duration } = body;
+      const { email, duration, tier } = body;
       if (!email || !duration) {
         return new Response(JSON.stringify({ error: "email and duration required" }), {
           status: 400,
@@ -196,11 +196,16 @@ Deno.serve(async (req) => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + days);
 
+      const isPremiumPlus = tier === "premium_plus";
+      const planLabel = isPremiumPlus
+        ? (duration === "weekly" ? "premium_plus_hebdo" : "premium_plus_mensuel")
+        : (duration === "weekly" ? "hebdo" : "mensuel");
+
       const { error: upsertErr } = await supabase.from("subscriptions").upsert({
         user_id: targetUser.id,
         email: targetUser.email,
         is_premium: true,
-        plan: duration === "weekly" ? "hebdo" : "mensuel",
+        plan: planLabel,
         expires_at: expiresAt.toISOString(),
         updated_at: new Date().toISOString(),
         activated_by: "admin:" + user.email,
@@ -210,7 +215,7 @@ Deno.serve(async (req) => {
 
       await supabase.from("admin_logs").insert({
         action: "activate_premium",
-        details: { target_email: email, duration, expires_at: expiresAt.toISOString() },
+        details: { target_email: email, duration, tier: tier || "premium", expires_at: expiresAt.toISOString() },
         admin_email: user.email!,
       });
 

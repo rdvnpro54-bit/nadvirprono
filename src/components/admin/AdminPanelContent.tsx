@@ -82,6 +82,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [premiumEmail, setPremiumEmail] = useState("");
   const [premiumDuration, setPremiumDuration] = useState<"weekly" | "monthly">("weekly");
+  const [premiumTier, setPremiumTier] = useState<"premium" | "premium_plus">("premium");
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
@@ -203,8 +204,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     if (!premiumEmail.trim()) return toast.error("Email requis");
     setActionLoading(true);
     try {
-      await adminCall("activate-premium", { email: premiumEmail.trim(), duration: premiumDuration });
-      toast.success(`Premium activé pour ${premiumEmail} (${premiumDuration === "weekly" ? "7 jours" : "30 jours"})`);
+      await adminCall("activate-premium", { email: premiumEmail.trim(), duration: premiumDuration, tier: premiumTier });
+      const tierLabel = premiumTier === "premium_plus" ? "Premium+" : "Premium";
+      toast.success(`${tierLabel} activé pour ${premiumEmail} (${premiumDuration === "weekly" ? "7 jours" : "30 jours"})`);
       setPremiumEmail("");
       fetchUsers();
       fetchDashboard();
@@ -435,6 +437,15 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">Email utilisateur</label>
                 <Input type="email" placeholder="user@example.com" value={premiumEmail} onChange={(e) => setPremiumEmail(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Type d'abonnement</label>
+                <div className="flex gap-2">
+                  <Button variant={premiumTier === "premium" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium")}>Premium</Button>
+                  <Button variant={premiumTier === "premium_plus" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium_plus")} className="gap-1">
+                    <Crown className="h-3 w-3" /> Premium+
+                  </Button>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">Durée</label>
