@@ -379,7 +379,14 @@ async function callAI(
     .map((m, i) => `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`)
     .join("\n");
 
-  const userPrompt = `Analyze these ${matches.length} matches using the FULL PRONOSIA protocol.
+  const userPrompt = `Analyze these ${matches.length} matches using the FULL PRONOSIA 11-factor protocol.
+
+CRITICAL REMINDERS:
+- For SAFE predictions: ALWAYS use double chance market (e.g. "Team A ou Nul 1X") in the analysis. NEVER just "Team A wins".
+- Anti-trap: check for fake favorites, public bias, high volatility before classifying.
+- Value detection: only flag value_bet when edge >4%.
+- AI Score must reflect data quality — low data = lower score.
+- Analysis in French, 3-5 sentences, mention market type for SAFE picks.
 
 MATCHES:
 ${matchList}
