@@ -124,10 +124,37 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   }, [adminCall]);
 
+  const fetchResults = useCallback(async () => {
+    try {
+      setLoadingResults(true);
+      const data = await adminCall("list-results");
+      if (data?.results) setMatchResults(data.results);
+    } catch (err: any) {
+      toast.error("Erreur résultats: " + err.message);
+    } finally {
+      setLoadingResults(false);
+    }
+  }, [adminCall]);
+
+  const handleUpdateResult = async (matchId: string, newResult: string) => {
+    try {
+      setActionLoading(true);
+      await adminCall("update-result", { matchId, newResult });
+      toast.success(`Résultat mis à jour → ${newResult}`);
+      fetchResults();
+      fetchDashboard();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur mise à jour");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchDashboard();
     fetchUsers();
-  }, [fetchDashboard, fetchUsers]);
+    fetchResults();
+  }, [fetchDashboard, fetchUsers, fetchResults]);
 
   useEffect(() => {
     const channel = supabase
