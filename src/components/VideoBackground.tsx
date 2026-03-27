@@ -7,14 +7,22 @@ export function VideoBackground() {
     const video = videoRef.current;
     if (!video) return;
 
+    // Force load + play
+    video.load();
     const tryPlay = async () => {
       try {
         await video.play();
       } catch {
-        // Autoplay can be blocked briefly on some iOS states.
+        // Retry after interaction
+        const onClick = () => {
+          video.play().catch(() => {});
+          document.removeEventListener("click", onClick);
+        };
+        document.addEventListener("click", onClick, { once: true });
       }
     };
 
+    video.addEventListener("canplay", () => void tryPlay(), { once: true });
     void tryPlay();
   }, []);
 
@@ -34,15 +42,15 @@ export function VideoBackground() {
         style={{
           willChange: "transform",
           transform: "translateZ(0)",
-          opacity: 0.32,
-          filter: "saturate(0.9) brightness(0.72)",
+          opacity: 0.35,
+          filter: "saturate(0.85) brightness(0.65)",
         }}
-      >
-        <source src="/videos/bg-ambient.mp4" type="video/mp4" />
-      </video>
+        src="/bg-video.mp4"
+      />
 
-      <div className="absolute inset-0 bg-background/75" />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/45 via-background/20 to-background/80" />
+      {/* Subtle overlay to blend with dark theme */}
+      <div className="absolute inset-0 bg-background/60" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/70" />
     </div>
   );
 }
