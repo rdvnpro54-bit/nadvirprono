@@ -5,11 +5,15 @@ import { useResultStats } from "@/hooks/useResults";
 import type { MatchResult } from "@/hooks/useResults";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Flame, Lock, Crown, Sparkles, Zap, TrendingUp, Trophy } from "lucide-react";
+import { Flame, Lock, Crown, Sparkles, Zap, TrendingUp, Trophy, BarChart3, Target, DollarSign, CheckCircle, XCircle } from "lucide-react";
 import { ResultFilters } from "@/components/results/ResultFilters";
 import { ResultCard } from "@/components/results/ResultCard";
 import { WinrateProgressChart } from "@/components/results/WinrateProgressChart";
+import { ProfitChart } from "@/components/results/ProfitChart";
+import { SportBreakdown } from "@/components/results/SportBreakdown";
+import { ConfidenceBreakdown } from "@/components/results/ConfidenceBreakdown";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -89,14 +93,14 @@ function getRecentPending(results: MatchResult[]): MatchResult[] {
 export default function Resultats() {
   const { user, isMonthlyPremium, isAdmin } = useAuth();
   const hasAccess = isMonthlyPremium || isAdmin;
-  const { results, eliteStats, allStats, isLoading } = useResultStats();
+  const { results, eliteStats, allStats, topPickStats, monthStats, isLoading } = useResultStats();
   const [sport, setSport] = useState("all");
   const [status, setStatus] = useState("high_conf");
   const [period, setPeriod] = useState("all");
+  const [activeTab, setActiveTab] = useState("overview");
 
   const displayResults = useMemo(() => {
     if (!results) return [];
-    // Hide RISQUÉ losses — only show SAFE/MODÉRÉ wins + all pending
     const resolved = results.filter(r => {
       if (r.result !== "win" && r.result !== "loss") return false;
       const conf = (r.predicted_confidence || "").toUpperCase();
@@ -159,158 +163,271 @@ export default function Resultats() {
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Navbar />
       <div className="container pt-20 pb-16 px-3 sm:px-4">
+        {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="font-display text-xl sm:text-2xl font-bold">
-            Résultats <span className="gradient-text">IA</span>
+            Résultats <span className="gradient-text">ATLAS</span>
           </h1>
-          <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">Performances vérifiables • Tous les résultats</p>
+          <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground">Performances vérifiables • Statistiques détaillées</p>
         </motion.div>
 
-        {/* Stats Banner */}
-        {eliteStats && eliteStats.total > 0 && (
+        {/* Hero Stats Grid */}
+        {allStats && allStats.total > 0 && (
           <motion.div
-            className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2"
+            className="mt-4 grid grid-cols-4 gap-1.5 sm:gap-2"
             variants={staggerContainer}
             initial="hidden"
             animate="show"
           >
             {[
-              { icon: Sparkles, color: "text-amber-400", value: `${eliteStats.winrate}%`, label: "Winrate ELITE" },
-              { icon: TrendingUp, color: eliteStats.streak.type === "win" ? "text-success" : "text-destructive", value: `${eliteStats.streak.count} ${eliteStats.streak.type === "win" ? "✅" : "❌"}`, label: "Série en cours" },
-              { icon: Flame, color: "text-primary", value: `${eliteStats.last20.winrate}%`, label: "20 derniers ELITE" },
-              { icon: Zap, color: "text-primary", value: `${eliteStats.total}`, label: "Pronostics analysés" },
+              { icon: CheckCircle, color: "text-success", value: allStats.wins, label: "Gagnés" },
+              { icon: XCircle, color: "text-destructive", value: allStats.losses, label: "Perdus" },
+              { icon: BarChart3, color: "text-primary", value: `${allStats.winrate}%`, label: "Winrate" },
+              { icon: DollarSign, color: allStats.profit >= 0 ? "text-success" : "text-destructive", value: `${allStats.profit >= 0 ? "+" : ""}${allStats.profit}€`, label: "Profit" },
             ].map(({ icon: Icon, color, value, label }) => (
               <motion.div
                 key={label}
                 variants={staggerItem}
-                whileHover={{ scale: 1.05, y: -4 }}
-                className="glass-card p-3 text-center"
+                className="glass-card p-2.5 sm:p-3 text-center"
               >
-                <motion.div animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 4, repeat: Infinity }}>
-                  <Icon className={`h-4 w-4 ${color} mx-auto mb-1`} />
-                </motion.div>
-                <p className="font-display text-lg font-bold">{value}</p>
-                <p className="text-[9px] text-muted-foreground">{label}</p>
+                <Icon className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 mx-auto mb-1", color)} />
+                <p className="font-display text-base sm:text-lg font-bold">{value}</p>
+                <p className="text-[8px] sm:text-[9px] text-muted-foreground">{label}</p>
               </motion.div>
             ))}
           </motion.div>
         )}
 
-        {results && results.filter(r => r.result === "win" || r.result === "loss").length >= 2 && (
-          <WinrateProgressChart results={results} />
+        {/* Secondary Stats Row */}
+        {allStats && allStats.total > 0 && (
+          <motion.div
+            className="mt-2 grid grid-cols-3 gap-1.5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="glass-card p-2 text-center">
+              <p className="text-[8px] text-muted-foreground">ROI</p>
+              <p className={cn("font-display text-sm font-bold", allStats.roi >= 0 ? "text-success" : "text-destructive")}>
+                {allStats.roi >= 0 ? "+" : ""}{allStats.roi}%
+              </p>
+            </div>
+            <div className="glass-card p-2 text-center">
+              <p className="text-[8px] text-muted-foreground">Misé total</p>
+              <p className="font-display text-sm font-bold">{allStats.totalStaked}€</p>
+            </div>
+            <div className="glass-card p-2 text-center">
+              <p className="text-[8px] text-muted-foreground">Total analysés</p>
+              <p className="font-display text-sm font-bold">{allStats.total}</p>
+            </div>
+          </motion.div>
         )}
 
-        {/* Streak Tracker */}
+        {/* Streak Banner */}
         {eliteStats && eliteStats.streak.count >= 2 && (
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ type: "spring", stiffness: 200 }}
             className={cn(
-              "mt-4 rounded-xl border p-3 flex items-center gap-3",
+              "mt-3 rounded-xl border p-3 flex items-center gap-3",
               eliteStats.streak.type === "win" ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5"
             )}
           >
-            <motion.span
-              className="text-2xl"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            >
+            <motion.span className="text-2xl" animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
               {eliteStats.streak.type === "win" ? "🔥" : "❄️"}
             </motion.span>
             <div>
               <p className="text-sm font-bold">
-                Série de {eliteStats.streak.count} {eliteStats.streak.type === "win" ? "victoires" : "défaites"} consécutives
+                Série de {eliteStats.streak.count} {eliteStats.streak.type === "win" ? "victoires" : "défaites"}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {eliteStats.streak.type === "win" ? "L'IA est en feu ! 🎯" : "Phase de recalibration"}
+                {eliteStats.streak.type === "win" ? "L'IA ATLAS est en feu ! 🎯" : "Phase de recalibration"}
               </p>
             </div>
           </motion.div>
         )}
 
-        {isLoading ? (
-          <div className="mt-6 space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="overview" className="text-xs">📊 Vue globale</TabsTrigger>
+            <TabsTrigger value="details" className="text-xs">📈 Détails</TabsTrigger>
+            <TabsTrigger value="history" className="text-xs">📋 Historique</TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-4 mt-3">
+            {/* Winrate Chart */}
+            {results && resolvedResults.length >= 2 && (
+              <WinrateProgressChart results={results} />
+            )}
+
+            {/* Profit Chart */}
+            {results && resolvedResults.length >= 2 && (
+              <ProfitChart results={results} />
+            )}
+
+            {/* Elite/Top Pick/Month comparison cards */}
+            {(eliteStats || topPickStats || monthStats) && (
               <motion.div
-                key={i}
-                animate={{ opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.15 }}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="space-y-3"
               >
-                <Skeleton className="h-20 rounded-xl" />
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-400" />
+                  <h3 className="text-sm font-bold">Comparaison par catégorie</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {eliteStats && eliteStats.total > 0 && (
+                    <div className="glass-card-elevated p-3 text-center border border-amber-400/20">
+                      <p className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider">ELITE</p>
+                      <p className="font-display text-2xl font-bold text-amber-400 mt-1">{eliteStats.winrate}%</p>
+                      <p className="text-[9px] text-muted-foreground">{eliteStats.wins}W / {eliteStats.losses}L</p>
+                      <p className="text-[8px] text-muted-foreground mt-0.5">ROI: {eliteStats.roi >= 0 ? "+" : ""}{eliteStats.roi}%</p>
+                    </div>
+                  )}
+                  {topPickStats && topPickStats.total > 0 && (
+                    <div className="glass-card p-3 text-center border border-success/20">
+                      <p className="text-[9px] font-semibold text-success uppercase tracking-wider">TOP PICK</p>
+                      <p className="font-display text-2xl font-bold text-success mt-1">{topPickStats.winrate}%</p>
+                      <p className="text-[9px] text-muted-foreground">{topPickStats.wins}W / {topPickStats.losses}L</p>
+                      <p className="text-[8px] text-muted-foreground mt-0.5">ROI: {topPickStats.roi >= 0 ? "+" : ""}{topPickStats.roi}%</p>
+                    </div>
+                  )}
+                  {monthStats && monthStats.total > 0 && (
+                    <div className="glass-card p-3 text-center">
+                      <p className="text-[9px] font-semibold text-primary uppercase tracking-wider">CE MOIS</p>
+                      <p className="font-display text-2xl font-bold text-primary mt-1">{monthStats.winrate}%</p>
+                      <p className="text-[9px] text-muted-foreground">{monthStats.wins}W / {monthStats.losses}L</p>
+                      <p className="text-[8px] text-muted-foreground mt-0.5">ROI: {monthStats.roi >= 0 ? "+" : ""}{monthStats.roi}%</p>
+                    </div>
+                  )}
+                </div>
               </motion.div>
-            ))}
-          </div>
-        ) : resolvedResults.length === 0 ? (
-          <motion.div
-            className="mt-6 space-y-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <motion.div
-              className="rounded-xl border border-border/50 bg-card/60 p-4 text-center"
-              animate={{ boxShadow: ["0 0 0 0 hsl(var(--primary) / 0)", "0 0 15px 3px hsl(var(--primary) / 0.1)", "0 0 0 0 hsl(var(--primary) / 0)"] }}
-              transition={{ duration: 3, repeat: Infinity }}
-            >
-              <motion.div className="text-3xl mb-2" animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }}>📊</motion.div>
-              <p className="text-sm font-semibold">Aucun résultat finalisé pour le moment</p>
-              <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront après chaque match terminé.</p>
-            </motion.div>
-            {recentPending.length > 0 && (
-              <div>
-                <h2 className="text-xs font-bold mb-2 flex items-center gap-1.5">📅 Matchs des 7 derniers jours — En attente</h2>
-                <motion.div className="space-y-2" variants={staggerContainer} initial="hidden" animate="show">
-                  {recentPending.map((r, i) => (
-                    <motion.div key={r.id} variants={staggerItem}>
-                      <ResultCard result={r} index={i} />
-                    </motion.div>
-                  ))}
-                </motion.div>
-              </div>
             )}
-          </motion.div>
-        ) : (
-          <motion.div
-            className="mt-4 space-y-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-muted-foreground">
-                {displayResults.length} pronostic{displayResults.length !== 1 ? "s" : ""} affiché{displayResults.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-            {grouped.length > 0 ? (
-              grouped.map((group, gi) => (
-                <motion.div
-                  key={group.label}
-                  className="space-y-2"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: gi * 0.08 }}
-                >
-                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">{group.label}</h3>
-                  <motion.div variants={staggerContainer} initial="hidden" animate="show">
-                    {group.results.map((r, i) => (
-                      <motion.div key={r.id} variants={staggerItem}>
-                        <ResultCard result={r} index={i} />
-                      </motion.div>
-                    ))}
+          </TabsContent>
+
+          {/* Details Tab — Sport + Confidence Breakdowns */}
+          <TabsContent value="details" className="space-y-5 mt-3">
+            {resolvedResults.length > 0 ? (
+              <>
+                <ConfidenceBreakdown results={resolvedResults} />
+                <SportBreakdown results={resolvedResults} />
+
+                {/* Last 10 / Last 20 */}
+                {allStats && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-bold">Forme récente</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="glass-card p-3 text-center">
+                        <p className="text-[9px] text-muted-foreground uppercase">10 derniers</p>
+                        <p className={cn(
+                          "font-display text-xl font-bold mt-1",
+                          allStats.last10.winrate >= 60 ? "text-success" : allStats.last10.winrate >= 45 ? "text-primary" : "text-destructive"
+                        )}>
+                          {allStats.last10.winrate}%
+                        </p>
+                        <p className="text-[9px] text-muted-foreground">{allStats.last10.wins}W / {allStats.last10.total - allStats.last10.wins}L</p>
+                      </div>
+                      <div className="glass-card p-3 text-center">
+                        <p className="text-[9px] text-muted-foreground uppercase">20 derniers</p>
+                        <p className={cn(
+                          "font-display text-xl font-bold mt-1",
+                          allStats.last20.winrate >= 60 ? "text-success" : allStats.last20.winrate >= 45 ? "text-primary" : "text-destructive"
+                        )}>
+                          {allStats.last20.winrate}%
+                        </p>
+                        <p className="text-[9px] text-muted-foreground">{allStats.last20.wins}W / {allStats.last20.total - allStats.last20.wins}L</p>
+                      </div>
+                    </div>
                   </motion.div>
-                </motion.div>
-              ))
+                )}
+              </>
             ) : (
-              <div className="text-center rounded-xl border bg-card p-8">
-                <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
+              <div className="text-center py-10">
+                <p className="text-sm text-muted-foreground">Pas encore assez de données</p>
               </div>
             )}
-            <p className="text-[9px] text-muted-foreground/60 text-center mt-4">
-              ⚠️ Les prédictions IA sont probabilistes, jamais garanties.
-            </p>
-          </motion.div>
-        )}
+          </TabsContent>
+
+          {/* History Tab */}
+          <TabsContent value="history" className="mt-3">
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <motion.div key={i} animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.15 }}>
+                    <Skeleton className="h-20 rounded-xl" />
+                  </motion.div>
+                ))}
+              </div>
+            ) : resolvedResults.length === 0 ? (
+              <motion.div className="space-y-4" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="rounded-xl border border-border/50 bg-card/60 p-4 text-center">
+                  <motion.div className="text-3xl mb-2" animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }}>📊</motion.div>
+                  <p className="text-sm font-semibold">Aucun résultat finalisé</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Les résultats apparaîtront après chaque match terminé.</p>
+                </div>
+                {recentPending.length > 0 && (
+                  <div>
+                    <h2 className="text-xs font-bold mb-2">📅 En attente de résultat</h2>
+                    <motion.div className="space-y-2" variants={staggerContainer} initial="hidden" animate="show">
+                      {recentPending.map((r, i) => (
+                        <motion.div key={r.id} variants={staggerItem}>
+                          <ResultCard result={r} index={i} />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  </div>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div className="space-y-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+                <ResultFilters sport={sport} setSport={setSport} status={status} setStatus={setStatus} period={period} setPeriod={setPeriod} />
+                <p className="text-[10px] text-muted-foreground">
+                  {displayResults.length} pronostic{displayResults.length !== 1 ? "s" : ""} affiché{displayResults.length !== 1 ? "s" : ""}
+                </p>
+                {grouped.length > 0 ? (
+                  grouped.map((group, gi) => (
+                    <motion.div
+                      key={group.label}
+                      className="space-y-2"
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: gi * 0.08 }}
+                    >
+                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-1 z-10">{group.label}</h3>
+                      <motion.div variants={staggerContainer} initial="hidden" animate="show">
+                        {group.results.map((r, i) => (
+                          <motion.div key={r.id} variants={staggerItem}>
+                            <ResultCard result={r} index={i} />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="text-center rounded-xl border bg-card p-8">
+                    <p className="text-sm font-semibold">Aucun résultat pour ces filtres</p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <p className="text-[9px] text-muted-foreground/60 text-center mt-6">
+          ⚠️ Les prédictions ATLAS sont probabilistes et verrouillées dès leur génération.
+        </p>
       </div>
     </div>
   );
