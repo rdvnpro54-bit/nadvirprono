@@ -439,6 +439,15 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 <Input type="email" placeholder="user@example.com" value={premiumEmail} onChange={(e) => setPremiumEmail(e.target.value)} />
               </div>
               <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Type d'abonnement</label>
+                <div className="flex gap-2">
+                  <Button variant={premiumTier === "premium" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium")}>Premium</Button>
+                  <Button variant={premiumTier === "premium_plus" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium_plus")} className="gap-1">
+                    <Crown className="h-3 w-3" /> Premium+
+                  </Button>
+                </div>
+              </div>
+              <div>
                 <label className="mb-1 block text-xs text-muted-foreground">Durée</label>
                 <div className="flex gap-2">
                   <Button variant={premiumDuration === "weekly" ? "default" : "outline"} size="sm" onClick={() => setPremiumDuration("weekly")}>7 jours</Button>
