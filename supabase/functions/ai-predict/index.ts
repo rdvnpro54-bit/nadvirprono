@@ -413,10 +413,25 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
       }
       p.ai_score = clamp(Math.round(p.ai_score || 50), 0, 100);
 
+      // Cap max probability at 85%
+      const absMax = Math.max(p.pred_home_win, p.pred_away_win);
+      if (absMax > 85) {
+        const excess = absMax - 85;
+        if (p.pred_home_win > p.pred_away_win) {
+          p.pred_home_win -= excess;
+          p.pred_draw += Math.round(excess * 0.4);
+          p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+        } else {
+          p.pred_away_win -= excess;
+          p.pred_draw += Math.round(excess * 0.4);
+          p.pred_home_win = 100 - p.pred_away_win - p.pred_draw;
+        }
+      }
+
       if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
         const maxProb = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
-        if (maxProb >= 35) {
-          const scale = 34 / maxProb;
+        if (maxProb >= 38) {
+          const scale = 37 / maxProb;
           p.pred_home_win = Math.round(p.pred_home_win * scale);
           p.pred_draw = Math.round(p.pred_draw * scale);
           p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
