@@ -257,10 +257,11 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       </motion.div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full max-w-xl grid-cols-5">
+        <TabsList className="grid w-full max-w-2xl grid-cols-6">
           <TabsTrigger value="dashboard" className="gap-1 text-[10px] sm:text-xs"><BarChart3 className="h-3 w-3" /> Stats</TabsTrigger>
           <TabsTrigger value="live" className="gap-1 text-[10px] sm:text-xs"><Radio className="h-3 w-3" /> Live</TabsTrigger>
           <TabsTrigger value="users" className="gap-1 text-[10px] sm:text-xs"><Users className="h-3 w-3" /> Users</TabsTrigger>
+          <TabsTrigger value="results" className="gap-1 text-[10px] sm:text-xs"><FileEdit className="h-3 w-3" /> Résultats</TabsTrigger>
           <TabsTrigger value="premium" className="gap-1 text-[10px] sm:text-xs"><Crown className="h-3 w-3" /> Premium</TabsTrigger>
           <TabsTrigger value="logs" className="gap-1 text-[10px] sm:text-xs"><Activity className="h-3 w-3" /> Logs</TabsTrigger>
         </TabsList>
