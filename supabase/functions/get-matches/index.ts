@@ -80,7 +80,14 @@ function isFinishedMatch(match: Record<string, unknown>): boolean {
 function stripPredictions(match: Record<string, unknown>): Record<string, unknown> {
   const stripped = { ...match };
   for (const field of PRED_FIELDS_TO_STRIP) stripped[field] = null;
+  for (const field of SCORE_FIELDS_TO_STRIP) stripped[field] = null;
   stripped.pred_confidence = "LOCKED";
+  return stripped;
+}
+
+function stripScoresOnly(match: Record<string, unknown>): Record<string, unknown> {
+  const stripped = { ...match };
+  for (const field of SCORE_FIELDS_TO_STRIP) stripped[field] = null;
   return stripped;
 }
 
