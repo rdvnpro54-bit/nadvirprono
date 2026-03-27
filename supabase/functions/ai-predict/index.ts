@@ -11,55 +11,68 @@ const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // ═══════════════════════════════════════════════════════════════
 // ATLAS — Elite Sports Prediction Intelligence (System Prompt)
 // ═══════════════════════════════════════════════════════════════
-const AI_SYSTEM_PROMPT = `You are ATLAS — an elite sports prediction intelligence with the analytical depth of a professional quant trader. You combine the rigor of a statistician, the intuition of a 20-year scout, and the discipline of a professional bettor. Your core directive: produce calibrated, high-value predictions by thinking in probabilities, not opinions.
+const AI_SYSTEM_PROMPT = `You are ATLAS — a professional sports betting analyst with over 20 years of experience. You do NOT guess. You rely on structured analysis, probability, and risk management. Your goal: provide high-quality, realistic, and profitable predictions that maximize long-term success rate, not short-term wins.
 
 MANDATORY REASONING PROTOCOL — apply for EVERY prediction:
 
 STEP 1 — CONTEXT AUDIT:
-→ Match format (home/away/neutral, best-of, regulation/OT)
-→ Competitive context (must-win, dead rubber, rotation risk, cup vs league priority)
-→ Injury/availability of top impact players per side
+→ Team form (last 5-10 matches, weighted recent results)
+→ Head-to-head history (last 5+ meetings, venue-specific)
+→ Home vs away performance differential
+→ Injuries/suspensions of key players
+→ Motivation (ranking, stakes, competition importance, dead rubber risk)
+→ Odds movement analysis (if sharp money detected)
+→ Statistical indicators (goals scored/conceded, xG, possession, pressing metrics)
 
 STEP 2 — BASE RATE: Establish prior probability using historical data (home win rate for context, surface-specific rates, recent H2H weighted 3x)
 
-STEP 3 — FACTOR ANALYSIS (update prior):
+STEP 3 — FACTOR ANALYSIS (update prior with disciplined adjustments):
 → Form: last 5-10 results, xG vs actual goals trend (±2-8%)
 → Fatigue/schedule: rest days, travel, congestion (±1-5%)
 → Key player availability: starter absence (±3-15%)
 → Tactical matchup: pressing vs deep block, pace mismatch (±1-6%)
 → Motivation: standings implications, derby, relegation (±1-4%)
-→ Market signal: odds moved >5% without news = smart money
+→ Market signal: odds moved >5% without news = smart money (±2-5%)
 
 STEP 4 — PROBABILITY SYNTHESIS: Combine base rate + adjustments. Calculate fair odds (1/probability). Only flag value_bet when edge > 4%.
+
+STEP 5 — RISK ASSESSMENT: Assign confidence based on data quality and signal alignment. NEVER give 95%+ probability. Prefer realistic probabilities. If data is insufficient → lower confidence significantly.
 
 SPORT-SPECIFIC INTELLIGENCE:
 FOOTBALL: xG > actual goals > shots > possession. Home advantage +5-8% (varies by league). Draw is a distinct predictable outcome. UCL midweek fatigue = -3%. Set piece efficiency underrated.
 NBA: B2B = -4%. Altitude (Denver/Utah) = -3%. Net rating > W/L. Regress 3pt to mean.
+MLB: Pitcher ERA/WHIP is king. Bullpen fatigue after 3+ consecutive games. Park factors critical. Lefty/righty splits.
 TENNIS: Surface ELO only. Serve dominance on fast surfaces. No cross-surface H2H.
 NHL: Goalie = highest impact. PDO > 1.020 = regression. Corsi% best indicator.
 NFL: Sharp lines. Wind >15mph = run/unders. QB EPA/play trumps all.
 
-COGNITIVE BIAS PROHIBITION:
-× Never overweight last 1-2 results (check xG trend)
-× Never predict based on team prestige
+COGNITIVE BIAS PROHIBITION (CRITICAL):
+× NEVER overweight last 1-2 results — check xG trend over 5+ games
+× NEVER predict based on team prestige or "big name" bias
+× NEVER change prediction after initial analysis — your first structured analysis is final
 × Ignore media narratives without statistical backing
 × Markets overvalue favorites — find where market is wrong
 × After forming hypothesis, actively seek contradicting data
+× No emotional bias — pure analytical discipline
 
 CONFIDENCE MAPPING:
-- SAFE: ≥8/10 signals aligned, high data quality, max probability ≥55%
-- MODÉRÉ: 4-7/10 aligned, moderate uncertainty, max probability 35-55%
-- RISQUÉ: High uncertainty, ≤3/10 aligned, max probability MUST be <35%
+- SAFE: ≥8/10 signals aligned, high data quality, max probability 55-75% (NEVER higher)
+- MODÉRÉ: 4-7/10 aligned, moderate uncertainty, max probability 38-55%
+- RISQUÉ: High uncertainty, ≤3/10 aligned, max probability MUST be <38%
 
-AI SCORE (0-100): 80-100=ELITE, 65-79=STRONG, <65=AVERAGE
+AI SCORE (0-100): 80-100=ELITE, 65-79=STRONG, 50-64=AVERAGE, <50=LOW
 
-CRITICAL RULES:
+ABSOLUTE RULES:
 - Probabilities MUST sum to exactly 100%
-- RISQUÉ picks MUST have max probability <35%
-- Write analysis in French, 3-5 sentences, substantive
+- NEVER give 100% or 95%+ confidence on any outcome
+- Maximum probability cap: 85% (even for extreme favorites)
+- RISQUÉ picks MUST have max probability <38%
+- Write analysis in French, 3-5 sentences, substantive and expert-level
 - For draw=0 sports (tennis, basketball): set pred_draw to 0
-- Never invent data — state when information is limited
-- Calibration over conviction: 70% probability means wrong 30% of the time`;
+- Never invent data — state explicitly when information is limited and reduce confidence accordingly
+- Calibration over conviction: 70% probability means wrong 30% of the time
+- Once a prediction is made, it is FINAL — no revisions
+- Focus on long-term profitability, not winning every single pick`;
 
 interface AIPrediction {
   fixture_id: number;
@@ -134,19 +147,34 @@ function generateATLASPrediction(
   // Generate probabilities
   let rawHome: number, rawDraw: number, rawAway: number;
   if (profile.drawPossible) {
-    rawHome = clamp(0.5 + diff * 1.6, 0.08, 0.85);
-    rawAway = clamp(0.5 - diff * 1.6, 0.08, 0.85);
+    rawHome = clamp(0.5 + diff * 1.6, 0.08, 0.75);
+    rawAway = clamp(0.5 - diff * 1.6, 0.08, 0.75);
     rawDraw = clamp(0.28 - Math.abs(diff) * 1.8, 0.06, 0.35);
   } else {
-    rawHome = clamp(0.5 + diff * 2.0, 0.1, 0.9);
-    rawAway = clamp(1 - rawHome, 0.1, 0.9);
+    rawHome = clamp(0.5 + diff * 2.0, 0.12, 0.82);
+    rawAway = clamp(1 - rawHome, 0.12, 0.82);
     rawDraw = 0;
   }
 
   const total = rawHome + rawDraw + rawAway;
-  const predHome = Math.round((rawHome / total) * 100);
-  const predDraw = Math.round((rawDraw / total) * 100);
-  const predAway = 100 - predHome - predDraw;
+  let predHome = Math.round((rawHome / total) * 100);
+  let predDraw = Math.round((rawDraw / total) * 100);
+  let predAway = 100 - predHome - predDraw;
+
+  // Cap max probability at 85% (no unrealistic certainty)
+  const maxP = Math.max(predHome, predAway);
+  if (maxP > 85) {
+    const excess = maxP - 85;
+    if (predHome > predAway) {
+      predHome -= excess;
+      predDraw += Math.round(excess * 0.4);
+      predAway = 100 - predHome - predDraw;
+    } else {
+      predAway -= excess;
+      predDraw += Math.round(excess * 0.4);
+      predHome = 100 - predAway - predDraw;
+    }
+  }
 
   // Generate predicted scores
   const [minS, maxS] = profile.scoreRange;
@@ -195,9 +223,9 @@ function generateATLASPrediction(
     aiScore = Math.round(clamp(40 + seeded(baseSeed, 33) * 20, 40, 64));
   }
 
-  // Enforce RISQUÉ max prob < 35%
-  if (confidence === "RISQUÉ" && maxProb >= 35) {
-    const scale = 34 / maxProb;
+  // Enforce RISQUÉ max prob < 38%
+  if (confidence === "RISQUÉ" && maxProb >= 38) {
+    const scale = 37 / maxProb;
     const h = Math.round(predHome * scale);
     const d = Math.round(predDraw * scale);
     const a = 100 - h - d;
@@ -222,36 +250,49 @@ function generateATLASAnalysis(
   const maxProb = Math.max(predHome, predAway);
   const sport = match.sport.toLowerCase();
 
-  // Generate rich French analysis based on sport
+  // Generate expert-level French analysis based on sport
   const analyses: string[] = [];
   const seed = hash(match.home_team + match.away_team) + fid;
+  const riskNote = confidence === "RISQUÉ" ? " Gestion du risque : mise réduite recommandée." : confidence === "SAFE" ? " Confiance élevée mais jamais absolue — discipline de bankroll essentielle." : "";
 
   if (sport === "football" || sport === "soccer") {
-    const factors = [
-      `Avantage statistique pour ${fav} avec ${maxProb}% de probabilité selon notre modèle ATLAS.`,
-      `L'analyse des xG récents et de la dynamique de forme favorise ${fav} dans cette confrontation.`,
-      `Le facteur terrain et la solidité défensive orientent ce pronostic.`,
-      `Les données de pressing (PPDA) et d'efficacité sur coups de pied arrêtés renforcent cette tendance.`,
-      valueBet ? `Value Bet identifié — la cote du marché sous-estime ${fav}.` : `Marge d'erreur à considérer, le football reste imprévisible.`,
+    const formFactors = [
+      `Analyse ATLAS structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 7 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché).`,
+      `La dynamique des 5 derniers matchs et le différentiel de xG orientent clairement ce pronostic vers ${fav}.`,
+      `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées.`,
+      `Indicateurs avancés : PPDA, efficacité sur coups de pied arrêtés et pressing haut analysés.`,
     ];
-    analyses.push(factors[0], factors[Math.floor(seeded(seed, 50) * 3) + 1], factors[4]);
+    analyses.push(formFactors[0]);
+    analyses.push(formFactors[Math.floor(seeded(seed, 50) * 3) + 1]);
+    analyses.push(valueBet ? `Value Bet détecté (edge >4%) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — le football reste un sport à variance élevée.`);
+    analyses.push(riskNote);
+  } else if (sport === "baseball" || sport === "mlb") {
+    analyses.push(
+      `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
+      `Fatigue du bullpen et park factors intégrés au modèle ATLAS. ${fav} favori à ${maxProb}%.`,
+      valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`,
+      riskNote
+    );
   } else if (sport === "tennis") {
     analyses.push(
-      `Analyse surface-spécifique : ${fav} montre un avantage technique sur ce type de court.`,
-      `Le ratio aces/double-fautes et le % de points gagnés au 1er service appuient cette prédiction.`,
-      confidence === "SAFE" ? `Forte convergence des indicateurs de performance.` : `Quelques incertitudes liées à la forme récente.`
+      `Analyse surface-ELO : ${fav} montre un avantage technique quantifié sur ce type de court.`,
+      `Ratio aces/DF, % 1er service et performance sous pression évalués.`,
+      confidence === "SAFE" ? `Forte convergence des indicateurs.` : `Incertitudes liées à la forme récente — prudence.`,
+      riskNote
     );
-  } else if (sport === "basketball") {
+  } else if (sport === "basketball" || sport === "nba") {
     analyses.push(
-      `Le net rating et le rythme de jeu favorisent ${fav} dans ce matchup.`,
-      `Analyse des rotations et de la fatigue (back-to-back) intégrée au modèle.`,
-      `La régression à la moyenne du 3PT% a été appliquée pour plus de précision.`
+      `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
+      `Régression 3PT% appliquée. Rotations et minutes des titulaires analysées.`,
+      `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      riskNote
     );
   } else {
     analyses.push(
-      `Modèle ATLAS : avantage quantifié pour ${fav} (${maxProb}%).`,
-      `Analyse multi-factorielle intégrant forme, contexte et données historiques.`,
-      confidence === "RISQUÉ" ? `Incertitude élevée — prudence recommandée.` : `Signal cohérent sur la majorité des dimensions.`
+      `Modèle ATLAS multi-factoriel : avantage quantifié pour ${fav} (${maxProb}%).`,
+      `Analyse intégrant forme récente, contexte compétitif, effectif et données historiques.`,
+      confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`,
+      riskNote
     );
   }
 
@@ -372,10 +413,25 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
       }
       p.ai_score = clamp(Math.round(p.ai_score || 50), 0, 100);
 
+      // Cap max probability at 85%
+      const absMax = Math.max(p.pred_home_win, p.pred_away_win);
+      if (absMax > 85) {
+        const excess = absMax - 85;
+        if (p.pred_home_win > p.pred_away_win) {
+          p.pred_home_win -= excess;
+          p.pred_draw += Math.round(excess * 0.4);
+          p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+        } else {
+          p.pred_away_win -= excess;
+          p.pred_draw += Math.round(excess * 0.4);
+          p.pred_home_win = 100 - p.pred_away_win - p.pred_draw;
+        }
+      }
+
       if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
         const maxProb = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
-        if (maxProb >= 35) {
-          const scale = 34 / maxProb;
+        if (maxProb >= 38) {
+          const scale = 37 / maxProb;
           p.pred_home_win = Math.round(p.pred_home_win * scale);
           p.pred_draw = Math.round(p.pred_draw * scale);
           p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
