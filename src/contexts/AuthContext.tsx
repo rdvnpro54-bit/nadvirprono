@@ -16,6 +16,7 @@ interface AuthContextType {
   subscription: SubscriptionState;
   isPremium: boolean;
   isMonthlyPremium: boolean;
+  isPremiumPlus: boolean;
   isAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
