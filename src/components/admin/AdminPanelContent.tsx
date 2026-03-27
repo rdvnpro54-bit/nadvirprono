@@ -71,6 +71,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
+  const [matchResults, setMatchResults] = useState<MatchResultEntry[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [resultSearch, setResultSearch] = useState("");
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
