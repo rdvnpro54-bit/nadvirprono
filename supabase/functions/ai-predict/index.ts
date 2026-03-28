@@ -126,6 +126,9 @@ interface AIPrediction {
   pred_value_bet: boolean;
   pred_analysis: string;
   ai_score: number;
+  anomaly_score: number;
+  anomaly_label: string | null;
+  anomaly_reason: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════
