@@ -63,6 +63,9 @@ export const STRIPE_PLANS = {
 const PREMIUM_PLUS_PRODUCT_IDS = [
   STRIPE_PLANS.premiumPlusWeekly.productId,
   STRIPE_PLANS.premiumPlusMonthly.productId,
+  // Legacy product IDs for existing subscribers
+  "prod_UDq3Yi5NV5UBwi",
+  "prod_UDq3gv6WVIiSIn",
 ] as const;
 
 const DEFAULT_SUB: SubscriptionState = { subscribed: false, productId: null, subscriptionEnd: null, isAdmin: false };
