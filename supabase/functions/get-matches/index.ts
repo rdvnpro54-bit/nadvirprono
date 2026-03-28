@@ -293,7 +293,8 @@ Deno.serve(async (req) => {
       }
 
       if (isPremium) {
-        const matchData = isPremiumPlus ? match : stripScoresOnly(match as Record<string, unknown>);
+        let matchData = isPremiumPlus ? match : stripScoresOnly(match as Record<string, unknown>);
+        if (!isPremiumPlus) matchData = stripAnomalyData(matchData as Record<string, unknown>);
         return new Response(JSON.stringify({ ...matchData, is_top_pick: false }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
