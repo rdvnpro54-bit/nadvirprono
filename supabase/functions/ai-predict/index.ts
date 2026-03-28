@@ -396,7 +396,7 @@ CRITICAL REMINDERS:
 - Value detection: only flag value_bet when edge >4%.
 - AI Score must reflect data quality — low data = lower score.
 - Analysis in French, 3-5 sentences, mention market type for SAFE picks.
-
+${learningContext}
 MATCHES:
 ${matchList}
 
