@@ -369,14 +369,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Non-premium: show predictions only for free + top pick, always strip scores
+    // Non-premium: show predictions only for free + top pick, always strip scores + anomaly
     const result = allMatches.map(m => {
       const id = String(m.id);
       const isFree = freeIds.has(id);
       const isTopPick = topPickId === id;
 
       if (isFree || isTopPick) {
-        return { ...stripScoresOnly(m), is_free: isFree, is_top_pick: isTopPick };
+        return { ...stripAnomalyData(stripScoresOnly(m)), is_free: isFree, is_top_pick: isTopPick };
       }
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });
