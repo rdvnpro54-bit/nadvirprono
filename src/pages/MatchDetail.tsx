@@ -443,7 +443,7 @@ export default function MatchDetail() {
                         ? "text-destructive animate-pulse"
                         : "text-amber-400"
                     )} />
-                    <h3 className="font-display text-sm font-bold">🧠 Analyse de Risque IA</h3>
+                    <h3 className="font-display text-sm font-bold">🚨 Match suspect détecté par l'IA</h3>
                   </div>
 
                   {/* Badge */}
