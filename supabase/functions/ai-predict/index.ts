@@ -382,7 +382,8 @@ function generatePRONOSIAAnalysis(
 // ═══════════════════════════════════════════════════════════════
 async function callAI(
   apiKey: string,
-  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[]
+  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
+  learningContext: string = ""
 ): Promise<AIPrediction[]> {
   const matchList = matches
     .map((m, i) => `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`)
