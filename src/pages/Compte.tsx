@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminPanelContent } from "@/components/admin/AdminPanelContent";
+import { BettorProfileCard } from "@/components/profile/BettorProfileCard";
 
 interface DashboardStats {
   totalUsers: number;
