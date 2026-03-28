@@ -1,9 +1,9 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Zap, Clock, Loader2, Lock, Sparkles, Shield, Brain, Users, TrendingUp, Crown, Flame, Trophy, Star, X, Check } from "lucide-react";
+import { CheckCircle, Zap, Clock, Loader2, Lock, Sparkles, Shield, Brain, Users, TrendingUp, Crown, Flame, Trophy, Star, X, Check, Gift } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth, STRIPE_PLANS } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,25 +11,66 @@ import { useEliteWinrate, useAllResults } from "@/hooks/useResults";
 import { useMatches } from "@/hooks/useMatches";
 import { cn } from "@/lib/utils";
 
-function UrgencyTimer() {
-  const [secs, setSecs] = useState(() => (Math.floor(Math.random() * 20) + 5) * 60);
+/* ─── Welcome Offer Hook ─── */
+function useWelcomeOffer() {
+  const [showOffer, setShowOffer] = useState(false);
+  const [remainingSecs, setRemainingSecs] = useState(300); // 5 min
+
   useEffect(() => {
-    const i = setInterval(() => setSecs(p => (p > 0 ? p - 1 : 0)), 1000);
-    return () => clearInterval(i);
+    // Check if user already used the offer
+    if (localStorage.getItem("pronosia_offer_used")) return;
+
+    // Check if offer is already active (user came back to page)
+    const offerStart = localStorage.getItem("pronosia_offer_start");
+    if (offerStart) {
+      const elapsed = Math.floor((Date.now() - parseInt(offerStart)) / 1000);
+      if (elapsed >= 300) {
+        // Offer expired
+        localStorage.setItem("pronosia_offer_used", "1");
+        return;
+      }
+      setRemainingSecs(300 - elapsed);
+      setShowOffer(true);
+      return;
+    }
+
+    // Wait 60s on site before showing offer
+    const visitStart = parseInt(localStorage.getItem("pronosia_visit_start") || "0");
+    if (!visitStart) {
+      localStorage.setItem("pronosia_visit_start", Date.now().toString());
+    }
+
+    const checkTimer = setInterval(() => {
+      const start = parseInt(localStorage.getItem("pronosia_visit_start") || "0");
+      if (start && Date.now() - start >= 60000) {
+        // 1 min passed, activate offer
+        localStorage.setItem("pronosia_offer_start", Date.now().toString());
+        setShowOffer(true);
+        clearInterval(checkTimer);
+      }
+    }, 2000);
+
+    return () => clearInterval(checkTimer);
   }, []);
-  if (secs <= 0) return null;
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return (
-    <motion.div
-      className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-amber-400 text-xs font-semibold"
-      animate={{ opacity: [0.7, 1, 0.7] }}
-      transition={{ duration: 2, repeat: Infinity }}
-    >
-      <Clock className="h-3.5 w-3.5" />
-      Offre disponible encore {m}:{s.toString().padStart(2, "0")}
-    </motion.div>
-  );
+
+  // Countdown
+  useEffect(() => {
+    if (!showOffer) return;
+    const timer = setInterval(() => {
+      setRemainingSecs(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          localStorage.setItem("pronosia_offer_used", "1");
+          setShowOffer(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showOffer]);
+
+  return { showOffer, remainingSecs };
 }
 
 function AnimatedCount({ value }: { value: number }) {
@@ -52,8 +93,8 @@ function DurationToggle({ isMonthly, onChange }: { isMonthly: boolean; onChange:
       <button
         onClick={() => onChange(false)}
         className={cn(
-          "flex-1 rounded-full py-1.5 px-2 transition-all duration-200",
-          !isMonthly ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          "flex-1 rounded-full py-1.5 px-2 transition-colors",
+          !isMonthly ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
         )}
       >
         Hebdo
@@ -61,8 +102,8 @@ function DurationToggle({ isMonthly, onChange }: { isMonthly: boolean; onChange:
       <button
         onClick={() => onChange(true)}
         className={cn(
-          "flex-1 rounded-full py-1.5 px-2 transition-all duration-200",
-          isMonthly ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          "flex-1 rounded-full py-1.5 px-2 transition-colors",
+          isMonthly ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
         )}
       >
         Mensuel
@@ -72,24 +113,24 @@ function DurationToggle({ isMonthly, onChange }: { isMonthly: boolean; onChange:
 }
 
 const COMPARISON_ROWS = [
-  { label: "Accès aux pronostics", free: "2/jour", premium: true, plus: true },
+  { label: "Pronostics", free: "2/jour", premium: true, plus: true },
   { label: "Matchs ELITE", free: false, premium: true, plus: true },
-  { label: "Analyse IA complète", free: false, premium: true, plus: true },
-  { label: "Value Bets détectés", free: false, premium: true, plus: true },
-  { label: "12 sports couverts", free: false, premium: true, plus: true },
-  { label: "🚨 Détection matchs suspects", free: false, premium: false, plus: true },
-  { label: "❌ Matchs à éviter", free: false, premium: false, plus: true },
+  { label: "Analyse IA", free: false, premium: true, plus: true },
+  { label: "Value Bets", free: false, premium: true, plus: true },
+  { label: "12 sports", free: false, premium: true, plus: true },
+  { label: "🚨 Matchs suspects", free: false, premium: false, plus: true },
+  { label: "❌ À éviter", free: false, premium: false, plus: true },
   { label: "Score IA détaillé", free: false, premium: false, plus: true },
   { label: "Insights avancés", free: false, premium: false, plus: true },
-  { label: "Priorité des données", free: false, premium: false, plus: true },
+  { label: "Priorité données", free: false, premium: false, plus: true },
   { label: "Support VIP", free: false, premium: false, plus: true },
 ];
 
 function ComparisonCell({ value }: { value: boolean | string }) {
   if (typeof value === "string") return <span className="text-[10px] text-muted-foreground">{value}</span>;
   return value
-    ? <Check className="h-4 w-4 text-emerald-400 mx-auto" />
-    : <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />;
+    ? <Check className="h-3.5 w-3.5 text-emerald-400 mx-auto" />
+    : <X className="h-3.5 w-3.5 text-muted-foreground/30 mx-auto" />;
 }
 
 export default function Pricing() {
@@ -101,6 +142,7 @@ export default function Pricing() {
   const { data: eliteData } = useEliteWinrate();
   const { data: matches } = useMatches();
   const { data: allResults } = useAllResults();
+  const { showOffer, remainingSecs } = useWelcomeOffer();
 
   const eliteWinrate = eliteData?.winrate ?? 84;
   const matchCount = matches?.length || 0;
@@ -111,7 +153,7 @@ export default function Pricing() {
     return allResults.filter(r => r.result === "win" && r.predicted_confidence === "SAFE").slice(0, 3);
   }, [allResults]);
 
-  const handleCheckout = async (priceId: string, planKey: string) => {
+  const handleCheckout = useCallback(async (priceId: string, planKey: string) => {
     if (!user) { navigate("/login"); return; }
     setLoadingPlan(planKey);
     try {
@@ -129,7 +171,7 @@ export default function Pricing() {
     } finally {
       setLoadingPlan(null);
     }
-  };
+  }, [user, navigate]);
 
   const premiumPrice = premiumMonthly ? "12,99€" : "4,99€";
   const premiumPeriod = premiumMonthly ? "/mois" : "/sem";
@@ -145,6 +187,9 @@ export default function Pricing() {
 
   const isCurrentPlan = (productId: string) => subscription.productId === productId;
 
+  const offerMins = Math.floor(remainingSecs / 60);
+  const offerSecs = remainingSecs % 60;
+
   return (
     <div className="min-h-screen bg-background pb-28 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -158,13 +203,9 @@ export default function Pricing() {
 
         {/* HERO */}
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-lg mx-auto">
-          <motion.div
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20"
-            animate={{ scale: [1, 1.08, 1] }}
-            transition={{ duration: 2.5, repeat: Infinity }}
-          >
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
             <Crown className="h-7 w-7 text-primary" />
-          </motion.div>
+          </div>
           <h1 className="font-display text-2xl sm:text-3xl font-extrabold leading-tight">
             Accède aux meilleurs <br /><span className="gradient-text-animated">pronostics IA</span> 🔥
           </h1>
@@ -172,11 +213,29 @@ export default function Pricing() {
             Notre IA analyse des centaines de matchs pour ne garder que les plus fiables
           </p>
           <p className="mt-1.5 text-[10px] text-muted-foreground/50">📊 Basé sur des données réelles — aucune promesse irréaliste</p>
-          <div className="mt-4 flex justify-center"><UrgencyTimer /></div>
         </motion.div>
 
+        {/* WELCOME OFFER BANNER */}
+        {showOffer && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-5 mx-auto max-w-md rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3.5 text-center"
+          >
+            <div className="flex items-center justify-center gap-2 text-emerald-400 text-xs font-bold">
+              <Gift className="h-4 w-4" />
+              🎉 Offre de bienvenue : -10% sur tous les abonnements
+            </div>
+            <div className="mt-1.5 flex items-center justify-center gap-1.5 text-emerald-300 font-mono text-sm font-bold">
+              <Clock className="h-3.5 w-3.5" />
+              {String(offerMins).padStart(2, "0")}:{String(offerSecs).padStart(2, "0")}
+            </div>
+            <p className="mt-1 text-[9px] text-muted-foreground">Offre unique • Expire bientôt</p>
+          </motion.div>
+        )}
+
         {/* STATS */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mt-6 grid grid-cols-3 gap-2 max-w-md mx-auto">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mt-6 grid grid-cols-3 gap-2 max-w-md mx-auto">
           {[
             { icon: Trophy, value: eliteWinrate, suffix: "%", label: "Winrate ELITE", color: "text-primary" },
             { icon: Sparkles, value: eliteCount, suffix: "", label: "Matchs ELITE", color: "text-amber-400" },
@@ -191,12 +250,11 @@ export default function Pricing() {
         </motion.div>
 
         {/* ========== PRICING CARDS ========== */}
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mt-10">
-          {/* Mobile: snap scroll / Desktop: 3-col grid with Premium+ larger */}
+        <div className="mt-10">
           <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-3 px-3 md:grid md:grid-cols-[1fr_1fr_1.15fr] md:overflow-visible md:mx-0 md:px-0 md:gap-5 md:items-start scrollbar-hide">
 
             {/* FREE */}
-            <motion.div whileHover={{ y: -3 }} className="glass-card p-5 flex flex-col min-w-[270px] snap-center shrink-0 md:min-w-0 md:shrink opacity-80">
+            <div className="glass-card p-5 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink opacity-80">
               <h2 className="font-display text-lg font-bold">Gratuit</h2>
               <p className="text-[11px] text-muted-foreground mt-1">Découverte limitée</p>
               <div className="mt-4 flex items-baseline gap-1">
@@ -221,59 +279,56 @@ export default function Pricing() {
               ) : !isPremium ? (
                 <Button variant="outline" size="sm" className="mt-3 w-full text-xs h-10" disabled>Plan Actuel</Button>
               ) : null}
-            </motion.div>
+            </div>
 
             {/* PREMIUM */}
-            <motion.div whileHover={{ y: -4 }} className="glass-card p-5 flex flex-col min-w-[270px] snap-center shrink-0 md:min-w-0 md:shrink relative border-primary/20">
-              <span className="absolute -top-2.5 left-4 rounded-full bg-primary px-3 py-0.5 text-[10px] font-bold text-primary-foreground z-10">🔥 Populaire</span>
-              <h2 className="font-display text-lg font-bold mt-1">Premium</h2>
+            <div className="glass-card p-5 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink relative border-primary/20">
+              <span className="absolute -top-2 left-4 rounded-full bg-primary px-2.5 py-[3px] text-[9px] font-bold text-primary-foreground z-10 leading-none">🔥 Populaire</span>
+              <h2 className="font-display text-lg font-bold mt-2">Premium</h2>
               <p className="text-[11px] text-muted-foreground mt-1">Accès complet aux pronostics IA</p>
               <div className="mt-4"><DurationToggle isMonthly={premiumMonthly} onChange={setPremiumMonthly} /></div>
-              <AnimatePresence mode="wait">
-                <motion.div key={premiumMonthly ? "pm" : "pw"} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }} className="mt-3 flex items-baseline gap-1">
-                  <span className="font-display text-3xl font-extrabold">{premiumPrice}</span>
-                  <span className="text-sm text-muted-foreground">{premiumPeriod}</span>
-                </motion.div>
-              </AnimatePresence>
+              <div className="mt-3 flex items-baseline gap-1 transition-opacity duration-200">
+                <span className="font-display text-3xl font-extrabold">{premiumPrice}</span>
+                <span className="text-sm text-muted-foreground">{premiumPeriod}</span>
+              </div>
               {premiumMonthly && <p className="text-[10px] text-emerald-400 font-medium mt-0.5">💰 Économise 35%</p>}
+              {showOffer && <p className="text-[10px] text-emerald-400 font-bold mt-0.5">🎉 -10% appliqué à l'achat</p>}
               <ul className="mt-5 space-y-2.5 text-xs flex-1">
                 {["Prédictions illimitées", "Analyses détaillées", "Value Bets détectés", "12 sports couverts", "Résultats & stats IA"].map(f => (
                   <li key={f} className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" /> {f}</li>
                 ))}
               </ul>
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="mt-5">
+              <div className="mt-5">
                 <Button className="w-full h-11 text-sm font-bold gap-2 btn-shimmer" onClick={() => handleCheckout(premiumPriceId, premiumPlanKey)} disabled={loadingPlan === premiumPlanKey || isCurrentPlan(premiumProductId)}>
                   {loadingPlan === premiumPlanKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                   {isCurrentPlan(premiumProductId) ? "Plan actuel" : "Choisir Premium"}
                 </Button>
-              </motion.div>
+              </div>
               <p className="mt-2 text-center text-[10px] text-muted-foreground">Sans engagement</p>
-            </motion.div>
+            </div>
 
             {/* PREMIUM+ */}
-            <motion.div
-              whileHover={{ y: -6, boxShadow: "0 20px 40px -15px hsl(var(--primary) / 0.25)" }}
-              className="glass-card p-5 md:p-6 flex flex-col min-w-[280px] snap-center shrink-0 md:min-w-0 md:shrink relative overflow-hidden"
+            <div
+              className="glass-card p-5 md:p-6 flex flex-col min-w-[270px] snap-center shrink-0 md:min-w-0 md:shrink relative overflow-hidden"
               style={{ border: "1px solid hsl(var(--primary) / 0.4)" }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5 pointer-events-none" />
-              <motion.div className="absolute -top-px left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent" animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} />
-              <motion.span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-0.5 text-[10px] font-bold text-black z-10" animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+              <div className="absolute -top-px left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
+              <span className="absolute top-1.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-2.5 py-[3px] text-[9px] font-bold text-black z-10 leading-none whitespace-nowrap">
                 ⭐ Recommandé
-              </motion.span>
+              </span>
 
               <div className="relative z-10 flex flex-col flex-1">
-                <h2 className="font-display text-xl font-bold mt-2">Premium<span className="text-amber-400">+</span></h2>
+                <h2 className="font-display text-xl font-bold mt-5">Premium<span className="text-amber-400">+</span></h2>
                 <p className="text-[11px] text-muted-foreground mt-1">Évite les mauvais paris grâce à l'analyse avancée de l'IA</p>
 
                 <div className="mt-4"><DurationToggle isMonthly={plusMonthly} onChange={setPlusMonthly} /></div>
-                <AnimatePresence mode="wait">
-                  <motion.div key={plusMonthly ? "ppm" : "ppw"} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }} className="mt-3 flex items-baseline gap-1">
-                    <span className="font-display text-3xl font-extrabold">{plusPrice}</span>
-                    <span className="text-sm text-muted-foreground">{plusPeriod}</span>
-                  </motion.div>
-                </AnimatePresence>
+                <div className="mt-3 flex items-baseline gap-1 transition-opacity duration-200">
+                  <span className="font-display text-3xl font-extrabold">{plusPrice}</span>
+                  <span className="text-sm text-muted-foreground">{plusPeriod}</span>
+                </div>
                 {plusMonthly && <p className="text-[10px] text-emerald-400 font-medium mt-0.5">💰 Économise 40%</p>}
+                {showOffer && <p className="text-[10px] text-emerald-400 font-bold mt-0.5">🎉 -10% appliqué à l'achat</p>}
 
                 <ul className="mt-5 space-y-2.5 text-xs flex-1">
                   {[
@@ -293,7 +348,7 @@ export default function Pricing() {
                   L'option utilisée pour éviter les erreurs des parieurs
                 </p>
 
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="mt-4">
+                <div className="mt-4">
                   <Button
                     className="w-full h-12 text-sm font-bold gap-2 bg-amber-500 hover:bg-amber-600 text-black shadow-lg shadow-amber-500/20"
                     onClick={() => handleCheckout(plusPriceId, plusPlanKey)}
@@ -302,43 +357,41 @@ export default function Pricing() {
                     {loadingPlan === plusPlanKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
                     {isCurrentPlan(plusProductId) ? "Plan actuel" : "Passer en Premium+"}
                   </Button>
-                </motion.div>
+                </div>
                 <p className="mt-2 text-center text-[10px] text-muted-foreground">Sans engagement • Annulation facile</p>
 
                 <p className="mt-2 text-center text-[10px] text-amber-400/80 font-medium">
                   🔥 Déjà choisi par +1 842 utilisateurs
                 </p>
               </div>
-            </motion.div>
+            </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* NOT LOGGED IN */}
         {!user && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mt-8 rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 text-center max-w-md mx-auto">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-8 rounded-2xl border border-primary/30 bg-primary/[0.06] p-6 text-center max-w-md mx-auto">
             <Lock className="h-8 w-8 text-primary mx-auto mb-3" />
             <h2 className="text-base font-bold">Crée ton compte gratuit</h2>
             <p className="mt-1 text-xs text-muted-foreground">Pour accéder aux analyses complètes</p>
             <Link to="/login">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="mt-4 inline-block">
-                <Button className="h-11 px-8 text-sm font-bold gap-2 btn-shimmer">Créer un compte gratuit</Button>
-              </motion.div>
+              <Button className="mt-4 h-11 px-8 text-sm font-bold gap-2 btn-shimmer">Créer un compte gratuit</Button>
             </Link>
           </motion.div>
         )}
 
         {/* ========== COMPARISON TABLE ========== */}
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-12">
-          <h2 className="font-display text-lg font-bold text-center mb-6">📊 Comparaison des abonnements</h2>
+        <div className="mt-12">
+          <h2 className="font-display text-lg font-bold text-center mb-5">📊 Comparaison des abonnements</h2>
           <div className="overflow-x-auto scrollbar-hide -mx-3 px-3">
-            <table className="w-full min-w-[480px] text-xs">
+            <table className="w-full text-[11px]" style={{ minWidth: "340px" }}>
               <thead>
                 <tr className="border-b border-border/50">
-                  <th className="text-left py-3 pr-4 text-muted-foreground font-medium w-[40%]">Fonctionnalité</th>
-                  <th className="text-center py-3 px-2 text-muted-foreground font-medium w-[15%]">Free</th>
-                  <th className="text-center py-3 px-2 font-semibold w-[20%]">Premium</th>
-                  <th className="text-center py-3 px-2 w-[25%]">
-                    <span className="inline-flex items-center gap-1 font-bold text-amber-400">
+                  <th className="text-left py-2.5 pr-2 text-muted-foreground font-medium" style={{ width: "38%" }}>Fonctionnalité</th>
+                  <th className="text-center py-2.5 px-1 text-muted-foreground font-medium" style={{ width: "16%" }}>Free</th>
+                  <th className="text-center py-2.5 px-1 font-semibold" style={{ width: "20%" }}>Premium</th>
+                  <th className="text-center py-2.5 px-1" style={{ width: "26%" }}>
+                    <span className="inline-flex items-center gap-0.5 font-bold text-amber-400 text-[10px]">
                       <Star className="h-3 w-3" /> Premium+
                     </span>
                   </th>
@@ -347,20 +400,20 @@ export default function Pricing() {
               <tbody>
                 {COMPARISON_ROWS.map((row, i) => (
                   <tr key={row.label} className={cn("border-b border-border/20", i % 2 === 0 && "bg-muted/5")}>
-                    <td className="py-2.5 pr-4 text-[11px]">{row.label}</td>
-                    <td className="py-2.5 px-2 text-center"><ComparisonCell value={row.free} /></td>
-                    <td className="py-2.5 px-2 text-center"><ComparisonCell value={row.premium} /></td>
-                    <td className="py-2.5 px-2 text-center bg-primary/[0.03]"><ComparisonCell value={row.plus} /></td>
+                    <td className="py-2 pr-2 text-[10px]">{row.label}</td>
+                    <td className="py-2 px-1 text-center"><ComparisonCell value={row.free} /></td>
+                    <td className="py-2 px-1 text-center"><ComparisonCell value={row.premium} /></td>
+                    <td className="py-2 px-1 text-center bg-primary/[0.03]"><ComparisonCell value={row.plus} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </motion.div>
+        </div>
 
         {/* LOSS AVERSION */}
         {recentWins.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="mt-8 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4 max-w-md mx-auto">
+          <div className="mt-8 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4 max-w-md mx-auto">
             <p className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-amber-400">
               <Flame className="h-3.5 w-3.5" /> ❌ Tu as raté ces prédictions gagnantes
             </p>
@@ -372,11 +425,11 @@ export default function Pricing() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
 
         {/* TRUST */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-8 grid grid-cols-2 gap-2 max-w-md mx-auto">
+        <div className="mt-8 grid grid-cols-2 gap-2 max-w-md mx-auto">
           {[
             { icon: Users, text: "1 842+ parieurs actifs", color: "text-primary" },
             { icon: TrendingUp, text: `+${eliteWinrate}% précision ELITE`, color: "text-emerald-400" },
@@ -387,10 +440,10 @@ export default function Pricing() {
               <Icon className={cn("h-3 w-3 shrink-0", color)} /> {text}
             </div>
           ))}
-        </motion.div>
+        </div>
 
         {/* FAQ */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }} className="mt-10 max-w-lg mx-auto">
+        <div className="mt-10 max-w-lg mx-auto">
           <h2 className="mb-4 text-center font-display text-lg font-bold">Questions Fréquentes</h2>
           <div className="space-y-2">
             {[
@@ -406,7 +459,7 @@ export default function Pricing() {
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
 
         <p className="mt-8 text-[9px] text-muted-foreground/50 text-center">
           ⚠️ Les prédictions IA sont probabilistes, jamais garanties. Ne pariez que ce que vous pouvez vous permettre de perdre.
@@ -415,7 +468,7 @@ export default function Pricing() {
 
       {/* STICKY MOBILE CTA */}
       {user && !isPremium && (
-        <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 1 }} className="fixed bottom-16 left-0 right-0 z-50 px-3 pb-2 sm:hidden">
+        <div className="fixed bottom-16 left-0 right-0 z-50 px-3 pb-2 sm:hidden">
           <Button
             className="w-full h-12 text-sm font-bold gap-2 bg-amber-500 hover:bg-amber-600 text-black shadow-2xl shadow-amber-500/30"
             onClick={() => handleCheckout(plusPriceId, plusPlanKey)}
@@ -424,7 +477,7 @@ export default function Pricing() {
             {loadingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
             Passer en Premium+
           </Button>
-        </motion.div>
+        </div>
       )}
     </div>
   );
