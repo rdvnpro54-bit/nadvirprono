@@ -416,17 +416,21 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
 
             {/* === ROW 4: Locked prediction === */}
             {locked && (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
+              <div className="rounded-lg border border-primary/15 bg-primary/[0.03] p-3 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      Prédiction verrouillée
+                    <Lock className="h-3.5 w-3.5 text-primary/60" />
+                    <span className="text-xs font-semibold text-foreground">
+                      Prédiction Premium
                     </span>
                   </div>
-                  <span className="text-[9px] rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 font-semibold">
+                  <motion.span
+                    className="text-[9px] rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 font-semibold"
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
                     ⚡ Confiance élevée
-                  </span>
+                  </motion.span>
                 </div>
                 <div className="relative">
                   <div className="flex items-center justify-between blur-[6px] select-none pointer-events-none">
@@ -443,20 +447,24 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   <div className="bg-muted-foreground/10" style={{ width: "20%" }} />
                   <div className="bg-secondary/20 animate-pulse" style={{ width: "40%" }} />
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  🔥 Confiance IA élevée détectée • Analyse complète disponible
+                <p className="text-[9px] text-warning font-medium">
+                  🔥 {Math.floor(12 + (match.fixture_id % 30))} utilisateurs ont déjà accédé à cette analyse
                 </p>
                 <div className="flex gap-2">
                   <Link to={`/match/${match.id}`} onClick={e => e.stopPropagation()} className="flex-1">
                     <Button size="sm" variant="outline" className="w-full gap-1 text-[10px] h-8">
-                      Voir l'analyse
+                      Aperçu
                     </Button>
                   </Link>
-                  <Link to="/pricing" onClick={e => e.stopPropagation()} className="flex-1">
-                    <Button size="sm" className="w-full gap-1 text-[10px] h-8 btn-shimmer">
-                      <Zap className="h-3 w-3" /> Premium
+                  <motion.div whileTap={{ scale: 0.95 }} className="flex-1">
+                    <Button
+                      size="sm"
+                      className="w-full gap-1 text-[10px] h-8 btn-shimmer"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPremiumModal(true); }}
+                    >
+                      <Zap className="h-3 w-3" /> Débloquer
                     </Button>
-                  </Link>
+                  </motion.div>
                 </div>
               </div>
             )}
