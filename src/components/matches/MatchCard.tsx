@@ -283,7 +283,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                             : "bg-amber-500/10 text-amber-400"
                         )}>
                           <AlertTriangle className="h-2.5 w-2.5" />
-                          {isHighAnomaly ? "Suspect" : "Risque"}
+                          {isHighAnomaly ? "🚨 Suspect" : "⚠️ Risque"}
                           {!isPremiumPlus && <Lock className="h-2 w-2 ml-0.5" />}
                         </span>
                       </TooltipTrigger>
