@@ -596,7 +596,7 @@ Deno.serve(async (req) => {
     let source = "pronosia-deterministic";
 
     if (apiKey) {
-      predictions = await callAI(apiKey, matches);
+      predictions = await callAI(apiKey, matches, learningContext);
       if (predictions.length > 0) {
         source = "pronosia-ai";
       }
