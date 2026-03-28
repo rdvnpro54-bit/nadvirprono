@@ -4,6 +4,7 @@ import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
 import { useMatch } from "@/hooks/useMatches";
 import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
