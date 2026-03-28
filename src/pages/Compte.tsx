@@ -204,6 +204,11 @@ export default function Compte() {
               </motion.div>
             )}
 
+            {/* Bettor Profile */}
+            <motion.div variants={staggerItem} className="mt-3">
+              <BettorProfileCard />
+            </motion.div>
+
             {/* Subscription */}
             <motion.div variants={staggerItem} className="mt-3 glass-card p-5" whileHover={{ y: -2 }}>
               <div className="flex items-center justify-between">
