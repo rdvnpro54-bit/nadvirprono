@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
 import { useMatch } from "@/hooks/useMatches";
-import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield } from "lucide-react";
+import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
