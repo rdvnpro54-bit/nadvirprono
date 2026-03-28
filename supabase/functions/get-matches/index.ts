@@ -353,9 +353,11 @@ Deno.serve(async (req) => {
     console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
 
     if (isPremium) {
-      // Premium but not Premium+: strip predicted scores
+      // Premium but not Premium+: strip predicted scores AND anomaly data
       const mapFn = (m: Record<string, unknown>) => {
-        const base = isPremiumPlus ? m : stripScoresOnly(m);
+        let base = isPremiumPlus ? m : stripScoresOnly(m);
+        // Strip anomaly data for non-Premium+ users
+        if (!isPremiumPlus) base = stripAnomalyData(base);
         return {
           ...base,
           is_free: freeIds.has(String(m.id)),
