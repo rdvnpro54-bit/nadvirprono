@@ -105,7 +105,8 @@ function stripPredictions(match: Record<string, unknown>): Record<string, unknow
   const stripped = { ...match };
   for (const field of PRED_FIELDS_TO_STRIP) stripped[field] = null;
   for (const field of SCORE_FIELDS_TO_STRIP) stripped[field] = null;
-  for (const field of ANOMALY_FIELDS_TO_STRIP) stripped[field] = null;
+  for (const field of ANOMALY_DETAIL_FIELDS) stripped[field] = null;
+  // Keep anomaly_label visible
   stripped.pred_confidence = "LOCKED";
   return stripped;
 }
