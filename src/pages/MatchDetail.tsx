@@ -65,6 +65,7 @@ export default function MatchDetail() {
     const finished = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED"].includes(match.status.toUpperCase());
     return !finished && now >= kickoffTime && now <= kickoffTime + maxDuration;
   }, [match]);
+  const isFinished = match ? ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED", "COMPLETED", "ENDED"].includes(match.status.toUpperCase()) : false;
   const isLive = apiLive || smartLive;
 
   const userCount = useMemo(() => {
