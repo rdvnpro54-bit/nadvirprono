@@ -47,6 +47,10 @@ export default function MatchDetail() {
   const { getMatchCount } = useGlobalActivity();
 
   const isLocked = match?.pred_confidence === "LOCKED" || (!isPremium && match?.pred_home_win === null);
+  const anomalyScore = (match as any)?.anomaly_score || 0;
+  const anomalyLabel = (match as any)?.anomaly_label as string | null;
+  const anomalyReason = (match as any)?.anomaly_reason as string | null;
+  const hasAnomaly = !!(anomalyLabel || anomalyScore >= 30);
 
   const apiLive = match && ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
   const smartLive = useMemo(() => {
