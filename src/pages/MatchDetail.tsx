@@ -459,7 +459,7 @@ export default function MatchDetail() {
 
                   {/* Public message */}
                   <p className="text-xs text-muted-foreground">
-                    Ce match présente des patterns inhabituels détectés par notre IA.
+                    Ce match présente des signaux anormaux détectés par notre IA (instabilité, incohérences, risque élevé).
                   </p>
 
                   {isPremiumPlus ? (
