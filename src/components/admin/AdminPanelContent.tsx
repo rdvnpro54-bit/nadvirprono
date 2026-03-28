@@ -263,7 +263,15 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const handleSendPromo = async () => {
     setPromoSending(true);
     try {
-      await supabase.channel("admin-promo-broadcast").send({
+      const channel = supabase.channel("admin-promo-broadcast");
+      // Must subscribe before sending
+      await new Promise<void>((resolve, reject) => {
+        channel.subscribe((status) => {
+          if (status === "SUBSCRIBED") resolve();
+          else if (status === "CHANNEL_ERROR") reject(new Error("Channel error"));
+        });
+      });
+      await channel.send({
         type: "broadcast",
         event: "promo-push",
         payload: {
@@ -273,6 +281,8 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         },
       });
       toast.success(`🎉 Promo -${promoDiscount}% envoyée à tous les utilisateurs en ligne !`);
+      // Clean up admin's channel after sending
+      setTimeout(() => supabase.removeChannel(channel), 2000);
     } catch (err: any) {
       toast.error(err.message || "Erreur envoi promo");
     } finally {
