@@ -16,8 +16,9 @@ const SCORE_FIELDS_TO_STRIP = [
   "pred_score_home", "pred_score_away",
 ] as const;
 
-const ANOMALY_FIELDS_TO_STRIP = [
-  "anomaly_score", "anomaly_label", "anomaly_reason",
+// Detailed anomaly fields stripped for non-Premium+ (but anomaly_label kept for ALL)
+const ANOMALY_DETAIL_FIELDS = [
+  "anomaly_score", "anomaly_reason",
 ] as const;
 
 // Premium+ product IDs
