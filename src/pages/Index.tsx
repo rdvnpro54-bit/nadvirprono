@@ -563,6 +563,11 @@ const Index = () => {
         </section>
       </ScrollSection>
 
+      {/* Sport Rankings */}
+      <ScrollSection>
+        <SportRankings />
+      </ScrollSection>
+
       {/* CTA Premium */}
       <ScrollSection>
         <section className="border-t border-border/20 py-12 sm:py-16">
