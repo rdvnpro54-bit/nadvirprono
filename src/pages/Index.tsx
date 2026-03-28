@@ -633,7 +633,7 @@ const Index = () => {
                 <Link to="/pricing">
                   <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                     <Button className="gap-2 btn-shimmer btn-glow shadow-lg shadow-primary/20 h-11 text-sm font-semibold">
-                      <Zap className="h-4 w-4" /> À partir de 9,90€/semaine
+                      <Zap className="h-4 w-4" /> Débloquer maintenant — 4,99€/sem
                     </Button>
                   </motion.div>
                 </Link>
