@@ -29,6 +29,7 @@ const ICONS = [
   <Zap className="h-4 w-4" />,
   <TrendingUp className="h-4 w-4" />,
   <Flame className="h-4 w-4" />,
+  <TrendingUp className="h-4 w-4" />,
 ];
 
 export function SmartNotifications() {
