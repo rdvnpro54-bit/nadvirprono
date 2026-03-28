@@ -110,11 +110,12 @@ function stripPredictions(match: Record<string, unknown>): Record<string, unknow
   return stripped;
 }
 
-function stripAnomalyData(match: Record<string, unknown>): Record<string, unknown> {
+function stripAnomalyDetails(match: Record<string, unknown>): Record<string, unknown> {
   const stripped = { ...match };
-  for (const field of ANOMALY_FIELDS_TO_STRIP) {
+  for (const field of ANOMALY_DETAIL_FIELDS) {
     stripped[field] = null;
   }
+  // Keep anomaly_label visible for ALL users (public badge)
   return stripped;
 }
 
