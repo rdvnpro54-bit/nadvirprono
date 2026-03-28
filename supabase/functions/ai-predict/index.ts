@@ -288,13 +288,21 @@ function generatePRONOSIAAnalysis(
   const sport = match.sport.toLowerCase();
   const isSafe = confidence === "SAFE";
 
-  // For SAFE: determine protected market (double chance)
-  const doubleChanceLabel = predHome >= predAway
-    ? `${match.home_team} ou Nul (1X)`
-    : `Nul ou ${match.away_team} (X2)`;
-  const doubleChanceProb = predHome >= predAway
-    ? predHome + predDraw
-    : predAway + predDraw;
+  // For SAFE: determine protected market based on sport
+  const noDrawSports = ["tennis", "basketball", "nba", "baseball", "mlb", "nfl", "mma"];
+  const isNoDrawSport = noDrawSports.includes(sport);
+  const favTeam = predHome >= predAway ? match.home_team : match.away_team;
+
+  const doubleChanceLabel = isNoDrawSport
+    ? `${favTeam} vainqueur (Pari protégé)`
+    : predHome >= predAway
+      ? `${match.home_team} ou Nul (1X)`
+      : `Nul ou ${match.away_team} (X2)`;
+  const doubleChanceProb = isNoDrawSport
+    ? Math.max(predHome, predAway)
+    : predHome >= predAway
+      ? predHome + predDraw
+      : predAway + predDraw;
 
   // Generate expert-level French analysis based on sport
   const analyses: string[] = [];
