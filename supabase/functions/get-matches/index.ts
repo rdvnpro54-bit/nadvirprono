@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
       const topPickId = pickTopPick(all, freeIds);
 
       if (freeIds.has(matchId) || topPickId === matchId) {
-        return new Response(JSON.stringify({ ...stripScoresOnly(match as Record<string, unknown>), is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
+        return new Response(JSON.stringify({ ...stripAnomalyData(stripScoresOnly(match as Record<string, unknown>)), is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
