@@ -22,7 +22,7 @@ function UrgencyTimer() {
   const s = secs % 60;
   return (
     <motion.div
-      className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/5 px-4 py-2 text-warning text-xs font-semibold"
+      className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-amber-400 text-xs font-semibold"
       animate={{ opacity: [0.7, 1, 0.7] }}
       transition={{ duration: 2, repeat: Infinity }}
     >
@@ -90,7 +90,6 @@ export default function Pricing() {
   const matchCount = matches?.length || 0;
   const eliteCount = matches?.filter(m => (m as any).ai_score >= 80).length || 0;
 
-  // Recent wins for proof section
   const recentWins = useMemo(() => {
     if (!allResults) return [];
     return allResults
@@ -162,6 +161,10 @@ export default function Pricing() {
             Notre IA analyse des centaines de matchs pour ne garder que les plus fiables
           </p>
 
+          <p className="mt-1.5 text-[10px] text-muted-foreground/50">
+            📊 Basé sur des données réelles — aucune promesse irréaliste
+          </p>
+
           <motion.div
             className="mt-4 flex justify-center"
             initial={{ opacity: 0 }}
@@ -222,7 +225,7 @@ export default function Pricing() {
             {[
               { icon: Sparkles, text: "Matchs ELITE à forte probabilité", color: "text-amber-400" },
               { icon: TrendingUp, text: "Analyse avancée du marché & Value Bets", color: "text-primary" },
-              { icon: AlertTriangle, text: "Détection des matchs à risque", color: "text-warning" },
+              { icon: AlertTriangle, text: "Détection des matchs à risque", color: "text-amber-500" },
               { icon: Zap, text: "Accès prioritaire aux meilleurs picks", color: "text-emerald-400" },
               { icon: Eye, text: "Résultats & statistiques IA complets", color: "text-secondary" },
             ].map(({ icon: Icon, text, color }, i) => (
@@ -248,7 +251,10 @@ export default function Pricing() {
           className="mt-6"
         >
           <p className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-            <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Aperçu du contenu Premium
+            <Lock className="h-3.5 w-3.5 text-muted-foreground" /> 🔒 Analyse complète réservée aux membres Premium+
+          </p>
+          <p className="text-[10px] text-muted-foreground/70 mb-3">
+            Accède aux insights avancés, aux signaux de risque et à l'analyse complète de l'IA.
           </p>
           <div className="space-y-2">
             {[
@@ -291,10 +297,10 @@ export default function Pricing() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.45 }}
-            className="mt-6 rounded-xl border border-warning/20 bg-warning/[0.04] p-4"
+            className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4"
           >
-            <p className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-warning">
-              <Flame className="h-3.5 w-3.5" /> Tu as raté ces prédictions gagnantes
+            <p className="text-xs font-semibold mb-2 flex items-center gap-1.5 text-amber-400">
+              <Flame className="h-3.5 w-3.5" /> ❌ Tu as raté ces prédictions gagnantes (réservé Premium+)
             </p>
             <div className="space-y-1.5">
               {recentWins.map((w, i) => (
@@ -305,7 +311,7 @@ export default function Pricing() {
               ))}
             </div>
             <p className="mt-2 text-[10px] text-muted-foreground">
-              Ces matchs étaient réservés aux abonnés Premium
+              Ces matchs étaient réservés aux abonnés Premium+
             </p>
           </motion.div>
         )}
@@ -341,7 +347,92 @@ export default function Pricing() {
           transition={{ delay: 0.5 }}
           className="mt-8 space-y-4"
         >
-          {/* Premium */}
+
+          {/* ===== PREMIUM+ (RECOMMENDED — FIRST & LARGEST) ===== */}
+          <motion.div
+            whileHover={{ y: -6, boxShadow: "0 20px 40px -15px hsl(var(--primary) / 0.25)" }}
+            className="glass-card p-6 relative overflow-hidden"
+            style={{ border: "1px solid hsl(var(--primary) / 0.4)" }}
+          >
+            {/* Glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5 pointer-events-none" />
+            <motion.div
+              className="absolute -top-px left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent"
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+
+            <motion.span
+              className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-0.5 text-[10px] font-bold text-black z-10"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              ⭐ Recommandé
+            </motion.span>
+
+            <div className="relative z-10">
+              <h2 className="font-display text-xl font-bold mt-2">
+                Premium<span className="text-amber-400">+</span>
+              </h2>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Évite les mauvais paris grâce à l'analyse avancée et aux détections de risque.
+              </p>
+
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-display text-3xl font-extrabold">9,99€</span>
+                <span className="text-sm text-muted-foreground">/sem</span>
+                <span className="text-muted-foreground mx-1">ou</span>
+                <span className="font-display text-xl font-extrabold">24,99€</span>
+                <span className="text-sm text-muted-foreground">/mois</span>
+              </div>
+              <p className="text-[10px] text-success font-medium mt-1">💰 Économise 40% avec le mensuel</p>
+
+              <ul className="mt-4 space-y-2 text-xs">
+                {[
+                  { icon: "✅", text: "Tout l'accès Premium inclus" },
+                  { icon: "🎯", text: "Scores prédits par l'IA" },
+                  { icon: "🚨", text: "Détection de matchs suspects" },
+                  { icon: "🚫", text: "Matchs à éviter identifiés" },
+                  { icon: "⚡", text: "Matchs ELITE en priorité absolue" },
+                  { icon: "📊", text: "Analyses ultra-détaillées" },
+                  { icon: "💎", text: "Support VIP prioritaire" },
+                ].map(({ icon, text }) => (
+                  <li key={text} className="flex items-center gap-2">
+                    <span>{icon}</span> {text}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-4 flex gap-2">
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-1 text-xs h-10 border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                    onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusWeekly.priceId, "premiumPlusWeekly")}
+                    disabled={loadingPlan === "premiumPlusWeekly" || (subscription.productId === STRIPE_PLANS.premiumPlusWeekly.productId)}
+                  >
+                    {loadingPlan === "premiumPlusWeekly" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                    {subscription.productId === STRIPE_PLANS.premiumPlusWeekly.productId ? "Actuel" : "Hebdo 9,99€"}
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
+                  <Button
+                    size="sm"
+                    className="w-full gap-1 text-xs h-10 font-semibold bg-amber-500 hover:bg-amber-600 text-black"
+                    onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusMonthly.priceId, "premiumPlusMonthly")}
+                    disabled={loadingPlan === "premiumPlusMonthly" || (subscription.productId === STRIPE_PLANS.premiumPlusMonthly.productId)}
+                  >
+                    {loadingPlan === "premiumPlusMonthly" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    {subscription.productId === STRIPE_PLANS.premiumPlusMonthly.productId ? "Actuel" : "Mensuel 24,99€"}
+                  </Button>
+                </motion.div>
+              </div>
+              <p className="mt-2 text-center text-[10px] text-muted-foreground">Sans engagement • Annulation facile</p>
+            </div>
+          </motion.div>
+
+          {/* ===== PREMIUM ===== */}
           <motion.div
             whileHover={{ y: -4 }}
             className="glass-card p-5 border-primary/20 relative"
@@ -351,13 +442,13 @@ export default function Pricing() {
             </span>
             <h2 className="font-display text-lg font-bold mt-1">Premium</h2>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Pronostics illimitées + analyses détaillées
+              Accès complet aux pronostics IA. Idéal pour consulter les analyses et suivre les meilleurs matchs.
             </p>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold">9,90€</span>
+              <span className="font-display text-3xl font-extrabold">4,99€</span>
               <span className="text-sm text-muted-foreground">/semaine</span>
             </div>
-            <p className="text-[10px] text-muted-foreground">ou 29,90€/mois (économise 40%)</p>
+            <p className="text-[10px] text-muted-foreground">ou 12,99€/mois (économise 35%)</p>
 
             <ul className="mt-4 space-y-2 text-xs">
               {["Prédictions illimitées", "Analyses détaillées", "Value Bets détectés", "12 sports couverts", "Résultats & statistiques IA"].map(f => (
@@ -377,7 +468,7 @@ export default function Pricing() {
                   disabled={loadingPlan === "weekly" || (isPremium && subscription.productId === STRIPE_PLANS.weekly.productId)}
                 >
                   {loadingPlan === "weekly" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  {isPremium && subscription.productId === STRIPE_PLANS.weekly.productId ? "Plan actuel" : "Hebdo 9,90€"}
+                  {isPremium && subscription.productId === STRIPE_PLANS.weekly.productId ? "Plan actuel" : "Hebdo 4,99€"}
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
@@ -388,88 +479,24 @@ export default function Pricing() {
                   disabled={loadingPlan === "monthly" || (isPremium && subscription.productId === STRIPE_PLANS.monthly.productId)}
                 >
                   {loadingPlan === "monthly" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                  {isPremium && subscription.productId === STRIPE_PLANS.monthly.productId ? "Plan actuel" : "Mensuel 29,90€"}
+                  {isPremium && subscription.productId === STRIPE_PLANS.monthly.productId ? "Plan actuel" : "Mensuel 12,99€"}
                 </Button>
               </motion.div>
             </div>
           </motion.div>
 
-          {/* Premium+ */}
-          <motion.div
-            whileHover={{ y: -6, boxShadow: "0 20px 40px -15px hsl(var(--primary) / 0.2)" }}
-            className="glass-card p-5 glow-border relative"
-          >
-            <motion.span
-              className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-bold text-black"
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              ⭐ PREMIUM+
-            </motion.span>
-            <h2 className="font-display text-xl font-bold mt-2">
-              Premium<span className="text-amber-400">+</span>
-            </h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Tout le Premium + Scores prédits + Détection d'anomalies
-            </p>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold">9,90€</span>
-              <span className="text-sm text-muted-foreground">/sem</span>
-              <span className="text-muted-foreground mx-1">ou</span>
-              <span className="font-display text-xl font-extrabold">39,90€</span>
-              <span className="text-sm text-muted-foreground">/mois</span>
-            </div>
-
-            <ul className="mt-4 space-y-2 text-xs">
-              {[
-                { icon: "✅", text: "Tout l'accès Premium inclus" },
-                { icon: "🎯", text: "Scores prédits par l'IA" },
-                { icon: "🚨", text: "Détection de matchs suspects" },
-                { icon: "⚡", text: "Matchs ELITE en priorité absolue" },
-                { icon: "📊", text: "Analyses ultra-détaillées" },
-                { icon: "💎", text: "Support VIP prioritaire" },
-              ].map(({ icon, text }) => (
-                <li key={text} className="flex items-center gap-2">
-                  <span>{icon}</span> {text}
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-4 flex gap-2">
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full gap-1 text-xs h-10 border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
-                  onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusWeekly.priceId, "premiumPlusWeekly")}
-                  disabled={loadingPlan === "premiumPlusWeekly" || (subscription.productId === STRIPE_PLANS.premiumPlusWeekly.productId)}
-                >
-                  {loadingPlan === "premiumPlusWeekly" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  {subscription.productId === STRIPE_PLANS.premiumPlusWeekly.productId ? "Actuel" : "Hebdo 9,90€"}
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex-1">
-                <Button
-                  size="sm"
-                  className="w-full gap-1 text-xs h-10 font-semibold bg-amber-500 hover:bg-amber-600 text-black"
-                  onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusMonthly.priceId, "premiumPlusMonthly")}
-                  disabled={loadingPlan === "premiumPlusMonthly" || (subscription.productId === STRIPE_PLANS.premiumPlusMonthly.productId)}
-                >
-                  {loadingPlan === "premiumPlusMonthly" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                  {subscription.productId === STRIPE_PLANS.premiumPlusMonthly.productId ? "Actuel" : "Mensuel 39,90€"}
-                </Button>
-              </motion.div>
-            </div>
-            <p className="mt-2 text-center text-[10px] text-muted-foreground">Sans engagement • Annulation facile</p>
-          </motion.div>
-
-          {/* Free */}
+          {/* ===== FREE ===== */}
           <motion.div
             whileHover={{ y: -2 }}
             className="glass-card p-4 opacity-70"
           >
             <h2 className="font-display text-sm font-bold">Gratuit</h2>
-            <p className="text-[10px] text-muted-foreground">3 matchs gratuits / jour • Aperçu limité</p>
+            <p className="text-[10px] text-muted-foreground">Découverte • 2 matchs gratuits / jour • Aperçu limité</p>
+            <ul className="mt-2 space-y-1 text-[10px] text-muted-foreground">
+              <li className="flex items-center gap-1.5"><CheckCircle className="h-3 w-3 text-muted-foreground/50" /> 2 pronostics SAFE du jour</li>
+              <li className="flex items-center gap-1.5"><CheckCircle className="h-3 w-3 text-muted-foreground/50" /> Top Pick du jour</li>
+              <li className="flex items-center gap-1.5"><Lock className="h-3 w-3 text-muted-foreground/30" /> Analyses détaillées verrouillées</li>
+            </ul>
             {!user ? (
               <Link to="/login"><Button variant="outline" size="sm" className="mt-3 w-full text-xs">S'inscrire</Button></Link>
             ) : !isPremium ? (
@@ -487,7 +514,7 @@ export default function Pricing() {
             className="mt-8"
           >
             <p className="text-xs font-semibold mb-3 flex items-center gap-1.5">
-              <Trophy className="h-3.5 w-3.5 text-success" /> Derniers résultats vérifiables
+              <Trophy className="h-3.5 w-3.5 text-success" /> 📈 Précision IA (30 derniers jours) : {eliteWinrate}%
             </p>
             <div className="space-y-1.5">
               {recentWins.map((w, i) => (
@@ -534,7 +561,7 @@ export default function Pricing() {
               <Button
                 size="lg"
                 className="w-full h-14 text-base font-bold gap-2 btn-shimmer btn-glow shadow-xl shadow-primary/25"
-                onClick={() => handleCheckout(STRIPE_PLANS.weekly.priceId, "weekly")}
+                onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusWeekly.priceId, "premiumPlusWeekly")}
                 disabled={loadingPlan !== null}
               >
                 {loadingPlan ? (
@@ -542,7 +569,7 @@ export default function Pricing() {
                 ) : (
                   <Zap className="h-5 w-5" />
                 )}
-                Débloquer Premium — 9,90€/sem
+                Débloquer maintenant — 9,99€/sem
               </Button>
             </motion.div>
             <p className="mt-2 text-[10px] text-muted-foreground">
@@ -563,6 +590,7 @@ export default function Pricing() {
             {[
               { q: "Comment fonctionne l'IA ?", a: "Notre moteur analyse 11 dimensions : forme, H2H, xG, blessures, contexte, fatigue, marché, etc." },
               { q: "Taux de réussite ?", a: `${eliteWinrate}% de réussite sur les 20 derniers matchs ELITE, avec confiance calibrée.` },
+              { q: "Quelle différence entre Premium et Premium+ ?", a: "Premium donne accès à toutes les prédictions. Premium+ ajoute les scores prédits, la détection d'anomalies, et les matchs à éviter — l'option pour éviter les mauvais paris." },
               { q: "Annulation possible ?", a: "Oui, sans engagement. Annulez à tout moment depuis votre compte." },
               { q: "Paiement sécurisé ?", a: "Stripe gère tous les paiements. Vos données bancaires ne transitent jamais par nos serveurs." },
             ].map(({ q, a }) => (
@@ -594,11 +622,11 @@ export default function Pricing() {
         >
           <Button
             className="w-full h-12 text-sm font-bold gap-2 btn-shimmer btn-glow shadow-2xl shadow-primary/30"
-            onClick={() => handleCheckout(STRIPE_PLANS.weekly.priceId, "weekly")}
+            onClick={() => handleCheckout(STRIPE_PLANS.premiumPlusWeekly.priceId, "premiumPlusWeekly")}
             disabled={loadingPlan !== null}
           >
             {loadingPlan ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-            Débloquer Premium
+            Débloquer maintenant
           </Button>
         </motion.div>
       )}

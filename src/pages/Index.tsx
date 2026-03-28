@@ -162,12 +162,12 @@ const Index = () => {
           </motion.span>
 
           <motion.h1
-            className="font-display text-3xl sm:text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight"
+            className="font-display text-2xl sm:text-3xl lg:text-5xl font-extrabold leading-[1.1] tracking-tight"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.6 }}
           >
-            Pronostics Sportifs
+            🔥 Les meilleurs pronostics IA,
             <br />
             <motion.span
               className="gradient-text-animated inline-block"
@@ -175,9 +175,27 @@ const Index = () => {
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               transition={{ delay: 0.3, duration: 0.6 }}
             >
-              Propulsés par l'IA
+              filtrés pour l'essentiel
             </motion.span>
           </motion.h1>
+
+          <motion.p
+            className="mt-3 max-w-lg text-xs sm:text-sm text-muted-foreground/80"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            Notre IA analyse des centaines de matchs chaque jour pour identifier les opportunités les plus fiables.
+          </motion.p>
+
+          <motion.p
+            className="mt-1.5 text-[10px] sm:text-xs text-muted-foreground/50 flex items-center gap-1.5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.45 }}
+          >
+            📊 Basé sur des données réelles — aucune promesse irréaliste
+          </motion.p>
 
           {/* ELITE winrate highlight */}
           <motion.div
@@ -615,7 +633,7 @@ const Index = () => {
                 <Link to="/pricing">
                   <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                     <Button className="gap-2 btn-shimmer btn-glow shadow-lg shadow-primary/20 h-11 text-sm font-semibold">
-                      <Zap className="h-4 w-4" /> À partir de 9,90€/semaine
+                      <Zap className="h-4 w-4" /> Débloquer maintenant — 4,99€/sem
                     </Button>
                   </motion.div>
                 </Link>

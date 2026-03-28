@@ -35,34 +35,37 @@ export function useAuth() {
 // Stripe product/price mapping
 export const STRIPE_PLANS = {
   weekly: {
-    priceId: "price_1TEfW8GpVYXx1jPP4nqduS4K",
-    productId: "prod_UD5hQvXfBtn5ZP",
+    priceId: "price_1TFrA8GpVYXx1jPPT53PB4nL",
+    productId: "prod_UEJnPE6H6BG45p",
     label: "Hebdo",
-    price: "9,90€/sem",
+    price: "4,99€/sem",
   },
   monthly: {
-    priceId: "price_1TEfWRGpVYXx1jPP2MZtlapj",
-    productId: "prod_UD5hiOayA1AIxl",
+    priceId: "price_1TFrAsGpVYXx1jPPDUM9x2nk",
+    productId: "prod_UEJoKqDz91r89k",
     label: "Mensuel",
-    price: "29,90€/mois",
+    price: "12,99€/mois",
   },
   premiumPlusWeekly: {
-    priceId: "price_1TFONPGpVYXx1jPPgBirAF7o",
-    productId: "prod_UDq3Yi5NV5UBwi",
+    priceId: "price_1TFrBoGpVYXx1jPPoIzae5vm",
+    productId: "prod_UEJp3TBa1RECPD",
     label: "Premium+ Hebdo",
-    price: "9,90€/sem",
+    price: "9,99€/sem",
   },
   premiumPlusMonthly: {
-    priceId: "price_1TFONgGpVYXx1jPPqdYyj1U8",
-    productId: "prod_UDq3gv6WVIiSIn",
+    priceId: "price_1TFrClGpVYXx1jPPZwOi8qA7",
+    productId: "prod_UEJqF0K4vVqUMF",
     label: "Premium+ Mensuel",
-    price: "39,90€/mois",
+    price: "24,99€/mois",
   },
 } as const;
 
 const PREMIUM_PLUS_PRODUCT_IDS = [
   STRIPE_PLANS.premiumPlusWeekly.productId,
   STRIPE_PLANS.premiumPlusMonthly.productId,
+  // Legacy product IDs for existing subscribers
+  "prod_UDq3Yi5NV5UBwi",
+  "prod_UDq3gv6WVIiSIn",
 ] as const;
 
 const DEFAULT_SUB: SubscriptionState = { subscribed: false, productId: null, subscriptionEnd: null, isAdmin: false };

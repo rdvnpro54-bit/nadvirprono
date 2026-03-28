@@ -23,8 +23,10 @@ const ANOMALY_DETAIL_FIELDS = [
 
 // Premium+ product IDs
 const PREMIUM_PLUS_PRODUCTS = [
-  "prod_UDq3Yi5NV5UBwi", // Premium+ Hebdo
-  "prod_UDq3gv6WVIiSIn", // Premium+ Mensuel
+  "prod_UEJp3TBa1RECPD", // Premium+ Hebdo
+  "prod_UEJqF0K4vVqUMF", // Premium+ Mensuel
+  "prod_UDq3Yi5NV5UBwi", // Legacy Premium+ Hebdo
+  "prod_UDq3gv6WVIiSIn", // Legacy Premium+ Mensuel
 ];
 
 const FINISHED_STATUSES = [
