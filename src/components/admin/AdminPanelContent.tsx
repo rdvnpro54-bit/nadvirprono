@@ -23,6 +23,8 @@ import {
   FileEdit,
   Trophy,
   Ban,
+  Megaphone,
+  Send,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
