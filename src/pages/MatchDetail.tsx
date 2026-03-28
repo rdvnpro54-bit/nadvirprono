@@ -1,13 +1,15 @@
 import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
+import { AiScoreBadge } from "@/components/matches/AiScoreBadge";
+import { AnimatedConfidenceBar } from "@/components/home/AnimatedConfidenceBar";
 import { useMatch } from "@/hooks/useMatches";
-import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield, AlertTriangle, Brain, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGlobalActivity } from "@/components/home/ActivityProvider";
 import { SportField } from "@/components/match-detail/SportField";
@@ -63,6 +65,7 @@ export default function MatchDetail() {
     const finished = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED"].includes(match.status.toUpperCase());
     return !finished && now >= kickoffTime && now <= kickoffTime + maxDuration;
   }, [match]);
+  const isFinished = match ? ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED", "COMPLETED", "ENDED"].includes(match.status.toUpperCase()) : false;
   const isLive = apiLive || smartLive;
 
   const userCount = useMemo(() => {
@@ -89,7 +92,7 @@ export default function MatchDetail() {
     return Math.max(Number(match.pred_home_win), Number(match.pred_away_win), Number(match.pred_draw));
   }, [match]);
 
-  const handleShare = () => {
+  const handleShare = useCallback(() => {
     const url = window.location.href;
     const text = match ? `${match.home_team} vs ${match.away_team} - Pronostic IA sur Pronosia` : "Pronosia";
     if (navigator.share) {
@@ -97,7 +100,7 @@ export default function MatchDetail() {
     } else {
       navigator.clipboard.writeText(url);
     }
-  };
+  }, [match]);
 
   if (isLoading) {
     return (
@@ -292,6 +295,101 @@ export default function MatchDetail() {
             )}
           </div>
         </motion.div>
+
+        {/* ═══════════════════════════════════════════
+            PREDICTION SUMMARY BLOCK
+            ═══════════════════════════════════════════ */}
+        {!isLocked && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="mt-3 rounded-xl border border-primary/15 bg-primary/5 p-3 sm:p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold text-primary">{predictionText}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {match.ai_score > 0 && <AiScoreBadge score={match.ai_score} size="lg" />}
+                <ConfidenceBadge confidence={match.pred_confidence as any} size="lg" />
+              </div>
+            </div>
+
+            <AnimatedConfidenceBar value={confidence} size="md" />
+
+            {/* SAFE market badge */}
+            {match.pred_confidence === "SAFE" && (() => {
+              const sport = (match.sport || "football").toLowerCase();
+              const noDrawSports = ["tennis", "basketball", "nba", "baseball", "nfl", "mma"];
+              const isNoDraw = noDrawSports.includes(sport);
+              const favTeam = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
+              const label = isNoDraw
+                ? `${favTeam} vainqueur`
+                : match.pred_home_win >= match.pred_away_win
+                  ? `${match.home_team} ou Nul`
+                  : `Nul ou ${match.away_team}`;
+              const marketType = isNoDraw ? "Pari protégé" : "Double Chance";
+              return (
+                <div className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span className="text-[10px] sm:text-xs font-semibold text-emerald-400">
+                    {isNoDraw ? "🎯" : "🛡️"} {marketType} • {label}
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Predicted score */}
+            {match.pred_score_home != null && match.pred_score_away != null && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">🎯 Score prédit</span>
+                <span className="font-bold text-foreground">{match.pred_score_home} - {match.pred_score_away}</span>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* ═══════════════════════════════════════════
+            MATCH RESULT (Finished matches)
+            ═══════════════════════════════════════════ */}
+        {isFinished && match.home_score != null && match.away_score != null && !isLocked && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-3 rounded-xl border p-3 text-center space-y-1"
+            style={{
+              borderColor: (() => {
+                const predictedWinner = match.pred_home_win >= match.pred_away_win ? "home" : "away";
+                const actualWinner = match.home_score > match.away_score ? "home" : match.away_score > match.home_score ? "away" : "draw";
+                return predictedWinner === actualWinner ? "hsl(var(--success) / 0.3)" : "hsl(var(--destructive) / 0.3)";
+              })(),
+              backgroundColor: (() => {
+                const predictedWinner = match.pred_home_win >= match.pred_away_win ? "home" : "away";
+                const actualWinner = match.home_score > match.away_score ? "home" : match.away_score > match.home_score ? "away" : "draw";
+                return predictedWinner === actualWinner ? "hsl(var(--success) / 0.05)" : "hsl(var(--destructive) / 0.05)";
+              })()
+            }}
+          >
+            {(() => {
+              const predictedWinner = match.pred_home_win >= match.pred_away_win ? "home" : "away";
+              const actualWinner = match.home_score! > match.away_score! ? "home" : match.away_score! > match.home_score! ? "away" : "draw";
+              const won = predictedWinner === actualWinner;
+              return (
+                <>
+                  <p className={cn("text-sm font-bold", won ? "text-success" : "text-destructive")}>
+                    {won ? "✅ GAGNÉ" : "❌ PERDU"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Score final : {match.home_score} - {match.away_score}
+                    {won ? " • Prédiction IA correcte" : " • Résultat différent de la prédiction"}
+                  </p>
+                </>
+              );
+            })()}
+          </motion.div>
+        )}
 
         {/* ═══════════════════════════════════════════
             LOCKED / TABS CONTENT BELOW STADIUM

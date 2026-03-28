@@ -5,7 +5,7 @@ import { AiScoreBadge } from "./AiScoreBadge";
 import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap, Info, Users, Flame, ShieldCheck, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, memo } from "react";
 import { useGlobalActivity } from "@/components/home/ActivityProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites, useToggleFavorite } from "@/hooks/useFavorites";
@@ -29,44 +29,35 @@ const SPORT_ICONS: Record<string, { icon: LucideIcon; label: string }> = {
 };
 
 const TEAM_ALIASES: Record<string, string> = {
-  "Manchester United": "Man Utd",
-  "Manchester City": "Man City",
-  "Fútbol Club Barcelona": "Barça",
-  "FC Barcelona": "Barça",
-  "Paris Saint-Germain": "PSG",
-  "Borussia Dortmund": "Dortmund",
-  "Atlético Madrid": "Atlético",
-  "Atletico Madrid": "Atlético",
-  "Inter Miami CF": "Inter Miami",
-  "Tottenham Hotspur": "Tottenham",
-  "Wolverhampton Wanderers": "Wolves",
-  "Newcastle United": "Newcastle",
-  "West Ham United": "West Ham",
-  "Real Sociedad": "R. Sociedad",
-  "Bayer Leverkusen": "Leverkusen",
-  "Bayern München": "Bayern",
-  "Bayern Munich": "Bayern",
-  "Los Angeles Lakers": "LA Lakers",
-  "Golden State Warriors": "GS Warriors",
-  "Indiana Pacers": "Pacers",
-  "Philadelphia 76ers": "76ers",
+  "Manchester United": "Man Utd", "Manchester City": "Man City",
+  "Fútbol Club Barcelona": "Barça", "FC Barcelona": "Barça",
+  "Paris Saint-Germain": "PSG", "Borussia Dortmund": "Dortmund",
+  "Atlético Madrid": "Atlético", "Atletico Madrid": "Atlético",
+  "Inter Miami CF": "Inter Miami", "Tottenham Hotspur": "Tottenham",
+  "Wolverhampton Wanderers": "Wolves", "Newcastle United": "Newcastle",
+  "West Ham United": "West Ham", "Real Sociedad": "R. Sociedad",
+  "Bayer Leverkusen": "Leverkusen", "Bayern München": "Bayern", "Bayern Munich": "Bayern",
+  "Los Angeles Lakers": "LA Lakers", "Golden State Warriors": "GS Warriors",
+  "Indiana Pacers": "Pacers", "Philadelphia 76ers": "76ers",
 };
 
 function shortName(name: string): string {
   return TEAM_ALIASES[name] || name;
 }
 
-function TeamLogo({ name, logo }: { name: string; logo: string | null }) {
+const TeamLogo = memo(({ name, logo, size = "sm" }: { name: string; logo: string | null; size?: "sm" | "md" }) => {
   const initials = shortName(name).split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const dim = size === "md" ? "h-10 w-10" : "h-7 w-7";
   if (logo) {
-    return <img src={logo} alt="" className="h-7 w-7 shrink-0 object-contain rounded-full" loading="lazy" />;
+    return <img src={logo} alt="" className={`${dim} shrink-0 object-contain rounded-full`} loading="lazy" />;
   }
   return (
-    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground">
+    <div className={`flex ${dim} shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground`}>
       {initials}
     </div>
   );
-}
+});
+TeamLogo.displayName = "TeamLogo";
 
 function Countdown({ kickoff }: { kickoff: string }) {
   const [now, setNow] = useState(Date.now());
@@ -85,7 +76,7 @@ function Countdown({ kickoff }: { kickoff: string }) {
   );
 }
 
-const UserActivity = React.forwardRef<HTMLSpanElement, { fixtureId: number; sport: string }>(
+const UserActivity = memo(React.forwardRef<HTMLSpanElement, { fixtureId: number; sport: string }>(
   ({ fixtureId, sport }, ref) => {
     const { getMatchCount } = useGlobalActivity();
     const [count, setCount] = useState(() => getMatchCount(fixtureId, sport));
@@ -99,34 +90,40 @@ const UserActivity = React.forwardRef<HTMLSpanElement, { fixtureId: number; spor
     }, [fixtureId, sport, getMatchCount]);
     return (
       <span ref={ref} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-        <span className="relative flex h-2 w-2">
+        <span className="relative flex h-1.5 w-1.5">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/40" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary/60" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary/60" />
         </span>
-        {count} analysent
+        {count}
       </span>
     );
   }
-);
+));
 UserActivity.displayName = "UserActivity";
 
 function getPredictionText(match: CachedMatch): string {
-  // Winner is always based on probabilities
   const winner = match.pred_home_win >= match.pred_away_win ? match.home_team : match.away_team;
-  // If predicted score is a draw, show "Winner ou match nul"
   if (match.pred_score_home != null && match.pred_score_away != null && match.pred_score_home === match.pred_score_away) {
-    return `${shortName(winner)} ou match nul`;
+    return `${shortName(winner)} ou Nul`;
   }
-  return `${shortName(winner)} gagne`;
+  return `${shortName(winner)}`;
 }
 
 function getAiScoreGlow(score: number): string {
-  if (score >= 90) return "ring-2 ring-amber-400/40 shadow-lg shadow-amber-500/20";
-  if (score >= 80) return "ring-1 ring-emerald-400/30 shadow-md shadow-emerald-500/10";
+  if (score >= 90) return "ring-1 ring-amber-400/30 shadow-md shadow-amber-500/10";
+  if (score >= 80) return "ring-1 ring-emerald-400/20 shadow-sm shadow-emerald-500/5";
   return "";
 }
 
-export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
+const SPORT_DURATIONS: Record<string, number> = {
+  football: 120, tennis: 180, basketball: 150, hockey: 150,
+  baseball: 210, nfl: 210, mma: 180, f1: 150, afl: 150, rugby: 120,
+};
+
+const FINISHED_STATUSES = new Set(["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED", "COMPLETED", "ENDED"]);
+const LIVE_STATUSES = new Set(["1H", "2H", "HT", "ET", "LIVE"]);
+
+export const MatchCard = memo(function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
   const { user, isPremiumPlus } = useAuth();
   const { favorites } = useFavorites();
   const toggleFavorite = useToggleFavorite();
@@ -141,34 +138,26 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
   const aiScore = match.ai_score || 0;
   const bothLogos = !!match.home_logo && !!match.away_logo;
 
+  const sportKey = (match.sport || "football").toLowerCase();
+  const sportInfo = SPORT_ICONS[sportKey] || { icon: Trophy, label: sportKey };
+  const SportIcon = sportInfo.icon;
+
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 30_000);
     return () => clearInterval(timer);
   }, []);
 
-  const apiLive = ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
+  const apiLive = LIVE_STATUSES.has(match.status.toUpperCase());
   const kickoffTime = new Date(match.kickoff).getTime();
   const now = Date.now();
-  const sportDurations: Record<string, number> = {
-    football: 120,
-    tennis: 180,
-    basketball: 150,
-    hockey: 150,
-    baseball: 210,
-    nfl: 210,
-    mma: 180,
-    f1: 150,
-    afl: 150,
-    rugby: 120,
-  };
-  const maxDuration = (sportDurations[(match.sport || "football").toLowerCase()] || 120) * 60 * 1000;
-  const isFinished = ["FT", "AET", "PEN", "CANC", "PST", "ABD", "AWD", "WO", "FINISHED", "COMPLETED", "ENDED"].includes(match.status.toUpperCase());
+  const maxDuration = (SPORT_DURATIONS[sportKey] || 120) * 60 * 1000;
+  const isFinished = FINISHED_STATUSES.has(match.status.toUpperCase());
   const timeLive = now >= kickoffTime && now <= kickoffTime + maxDuration && !isFinished;
   const isLive = apiLive || timeLive;
   const confidence = Math.max(Number(match.pred_home_win), Number(match.pred_away_win), Number(match.pred_draw));
 
-  const handleFav = (e: React.MouseEvent) => {
+  const handleFav = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
@@ -176,106 +165,95 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
       return;
     }
     toggleFavorite.mutate({ matchId: match.id, fixtureId: match.fixture_id });
-  };
+  }, [user, match.id, match.fixture_id, toggleFavorite]);
 
-  const handleLockedClick = (e: React.MouseEvent) => {
+  const handleLockedClick = useCallback((e: React.MouseEvent) => {
     if (locked) {
       e.preventDefault();
       toast("🔒 Réservé Premium", { description: "Passe Premium pour accéder à toutes les prédictions IA." });
       setShowPremiumModal(true);
     }
-  };
+  }, [locked]);
+
+  const hasAnomaly = anomalyScore >= 30 || !!anomalyLabel;
+  const isHighAnomaly = anomalyScore >= 60 || (anomalyLabel && anomalyLabel.includes("🚨"));
+
+  // SAFE market badge info
+  const noDrawSports = ["tennis", "basketball", "nba", "baseball", "nfl", "mma"];
+  const isNoDraw = noDrawSports.includes(sportKey);
 
   return (
     <>
       <PremiumModal open={showPremiumModal} onOpenChange={setShowPremiumModal} />
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: (index || 0) * 0.03, duration: 0.25 }}
+        transition={{ delay: index * 0.03, duration: 0.2 }}
+        className="will-change-transform"
       >
         <Link to={locked ? "#" : `/match/${match.id}`} onClick={handleLockedClick} className="block">
           <div className={cn(
-            "glass-card match-card-hover p-3 sm:p-4 group relative overflow-hidden w-full max-w-full active:scale-[0.98] transition-transform duration-200",
-            locked && "opacity-80",
+            "relative overflow-hidden rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm p-3 sm:p-3.5 transition-all duration-200 active:scale-[0.98]",
+            "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5",
+            locked && "opacity-75",
             getAiScoreGlow(aiScore)
           )}>
-            {/* LIVE bar */}
-            {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive live-bar-pulse" />}
+            {/* Live accent bar */}
+            {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive animate-pulse" />}
 
-            {/* === ROW 1: Sport + League + Badges === */}
-            <div className="flex items-center justify-between gap-1.5 mb-2.5 overflow-hidden">
-              <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
-                {(() => {
-                  const sportKey = (match.sport || "football").toLowerCase();
-                  const sportInfo = SPORT_ICONS[sportKey] || { icon: Trophy, label: sportKey };
-                  const SportIcon = sportInfo.icon;
-                  return (
-                    <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-primary shrink-0">
-                      <SportIcon className="h-3 w-3" />
-                      {sportInfo.label}
-                    </span>
-                  );
-                })()}
-                <span className="text-[9px] sm:text-[10px] text-muted-foreground truncate min-w-0">
-                  {match.league_name}
+            {/* === Header: Sport + League + Time + Badges === */}
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary shrink-0">
+                  <SportIcon className="h-2.5 w-2.5" />
+                  {sportInfo.label}
                 </span>
+                <span className="text-[9px] text-muted-foreground truncate">{match.league_name}</span>
               </div>
-              <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                {!locked && <ConfidenceBadge confidence={match.pred_confidence as any} />}
-                {!locked && aiScore > 0 && <AiScoreBadge score={aiScore} />}
-                {match.pred_value_bet && (
-                  <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary badge-pulse shrink-0">
-                    <TrendingUp className="h-2.5 w-2.5" /> Value
+              <div className="flex items-center gap-1 shrink-0">
+                {isLive ? (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-destructive">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive/60" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-destructive" />
+                    </span>
+                    LIVE
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                    <Clock className="h-2.5 w-2.5" /> {time}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* === ROW 2: Teams + Time/Live === */}
-            <div className="flex items-center gap-2 mb-2.5 overflow-hidden">
-              {/* Home team */}
-              <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
+            {/* === Teams Row: Horizontal sportsbook layout === */}
+            <div className="flex items-center gap-2 mb-2">
+              {/* Home */}
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
                 <TeamLogo name={match.home_team} logo={bothLogos ? match.home_logo : null} />
                 <span className={cn(
-                  "text-xs sm:text-[13px] font-semibold truncate min-w-0",
+                  "text-xs font-semibold truncate",
                   !locked && fav === "home" && "text-primary"
                 )}>
                   {shortName(match.home_team)}
                 </span>
               </div>
 
-              {/* Center: Time or LIVE */}
-              <div className="flex flex-col items-center shrink-0 px-1">
-                {isLive ? (
-                  <>
-                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive/60" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
-                      </span>
-                      <span className="text-destructive">LIVE</span>
-                    </span>
-                    {match.home_score != null && match.away_score != null && (
-                      <span className="text-sm font-bold font-display mt-0.5">
-                        {match.home_score} - {match.away_score}
-                      </span>
-                    )}
-                  </>
+              {/* Score / VS */}
+              <div className="shrink-0 flex flex-col items-center px-1">
+                {isLive && match.home_score != null && match.away_score != null ? (
+                  <span className="font-display text-base font-extrabold">{match.home_score} - {match.away_score}</span>
                 ) : (
-                  <>
-                    <span className="flex items-center gap-0.5 text-[10px] sm:text-[11px] text-muted-foreground">
-                      <Clock className="h-3 w-3" /> {time}
-                    </span>
-                    <Countdown kickoff={match.kickoff} />
-                  </>
+                  <span className="text-[10px] font-medium text-muted-foreground/60">VS</span>
                 )}
+                {!isLive && <Countdown kickoff={match.kickoff} />}
               </div>
 
-              {/* Away team */}
-              <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden justify-end">
+              {/* Away */}
+              <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
                 <span className={cn(
-                  "text-xs sm:text-[13px] font-semibold truncate min-w-0 text-right",
+                  "text-xs font-semibold truncate text-right",
                   !locked && fav === "away" && "text-primary"
                 )}>
                   {shortName(match.away_team)}
@@ -284,247 +262,158 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
               </div>
             </div>
 
-            {/* === ROW 3: Social proof (ELITE only) === */}
-            {!locked && aiScore >= 80 && (
-              <div className="flex items-center gap-2 mb-2 text-[9px] sm:text-[10px] text-muted-foreground overflow-hidden">
-                <span className="flex items-center gap-1 truncate">
-                  <Users className="h-2.5 w-2.5 shrink-0" /> {12 + (match.fixture_id % 38)} suivent
-                </span>
-                {aiScore >= 85 && (
-                  <span className="flex items-center gap-0.5 font-semibold text-amber-400 shrink-0">
-                    <Flame className="h-2.5 w-2.5" /> Trending
+            {/* === Badges row === */}
+            {!locked && (
+              <div className="flex items-center gap-1 flex-wrap mb-2">
+                <ConfidenceBadge confidence={match.pred_confidence as any} />
+                {aiScore > 0 && <AiScoreBadge score={aiScore} />}
+                {match.pred_value_bet && (
+                  <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                    <TrendingUp className="h-2.5 w-2.5" /> Value
                   </span>
                 )}
-              </div>
-            )}
-
-            {/* === ROW 4: AI Prediction (unlocked) === */}
-            {!locked && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 sm:p-3 space-y-2">
-                {/* Prediction header */}
-                <div className="flex items-center justify-between gap-1.5 overflow-hidden">
-                  <div className="flex items-center gap-1 min-w-0 flex-1">
-                    <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span className="text-[11px] sm:text-xs font-bold text-primary truncate min-w-0">
-                      🔥 {getPredictionText(match)}
-                    </span>
-                  </div>
+                {hasAnomaly && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="inline-flex shrink-0 cursor-help">
-                          <Info className="h-3 w-3 text-muted-foreground/50" />
+                        <span className={cn(
+                          "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold cursor-help",
+                          isHighAnomaly
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-amber-500/10 text-amber-400"
+                        )}>
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          {isHighAnomaly ? "Suspect" : "Risque"}
+                          {!isPremiumPlus && <Lock className="h-2 w-2 ml-0.5" />}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[220px]">
-                        <p className="text-[10px]">Basé sur 11 facteurs : forme, stats avancées, blessures, H2H, contexte, fatigue, marché...</p>
+                        {isPremiumPlus ? (
+                          <>
+                            <p className="text-[10px] font-medium">{anomalyReason || "Patterns inhabituels détectés"}</p>
+                            <p className="text-[9px] text-muted-foreground mt-1">Score : {anomalyScore}/100</p>
+                          </>
+                        ) : (
+                          <p className="text-[10px]">🔒 Analyse de risque disponible en Premium+</p>
+                        )}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                </div>
-
-                {/* Double Chance / Protected market badge for SAFE predictions */}
-                {match.pred_confidence === "SAFE" && (() => {
-                  const sport = (match.sport || "football").toLowerCase();
-                  const noDrawSports = ["tennis", "basketball", "nba", "baseball", "nfl", "mma"];
-                  const isNoDraw = noDrawSports.includes(sport);
-                  const favTeam = match.pred_home_win >= match.pred_away_win
-                    ? shortName(match.home_team)
-                    : shortName(match.away_team);
-                  const label = isNoDraw
-                    ? `${favTeam} vainqueur`
-                    : match.pred_home_win >= match.pred_away_win
-                      ? `${shortName(match.home_team)} ou Nul`
-                      : `Nul ou ${shortName(match.away_team)}`;
-                  const icon = isNoDraw ? "🎯" : "🛡️";
-                  const marketType = isNoDraw ? "Pari protégé" : "Double Chance";
-                  return (
-                    <div className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1">
-                      <ShieldCheck className="h-3 w-3 text-emerald-400 shrink-0" />
-                      <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-400">
-                        {icon} {marketType} • {label}
-                      </span>
-                    </div>
-                  );
-                })()}
-
-                {/* Anomaly badge — visible to ALL users, details locked for non-Premium+ */}
-                {anomalyScore >= 30 || anomalyLabel ? (() => {
-                  const label = anomalyLabel || (anomalyScore >= 60 ? "🚨 Match suspect" : "⚠️ Risque détecté");
-                  const isHigh = anomalyScore >= 60 || (anomalyLabel && anomalyLabel.includes("🚨"));
-                  const isMedium = !isHigh && (anomalyScore >= 30 || anomalyLabel);
-                  if (!isHigh && !isMedium) return null;
-                  return (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className={cn(
-                              "flex items-center gap-1.5 rounded-md border px-2 py-1 cursor-pointer",
-                              isHigh
-                                ? "bg-destructive/10 border-destructive/30 shadow-[0_0_8px_rgba(239,68,68,0.15)]"
-                                : "bg-amber-500/10 border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.1)]"
-                            )}>
-                            <AlertTriangle className={cn(
-                              "h-3 w-3 shrink-0",
-                              isHigh ? "text-destructive animate-pulse" : "text-amber-400"
-                            )} />
-                            <span className={cn(
-                              "text-[9px] sm:text-[10px] font-semibold",
-                              isHigh ? "text-destructive" : "text-amber-400"
-                            )}>
-                              {label}
-                            </span>
-                            {!isPremiumPlus && (
-                              <Lock className="h-2.5 w-2.5 text-muted-foreground ml-0.5" />
-                            )}
-                          </motion.div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[260px]">
-                          {isPremiumPlus ? (
-                            <>
-                              <p className="text-[10px] font-medium">{anomalyReason || "Patterns inhabituels détectés par l'IA"}</p>
-                              <p className="text-[9px] text-muted-foreground mt-1">Score d'anomalie : {anomalyScore}/100</p>
-                            </>
-                          ) : (
-                            <div className="space-y-1">
-                              <p className="text-[10px]">Ce match présente des patterns inhabituels détectés par l'IA.</p>
-                              <p className="text-[9px] text-amber-400 font-semibold">🔒 Analyse complète disponible en Premium+</p>
-                            </div>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  );
-                })() : null}
-
-                {/* Confidence bar */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] sm:text-[10px] text-muted-foreground whitespace-nowrap shrink-0">💎 Confiance</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-primary prob-bar-shimmer"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${confidence}%` }}
-                      transition={{ duration: 0.8, delay: (index || 0) * 0.1 }}
-                    />
-                  </div>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-foreground shrink-0">{confidence}%</span>
-                </div>
-
-                {/* Predicted score — Premium+ only */}
-                {match.pred_score_home != null && match.pred_score_away != null ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
-                    <span className="text-[11px] sm:text-xs font-bold text-foreground">
-                      {match.pred_score_home} - {match.pred_score_away}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] sm:text-[10px] text-muted-foreground">🎯 Score prédit</span>
-                    <span className="text-[9px] sm:text-[10px] text-amber-400 font-semibold">
-                      🔒 Premium+
-                    </span>
-                  </div>
                 )}
               </div>
             )}
 
-            {/* === ROW 4: Locked prediction === */}
-            {locked && (
-              <div className="rounded-lg border border-primary/15 bg-primary/[0.03] p-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5 text-primary/60" />
-                    <span className="text-xs font-semibold text-foreground">
-                      Prédiction Premium
+            {/* === Prediction block (unlocked) === */}
+            {!locked && (
+              <div className="rounded-lg border border-primary/15 bg-primary/5 p-2 space-y-1.5">
+                {/* Prediction text */}
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Brain className="h-3 w-3 text-primary shrink-0" />
+                    <span className="text-[11px] font-bold text-primary truncate">
+                      {getPredictionText(match)}
                     </span>
                   </div>
-                  <motion.span
-                    className="text-[9px] rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 font-semibold"
-                    animate={{ opacity: [0.6, 1, 0.6] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
+                  <span className="text-[11px] font-bold text-foreground shrink-0">{confidence}%</span>
+                </div>
+
+                {/* Confidence bar */}
+                <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-700",
+                      confidence >= 75 ? "bg-success" : confidence >= 55 ? "bg-primary" : confidence >= 40 ? "bg-amber-400" : "bg-destructive"
+                    )}
+                    style={{ width: `${confidence}%` }}
+                  />
+                </div>
+
+                {/* SAFE market badge */}
+                {match.pred_confidence === "SAFE" && (
+                  <div className="flex items-center gap-1 text-[9px]">
+                    <ShieldCheck className="h-2.5 w-2.5 text-emerald-400" />
+                    <span className="font-semibold text-emerald-400">
+                      {isNoDraw ? "Pari protégé" : "Double Chance"} • {
+                        isNoDraw
+                          ? `${shortName(fav === "home" ? match.home_team : match.away_team)} vainqueur`
+                          : fav === "home"
+                            ? `${shortName(match.home_team)} ou Nul`
+                            : `Nul ou ${shortName(match.away_team)}`
+                      }
+                    </span>
+                  </div>
+                )}
+
+                {/* Predicted score */}
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-muted-foreground">Score prédit</span>
+                  {match.pred_score_home != null && match.pred_score_away != null ? (
+                    <span className="font-bold">{match.pred_score_home} - {match.pred_score_away}</span>
+                  ) : (
+                    <span className="text-amber-400 font-semibold text-[9px]">🔒 Premium+</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* === Locked prediction === */}
+            {locked && (
+              <div className="rounded-lg border border-primary/10 bg-primary/[0.03] p-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Lock className="h-3 w-3 text-primary/60" />
+                    <span className="text-[11px] font-semibold">Prédiction Premium</span>
+                  </div>
+                  <span className="text-[9px] rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 font-semibold animate-pulse">
                     ⚡ Confiance élevée
-                  </motion.span>
+                  </span>
                 </div>
-                <div className="relative">
-                  <div className="flex items-center justify-between blur-[6px] select-none pointer-events-none">
-                    <span className="text-xs font-bold">Équipe gagne</span>
-                    <span className="text-xs font-bold">78%</span>
-                  </div>
-                  <div className="flex items-center justify-between blur-[6px] select-none pointer-events-none mt-1">
-                    <span className="text-[10px]">Score prédit</span>
-                    <span className="text-[10px] font-bold">2 - 1</span>
-                  </div>
+                <div className="blur-[5px] select-none pointer-events-none space-y-1">
+                  <div className="flex justify-between text-xs"><span>Équipe gagne</span><span className="font-bold">78%</span></div>
+                  <div className="flex justify-between text-[10px]"><span>Score prédit</span><span className="font-bold">2 - 1</span></div>
                 </div>
-                <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="flex h-1 overflow-hidden rounded-full bg-muted">
                   <div className="bg-primary/20 animate-pulse" style={{ width: "40%" }} />
                   <div className="bg-muted-foreground/10" style={{ width: "20%" }} />
                   <div className="bg-secondary/20 animate-pulse" style={{ width: "40%" }} />
                 </div>
-                <p className="text-[9px] text-warning font-medium">
-                  🔥 {Math.floor(12 + (match.fixture_id % 30))} utilisateurs ont déjà accédé à cette analyse
-                </p>
                 <div className="flex gap-2">
                   <Link to={`/match/${match.id}`} onClick={e => e.stopPropagation()} className="flex-1">
-                    <Button size="sm" variant="outline" className="w-full gap-1 text-[10px] h-8">
-                      Aperçu
-                    </Button>
+                    <Button size="sm" variant="outline" className="w-full text-[10px] h-7">Aperçu</Button>
                   </Link>
-                  <motion.div whileTap={{ scale: 0.95 }} className="flex-1">
-                    <Button
-                      size="sm"
-                      className="w-full gap-1 text-[10px] h-8 btn-shimmer"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPremiumModal(true); }}
-                    >
-                      <Zap className="h-3 w-3" /> Débloquer
-                    </Button>
-                  </motion.div>
+                  <Button size="sm" className="flex-1 text-[10px] h-7 gap-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPremiumModal(true); }}>
+                    <Zap className="h-3 w-3" /> Débloquer
+                  </Button>
                 </div>
               </div>
             )}
 
-            {/* === ROW 5: Probability bar + Activity === */}
-            {!locked && (
-              <div className="mt-2.5">
-                <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-                  <motion.div className="bg-primary" initial={{ width: 0 }} animate={{ width: `${match.pred_home_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 }} />
-                  <motion.div className="bg-muted-foreground/30" initial={{ width: 0 }} animate={{ width: `${match.pred_draw}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.1 }} />
-                  <motion.div className="bg-secondary" initial={{ width: 0 }} animate={{ width: `${match.pred_away_win}%` }} transition={{ duration: 1, delay: (index || 0) * 0.1 + 0.2 }} />
-                </div>
-                <div className="mt-1 flex items-center justify-between text-[9px] sm:text-[10px] text-muted-foreground">
-                  <span>🏠 {match.pred_home_win}%</span>
+            {/* === Probability bar + favorite + activity === */}
+            <div className="mt-2 flex items-center justify-between gap-2">
+              {!locked && (
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="flex h-1 flex-1 overflow-hidden rounded-full bg-muted/40">
+                    <div className="bg-primary" style={{ width: `${match.pred_home_win}%` }} />
+                    <div className="bg-muted-foreground/20" style={{ width: `${match.pred_draw}%` }} />
+                    <div className="bg-secondary" style={{ width: `${match.pred_away_win}%` }} />
+                  </div>
                   <UserActivity fixtureId={match.fixture_id} sport={match.sport || "football"} />
-                  <span>✈️ {match.pred_away_win}%</span>
                 </div>
-              </div>
-            )}
-
-            {/* === ROW 6: Favorite button === */}
-            <div className="mt-2 flex items-center justify-between">
+              )}
               <button
                 onClick={handleFav}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-medium transition-all active:scale-95 min-h-[32px]",
-                  isFav
-                    ? "bg-warning/15 text-warning"
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all active:scale-95 shrink-0",
+                  isFav ? "bg-warning/15 text-warning" : "bg-muted/40 text-muted-foreground hover:bg-muted/60"
                 )}
               >
-                <Star className={cn("h-3.5 w-3.5", isFav && "fill-warning")} />
+                <Star className={cn("h-3 w-3", isFav && "fill-warning")} />
                 {isFav ? "Suivi" : "Suivre"}
               </button>
-              {!locked && (
-                <ConfidenceBadge confidence={match.pred_confidence as any} />
-              )}
             </div>
           </div>
         </Link>
       </motion.div>
     </>
   );
-}
+});
