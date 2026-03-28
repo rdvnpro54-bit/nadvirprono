@@ -38,6 +38,54 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_learning_stats: {
+        Row: {
+          avg_actual_winrate: number
+          avg_predicted_prob: number
+          calibration_error: number
+          common_loss_pattern: string | null
+          confidence_level: string
+          id: string
+          league_name: string
+          losses: number
+          sport: string
+          total_predictions: number
+          updated_at: string
+          winrate: number
+          wins: number
+        }
+        Insert: {
+          avg_actual_winrate?: number
+          avg_predicted_prob?: number
+          calibration_error?: number
+          common_loss_pattern?: string | null
+          confidence_level: string
+          id?: string
+          league_name?: string
+          losses?: number
+          sport: string
+          total_predictions?: number
+          updated_at?: string
+          winrate?: number
+          wins?: number
+        }
+        Update: {
+          avg_actual_winrate?: number
+          avg_predicted_prob?: number
+          calibration_error?: number
+          common_loss_pattern?: string | null
+          confidence_level?: string
+          id?: string
+          league_name?: string
+          losses?: number
+          sport?: string
+          total_predictions?: number
+          updated_at?: string
+          winrate?: number
+          wins?: number
+        }
+        Relationships: []
+      }
       cache_metadata: {
         Row: {
           id: string
