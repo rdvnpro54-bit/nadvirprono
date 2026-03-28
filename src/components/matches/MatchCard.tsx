@@ -348,6 +348,39 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   );
                 })()}
 
+                {/* Anomaly badge — Premium+ only */}
+                {isPremiumPlus && anomalyScore >= 30 && anomalyLabel && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className={cn(
+                          "flex items-center gap-1.5 rounded-md border px-2 py-1",
+                          anomalyScore >= 80
+                            ? "bg-destructive/10 border-destructive/30"
+                            : anomalyScore >= 60
+                              ? "bg-amber-500/10 border-amber-500/20"
+                              : "bg-muted/50 border-border/30"
+                        )}>
+                          <AlertTriangle className={cn(
+                            "h-3 w-3 shrink-0",
+                            anomalyScore >= 80 ? "text-destructive" : anomalyScore >= 60 ? "text-amber-400" : "text-muted-foreground"
+                          )} />
+                          <span className={cn(
+                            "text-[9px] sm:text-[10px] font-semibold",
+                            anomalyScore >= 80 ? "text-destructive" : anomalyScore >= 60 ? "text-amber-400" : "text-muted-foreground"
+                          )}>
+                            {anomalyLabel}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px]">
+                        <p className="text-[10px]">{anomalyReason}</p>
+                        <p className="text-[9px] text-muted-foreground mt-1">Score d'anomalie : {anomalyScore}/100</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
                 {/* Confidence bar */}
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] sm:text-[10px] text-muted-foreground whitespace-nowrap shrink-0">💎 Confiance</span>
