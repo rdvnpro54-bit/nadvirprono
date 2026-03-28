@@ -6,6 +6,11 @@ import { Navbar } from "@/components/layout/Navbar";
 import { TopMatchesSection } from "@/components/home/TopMatchesSection";
 import { TopPickSection } from "@/components/home/TopPickSection";
 import { GlobalActivityBanner } from "@/components/home/GlobalActivityBanner";
+import { DailyCombo } from "@/components/home/DailyCombo";
+import { MissedMatchBanner } from "@/components/home/MissedMatchBanner";
+import { MatchesToAvoid } from "@/components/home/MatchesToAvoid";
+import { SportRankings } from "@/components/home/SportRankings";
+import { WinStreak } from "@/components/home/WinStreak";
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { useEliteWinrate } from "@/hooks/useResults";
 import { useMatchDiagnostics } from "@/hooks/useMatchLifecycle";
@@ -275,6 +280,26 @@ const Index = () => {
       {/* TOP PICK DU JOUR */}
       <TopPickSection matches={matches} />
 
+      {/* Missed match conversion banner */}
+      <div className="container px-3 sm:px-4 py-3">
+        <MissedMatchBanner />
+      </div>
+
+      {/* Win Streak badge */}
+      <div className="flex justify-center py-2">
+        <WinStreak />
+      </div>
+
+      {/* Combiné IA du jour */}
+      <ScrollSection>
+        <DailyCombo matches={matches} />
+      </ScrollSection>
+
+      {/* Matchs à éviter (Premium+) */}
+      <ScrollSection>
+        <MatchesToAvoid matches={matches} />
+      </ScrollSection>
+
       {/* Premium Teaser — Locked predictions preview */}
       <ScrollSection>
         <section className="border-t border-border/20 py-10 sm:py-14">
@@ -536,6 +561,11 @@ const Index = () => {
             </div>
           </div>
         </section>
+      </ScrollSection>
+
+      {/* Sport Rankings */}
+      <ScrollSection>
+        <SportRankings />
       </ScrollSection>
 
       {/* CTA Premium */}

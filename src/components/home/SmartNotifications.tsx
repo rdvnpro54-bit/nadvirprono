@@ -15,13 +15,15 @@ interface Notification {
 
 const NOTIFICATION_TEMPLATES = [
   (home: string, away: string, conf: number, time: string) =>
-    `🔥 Prédiction SAFE — ${home} vs ${away} • Confiance ${conf}% • Coup d'envoi ${time}`,
+    `🔥 Nouveau match ELITE — ${home} vs ${away} • Confiance ${conf}% • ${time}`,
   (home: string, away: string, conf: number, time: string) =>
     `⚡ Alerte PRONOSIA — ${home} vs ${away} détecté à ${conf}% de confiance • ${time}`,
   (home: string, away: string, conf: number, time: string) =>
-    `💎 Opportunité identifiée — ${home} vs ${away} • Signal fort (${conf}%) • ${time}`,
+    `⏰ Match bientôt — ${home} vs ${away} • Signal fort (${conf}%) • Coup d'envoi ${time}`,
   (home: string, away: string, conf: number, time: string) =>
-    `🎯 Match analysé — ${home} vs ${away} • Indice de confiance: ${conf}% • Début ${time}`,
+    `🚨 Match suspect détecté — ${home} vs ${away} • Vérifiez l'analyse IA • ${time}`,
+  (home: string, away: string, conf: number, time: string) =>
+    `🎯 Prédiction SAFE — ${home} vs ${away} • Indice: ${conf}% • Début ${time}`,
 ];
 
 const ICONS = [
@@ -29,6 +31,7 @@ const ICONS = [
   <Zap className="h-4 w-4" />,
   <TrendingUp className="h-4 w-4" />,
   <Flame className="h-4 w-4" />,
+  <TrendingUp className="h-4 w-4" />,
 ];
 
 export function SmartNotifications() {
