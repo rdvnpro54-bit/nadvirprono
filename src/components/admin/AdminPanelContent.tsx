@@ -260,6 +260,26 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   };
 
+  const handleSendPromo = async () => {
+    setPromoSending(true);
+    try {
+      await supabase.channel("admin-promo-broadcast").send({
+        type: "broadcast",
+        event: "promo-push",
+        payload: {
+          message: promoMessage,
+          discount: promoDiscount,
+          duration_minutes: promoDuration,
+        },
+      });
+      toast.success(`🎉 Promo -${promoDiscount}% envoyée à tous les utilisateurs en ligne !`);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur envoi promo");
+    } finally {
+      setPromoSending(false);
+    }
+  };
+
   const filteredUsers = users.filter((u) => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
