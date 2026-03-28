@@ -43,7 +43,7 @@ function extractKeyFactors(analysis: string | null, homeTeam: string, awayTeam: 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: match, isLoading, error, refetch } = useMatch(id || "");
-  const { isPremium } = useAuth();
+  const { isPremium, isPremiumPlus } = useAuth();
   const { getMatchCount } = useGlobalActivity();
 
   const isLocked = match?.pred_confidence === "LOCKED" || (!isPremium && match?.pred_home_win === null);
