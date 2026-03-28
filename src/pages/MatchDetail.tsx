@@ -1,13 +1,15 @@
 import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
+import { AiScoreBadge } from "@/components/matches/AiScoreBadge";
+import { AnimatedConfidenceBar } from "@/components/home/AnimatedConfidenceBar";
 import { useMatch } from "@/hooks/useMatches";
-import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield, AlertTriangle, Brain, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGlobalActivity } from "@/components/home/ActivityProvider";
 import { SportField } from "@/components/match-detail/SportField";
