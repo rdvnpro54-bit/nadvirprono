@@ -11,6 +11,7 @@ import { usePresenceTracker } from "@/hooks/usePresenceTracker";
 import { SplashScreen } from "@/components/SplashScreen";
 import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
 import { VideoBackground } from "@/components/VideoBackground";
+import { PromoListener } from "@/components/home/PromoListener";
 import { useState, useCallback } from "react";
 
 
@@ -84,6 +85,7 @@ const App = () => {
                   <AnimatedRoutes />
                   <SmartNotifications />
                   <IOSInstallPrompt />
+                  <PromoListener />
                 </ActivityProvider>
               </AuthProvider>
             </BrowserRouter>

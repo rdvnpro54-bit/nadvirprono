@@ -291,8 +291,7 @@ export default function Pricing() {
                 <span className="font-display text-3xl font-extrabold">{premiumPrice}</span>
                 <span className="text-sm text-muted-foreground">{premiumPeriod}</span>
               </div>
-              {premiumMonthly && <p className="text-[10px] text-emerald-400 font-medium mt-0.5">💰 Économise 35%</p>}
-              {showOffer && <p className="text-[10px] text-emerald-400 font-bold mt-0.5">🎉 -10% appliqué à l'achat</p>}
+              {premiumMonthly && <p className="text-[10px] text-emerald-400 font-medium mt-0.5">💰 Économise ~35% vs hebdo</p>}
               <ul className="mt-5 space-y-2.5 text-xs flex-1">
                 {["Prédictions illimitées", "Analyses détaillées", "Value Bets détectés", "12 sports couverts", "Résultats & stats IA"].map(f => (
                   <li key={f} className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" /> {f}</li>
@@ -327,8 +326,7 @@ export default function Pricing() {
                   <span className="font-display text-3xl font-extrabold">{plusPrice}</span>
                   <span className="text-sm text-muted-foreground">{plusPeriod}</span>
                 </div>
-                {plusMonthly && <p className="text-[10px] text-emerald-400 font-medium mt-0.5">💰 Économise 40%</p>}
-                {showOffer && <p className="text-[10px] text-emerald-400 font-bold mt-0.5">🎉 -10% appliqué à l'achat</p>}
+                {plusMonthly && <p className="text-[10px] text-emerald-400 font-medium mt-0.5">💰 Économise ~37% vs hebdo</p>}
 
                 <ul className="mt-5 space-y-2.5 text-xs flex-1">
                   {[

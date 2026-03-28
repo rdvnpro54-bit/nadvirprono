@@ -23,6 +23,8 @@ import {
   FileEdit,
   Trophy,
   Ban,
+  Megaphone,
+  Send,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -91,6 +93,10 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [matchResults, setMatchResults] = useState<MatchResultEntry[]>([]);
   const [loadingResults, setLoadingResults] = useState(false);
   const [resultSearch, setResultSearch] = useState("");
+  const [promoMessage, setPromoMessage] = useState("Profite de -10% sur tous nos abonnements Premium et Premium+ ! Offre limitée 🔥");
+  const [promoDiscount, setPromoDiscount] = useState(10);
+  const [promoDuration, setPromoDuration] = useState(5);
+  const [promoSending, setPromoSending] = useState(false);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -254,6 +260,26 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   };
 
+  const handleSendPromo = async () => {
+    setPromoSending(true);
+    try {
+      await supabase.channel("admin-promo-broadcast").send({
+        type: "broadcast",
+        event: "promo-push",
+        payload: {
+          message: promoMessage,
+          discount: promoDiscount,
+          duration_minutes: promoDuration,
+        },
+      });
+      toast.success(`🎉 Promo -${promoDiscount}% envoyée à tous les utilisateurs en ligne !`);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur envoi promo");
+    } finally {
+      setPromoSending(false);
+    }
+  };
+
   const filteredUsers = users.filter((u) => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
@@ -267,12 +293,13 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       </motion.div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full max-w-2xl grid-cols-6">
+        <TabsList className="grid w-full max-w-2xl grid-cols-7">
           <TabsTrigger value="dashboard" className="gap-1 text-[10px] sm:text-xs"><BarChart3 className="h-3 w-3" /> Stats</TabsTrigger>
           <TabsTrigger value="live" className="gap-1 text-[10px] sm:text-xs"><Radio className="h-3 w-3" /> Live</TabsTrigger>
           <TabsTrigger value="users" className="gap-1 text-[10px] sm:text-xs"><Users className="h-3 w-3" /> Users</TabsTrigger>
           <TabsTrigger value="results" className="gap-1 text-[10px] sm:text-xs"><FileEdit className="h-3 w-3" /> Résultats</TabsTrigger>
           <TabsTrigger value="premium" className="gap-1 text-[10px] sm:text-xs"><Crown className="h-3 w-3" /> Premium</TabsTrigger>
+          <TabsTrigger value="promo" className="gap-1 text-[10px] sm:text-xs"><Megaphone className="h-3 w-3" /> Promo</TabsTrigger>
           <TabsTrigger value="logs" className="gap-1 text-[10px] sm:text-xs"><Activity className="h-3 w-3" /> Logs</TabsTrigger>
         </TabsList>
 
@@ -561,6 +588,47 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               )}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="promo">
+          <Card className="max-w-lg p-6">
+            <h3 className="mb-4 flex items-center gap-2 font-display font-semibold">
+              <Megaphone className="h-5 w-5 text-primary" /> Notification Promo Push
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Envoie une notification promo en temps réel à <span className="font-bold text-foreground">tous les utilisateurs actuellement connectés</span> sur le site.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Message de la promo</label>
+                <Input value={promoMessage} onChange={(e) => setPromoMessage(e.target.value)} placeholder="Message promo..." />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Réduction (%)</label>
+                  <Input type="number" min={1} max={50} value={promoDiscount} onChange={(e) => setPromoDiscount(Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Durée (minutes)</label>
+                  <Input type="number" min={1} max={60} value={promoDuration} onChange={(e) => setPromoDuration(Number(e.target.value))} />
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-muted/30 p-3 text-[11px] text-muted-foreground">
+                <p>📢 Aperçu : <span className="font-semibold text-foreground">-{promoDiscount}%</span> pendant <span className="font-semibold text-foreground">{promoDuration} min</span></p>
+                <p className="mt-1 italic">"{promoMessage}"</p>
+              </div>
+
+              <Button onClick={handleSendPromo} disabled={promoSending || !promoMessage.trim()} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                {promoSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Envoyer à tous les utilisateurs
+              </Button>
+
+              <p className="text-[10px] text-muted-foreground/60 text-center">
+                ⚡ La notification apparaîtra en haut de l'écran de tous les utilisateurs connectés
+              </p>
+            </div>
+          </Card>
         </TabsContent>
 
         <TabsContent value="logs">
