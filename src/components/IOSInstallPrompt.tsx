@@ -115,27 +115,31 @@ export function IOSInstallPrompt() {
   );
 }
 
-function Step({ number, icon, label, highlight }: { number: number; icon: React.ReactNode; label: string; highlight?: boolean }) {
-  return (
-    <div className={`flex flex-col items-center gap-1 ${highlight ? "text-primary" : "text-muted-foreground"}`}>
-      <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${
-        highlight
-          ? "bg-primary/20 border border-primary/40 text-primary ring-2 ring-primary/20"
-          : "bg-muted/50 border border-border/50"
-      }`}>
-        {icon}
+const Step = React.forwardRef<HTMLDivElement, { number: number; icon: React.ReactNode; label: string; highlight?: boolean }>(
+  ({ number, icon, label, highlight }, ref) => {
+    return (
+      <div ref={ref} className={`flex flex-col items-center gap-1 ${highlight ? "text-primary" : "text-muted-foreground"}`}>
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${
+          highlight
+            ? "bg-primary/20 border border-primary/40 text-primary ring-2 ring-primary/20"
+            : "bg-muted/50 border border-border/50"
+        }`}>
+          {icon}
+        </div>
+        <span className="text-[10px] font-medium">{label}</span>
       </div>
-      <span className="text-[10px] font-medium">{label}</span>
-    </div>
-  );
-}
+    );
+  }
+);
+Step.displayName = "Step";
 
-function ChevronArrow() {
+const ChevronArrow = React.forwardRef<HTMLDivElement>((_, ref) => {
   return (
-    <div className="text-muted-foreground/40 mt-[-10px]">
+    <div ref={ref} className="text-muted-foreground/40 mt-[-10px]">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
         <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   );
-}
+});
+ChevronArrow.displayName = "ChevronArrow";
