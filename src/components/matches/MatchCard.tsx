@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { type CachedMatch } from "@/hooks/useMatches";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { AiScoreBadge } from "./AiScoreBadge";
-import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap, Info, Users, Flame, ShieldCheck } from "lucide-react";
+import { Lock, TrendingUp, Clock, Star, Dribbble, Swords, Car, Trophy, Dumbbell, CircleDot, type LucideIcon, Brain, Zap, Info, Users, Flame, ShieldCheck, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import React, { useState, useEffect } from "react";
@@ -127,10 +127,13 @@ function getAiScoreGlow(score: number): string {
 }
 
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
-  const { user } = useAuth();
+  const { user, isPremiumPlus } = useAuth();
   const { favorites } = useFavorites();
   const toggleFavorite = useToggleFavorite();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const anomalyScore = (match as any).anomaly_score || 0;
+  const anomalyLabel = (match as any).anomaly_label as string | null;
+  const anomalyReason = (match as any).anomaly_reason as string | null;
 
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -344,6 +347,39 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                     </div>
                   );
                 })()}
+
+                {/* Anomaly badge — Premium+ only */}
+                {isPremiumPlus && anomalyScore >= 30 && anomalyLabel && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className={cn(
+                          "flex items-center gap-1.5 rounded-md border px-2 py-1",
+                          anomalyScore >= 80
+                            ? "bg-destructive/10 border-destructive/30"
+                            : anomalyScore >= 60
+                              ? "bg-amber-500/10 border-amber-500/20"
+                              : "bg-muted/50 border-border/30"
+                        )}>
+                          <AlertTriangle className={cn(
+                            "h-3 w-3 shrink-0",
+                            anomalyScore >= 80 ? "text-destructive" : anomalyScore >= 60 ? "text-amber-400" : "text-muted-foreground"
+                          )} />
+                          <span className={cn(
+                            "text-[9px] sm:text-[10px] font-semibold",
+                            anomalyScore >= 80 ? "text-destructive" : anomalyScore >= 60 ? "text-amber-400" : "text-muted-foreground"
+                          )}>
+                            {anomalyLabel}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px]">
+                        <p className="text-[10px]">{anomalyReason}</p>
+                        <p className="text-[9px] text-muted-foreground mt-1">Score d'anomalie : {anomalyScore}/100</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
 
                 {/* Confidence bar */}
                 <div className="flex items-center gap-2">

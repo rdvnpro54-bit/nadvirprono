@@ -58,6 +58,9 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     fetched_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     ai_score: 78,
+    anomaly_score: 0,
+    anomaly_label: null,
+    anomaly_reason: null,
     is_top_pick: false,
   },
   {
@@ -89,6 +92,9 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     fetched_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     ai_score: 91,
+    anomaly_score: 0,
+    anomaly_label: null,
+    anomaly_reason: null,
     is_top_pick: false,
   },
   {
@@ -120,6 +126,9 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     fetched_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     ai_score: 74,
+    anomaly_score: 0,
+    anomaly_label: null,
+    anomaly_reason: null,
     is_top_pick: false,
   },
 ];

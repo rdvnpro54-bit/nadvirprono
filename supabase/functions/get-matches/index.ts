@@ -16,6 +16,10 @@ const SCORE_FIELDS_TO_STRIP = [
   "pred_score_home", "pred_score_away",
 ] as const;
 
+const ANOMALY_FIELDS_TO_STRIP = [
+  "anomaly_score", "anomaly_label", "anomaly_reason",
+] as const;
+
 // Premium+ product IDs
 const PREMIUM_PLUS_PRODUCTS = [
   "prod_UDq3Yi5NV5UBwi", // Premium+ Hebdo
@@ -100,7 +104,16 @@ function stripPredictions(match: Record<string, unknown>): Record<string, unknow
   const stripped = { ...match };
   for (const field of PRED_FIELDS_TO_STRIP) stripped[field] = null;
   for (const field of SCORE_FIELDS_TO_STRIP) stripped[field] = null;
+  for (const field of ANOMALY_FIELDS_TO_STRIP) stripped[field] = null;
   stripped.pred_confidence = "LOCKED";
+  return stripped;
+}
+
+function stripAnomalyData(match: Record<string, unknown>): Record<string, unknown> {
+  const stripped = { ...match };
+  for (const field of ANOMALY_FIELDS_TO_STRIP) {
+    stripped[field] = null;
+  }
   return stripped;
 }
 
@@ -280,7 +293,8 @@ Deno.serve(async (req) => {
       }
 
       if (isPremium) {
-        const matchData = isPremiumPlus ? match : stripScoresOnly(match as Record<string, unknown>);
+        let matchData = isPremiumPlus ? match : stripScoresOnly(match as Record<string, unknown>);
+        if (!isPremiumPlus) matchData = stripAnomalyData(matchData as Record<string, unknown>);
         return new Response(JSON.stringify({ ...matchData, is_top_pick: false }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -296,7 +310,7 @@ Deno.serve(async (req) => {
       const topPickId = pickTopPick(all, freeIds);
 
       if (freeIds.has(matchId) || topPickId === matchId) {
-        return new Response(JSON.stringify({ ...stripScoresOnly(match as Record<string, unknown>), is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
+        return new Response(JSON.stringify({ ...stripAnomalyData(stripScoresOnly(match as Record<string, unknown>)), is_free: freeIds.has(matchId), is_top_pick: topPickId === matchId }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -340,9 +354,11 @@ Deno.serve(async (req) => {
     console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
 
     if (isPremium) {
-      // Premium but not Premium+: strip predicted scores
+      // Premium but not Premium+: strip predicted scores AND anomaly data
       const mapFn = (m: Record<string, unknown>) => {
-        const base = isPremiumPlus ? m : stripScoresOnly(m);
+        let base = isPremiumPlus ? m : stripScoresOnly(m);
+        // Strip anomaly data for non-Premium+ users
+        if (!isPremiumPlus) base = stripAnomalyData(base);
         return {
           ...base,
           is_free: freeIds.has(String(m.id)),
@@ -354,14 +370,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Non-premium: show predictions only for free + top pick, always strip scores
+    // Non-premium: show predictions only for free + top pick, always strip scores + anomaly
     const result = allMatches.map(m => {
       const id = String(m.id);
       const isFree = freeIds.has(id);
       const isTopPick = topPickId === id;
 
       if (isFree || isTopPick) {
-        return { ...stripScoresOnly(m), is_free: isFree, is_top_pick: isTopPick };
+        return { ...stripAnomalyData(stripScoresOnly(m)), is_free: isFree, is_top_pick: isTopPick };
       }
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });

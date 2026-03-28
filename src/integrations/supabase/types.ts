@@ -110,6 +110,9 @@ export type Database = {
       cached_matches: {
         Row: {
           ai_score: number
+          anomaly_label: string | null
+          anomaly_reason: string | null
+          anomaly_score: number
           away_logo: string | null
           away_score: number | null
           away_team: string
@@ -140,6 +143,9 @@ export type Database = {
         }
         Insert: {
           ai_score?: number
+          anomaly_label?: string | null
+          anomaly_reason?: string | null
+          anomaly_score?: number
           away_logo?: string | null
           away_score?: number | null
           away_team: string
@@ -170,6 +176,9 @@ export type Database = {
         }
         Update: {
           ai_score?: number
+          anomaly_label?: string | null
+          anomaly_reason?: string | null
+          anomaly_score?: number
           away_logo?: string | null
           away_score?: number | null
           away_team?: string
