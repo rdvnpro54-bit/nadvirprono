@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useState, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminPanelContent } from "@/components/admin/AdminPanelContent";
+import { BettorProfileCard } from "@/components/profile/BettorProfileCard";
 
 interface DashboardStats {
   totalUsers: number;
@@ -202,6 +203,11 @@ export default function Compte() {
                 <AdminPanelContent embedded />
               </motion.div>
             )}
+
+            {/* Bettor Profile */}
+            <motion.div variants={staggerItem} className="mt-3">
+              <BettorProfileCard />
+            </motion.div>
 
             {/* Subscription */}
             <motion.div variants={staggerItem} className="mt-3 glass-card p-5" whileHover={{ y: -2 }}>
