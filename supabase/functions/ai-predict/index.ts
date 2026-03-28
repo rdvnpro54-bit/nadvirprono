@@ -105,8 +105,9 @@ ABSOLUTE RULES:
 - Maximum probability cap: 85%
 - RISQUÉ picks MUST have max probability <38%
 - Write analysis in French, 3-5 sentences, expert-level
-- For SAFE: analysis MUST mention the protected market (double chance)
-- For draw=0 sports (tennis, basketball): set pred_draw to 0
+- For SAFE: analysis MUST mention the protected market (double chance for football, "pari protégé" for no-draw sports)
+- For draw=0 sports (tennis, basketball, nba, nfl, mma): set pred_draw to 0, use "Pari protégé • [Team] vainqueur" NOT "Double Chance ou Nul"
+- SCORE CONSISTENCY: predicted score MUST match predicted winner. If home_win > away_win, score must show home winning. Validate BEFORE output.
 - Never invent data — reduce confidence when information is limited
 - Once a prediction is made, it is FINAL — no revisions
 - Prioritize consistency over hype, reduce losses, not just chase wins`;
@@ -288,13 +289,21 @@ function generatePRONOSIAAnalysis(
   const sport = match.sport.toLowerCase();
   const isSafe = confidence === "SAFE";
 
-  // For SAFE: determine protected market (double chance)
-  const doubleChanceLabel = predHome >= predAway
-    ? `${match.home_team} ou Nul (1X)`
-    : `Nul ou ${match.away_team} (X2)`;
-  const doubleChanceProb = predHome >= predAway
-    ? predHome + predDraw
-    : predAway + predDraw;
+  // For SAFE: determine protected market based on sport
+  const noDrawSports = ["tennis", "basketball", "nba", "baseball", "mlb", "nfl", "mma"];
+  const isNoDrawSport = noDrawSports.includes(sport);
+  const favTeam = predHome >= predAway ? match.home_team : match.away_team;
+
+  const doubleChanceLabel = isNoDrawSport
+    ? `${favTeam} vainqueur (Pari protégé)`
+    : predHome >= predAway
+      ? `${match.home_team} ou Nul (1X)`
+      : `Nul ou ${match.away_team} (X2)`;
+  const doubleChanceProb = isNoDrawSport
+    ? Math.max(predHome, predAway)
+    : predHome >= predAway
+      ? predHome + predDraw
+      : predAway + predDraw;
 
   // Generate expert-level French analysis based on sport
   const analyses: string[] = [];
