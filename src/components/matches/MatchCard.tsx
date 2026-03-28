@@ -127,10 +127,13 @@ function getAiScoreGlow(score: number): string {
 }
 
 export function MatchCard({ match, locked = false, index = 0 }: { match: CachedMatch; locked?: boolean; index?: number }) {
-  const { user } = useAuth();
+  const { user, isPremiumPlus } = useAuth();
   const { favorites } = useFavorites();
   const toggleFavorite = useToggleFavorite();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const anomalyScore = (match as any).anomaly_score || 0;
+  const anomalyLabel = (match as any).anomaly_label as string | null;
+  const anomalyReason = (match as any).anomaly_reason as string | null;
 
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
