@@ -282,9 +282,9 @@ export default function Pricing() {
             </div>
 
             {/* PREMIUM */}
-            <div className="glass-card p-5 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink relative border-primary/20">
-              <span className="absolute -top-2 left-4 rounded-full bg-primary px-2.5 py-[3px] text-[9px] font-bold text-primary-foreground z-10 leading-none">🔥 Populaire</span>
-              <h2 className="font-display text-lg font-bold mt-2">Premium</h2>
+            <div className="glass-card p-5 pt-4 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink relative border-primary/20">
+              <span className="mb-2 self-start rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2.5 py-[3px] text-[9px] font-bold text-black leading-none shadow-sm shadow-amber-500/20">🔥 Populaire</span>
+              <h2 className="font-display text-lg font-bold">Premium</h2>
               <p className="text-[11px] text-muted-foreground mt-1">Accès complet aux pronostics IA</p>
               <div className="mt-4"><DurationToggle isMonthly={premiumMonthly} onChange={setPremiumMonthly} /></div>
               <div className="mt-3 flex items-baseline gap-1 transition-opacity duration-200">
