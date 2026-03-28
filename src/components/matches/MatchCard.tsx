@@ -283,7 +283,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                             : "bg-amber-500/10 text-amber-400"
                         )}>
                           <AlertTriangle className="h-2.5 w-2.5" />
-                          {isHighAnomaly ? "Suspect" : "Risque"}
+                          {isHighAnomaly ? "🚨 Suspect" : "⚠️ Risque"}
                           {!isPremiumPlus && <Lock className="h-2 w-2 ml-0.5" />}
                         </span>
                       </TooltipTrigger>
@@ -294,7 +294,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                             <p className="text-[9px] text-muted-foreground mt-1">Score : {anomalyScore}/100</p>
                           </>
                         ) : (
-                          <p className="text-[10px]">🔒 Analyse de risque disponible en Premium+</p>
+                          <p className="text-[10px]">🔒 Analyse détaillée disponible uniquement en Premium+</p>
                         )}
                       </TooltipContent>
                     </Tooltip>

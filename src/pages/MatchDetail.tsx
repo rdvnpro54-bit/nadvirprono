@@ -443,7 +443,7 @@ export default function MatchDetail() {
                         ? "text-destructive animate-pulse"
                         : "text-amber-400"
                     )} />
-                    <h3 className="font-display text-sm font-bold">🧠 Analyse de Risque IA</h3>
+                    <h3 className="font-display text-sm font-bold">🚨 Match suspect détecté par l'IA</h3>
                   </div>
 
                   {/* Badge */}
@@ -459,7 +459,7 @@ export default function MatchDetail() {
 
                   {/* Public message */}
                   <p className="text-xs text-muted-foreground">
-                    Ce match présente des patterns inhabituels détectés par notre IA.
+                    Ce match présente des signaux anormaux détectés par notre IA (instabilité, incohérences, risque élevé).
                   </p>
 
                   {isPremiumPlus ? (
@@ -496,8 +496,8 @@ export default function MatchDetail() {
                       <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/15 p-3">
                         <Lock className="h-4 w-4 text-primary shrink-0" />
                         <div className="flex-1">
-                          <p className="text-[10px] font-semibold text-foreground">Analyse complète verrouillée</p>
-                          <p className="text-[9px] text-muted-foreground">Score d'anomalie, type de risque et impact sur la prédiction</p>
+                          <p className="text-[10px] font-semibold text-foreground">🔒 Réservé aux membres Premium+</p>
+                          <p className="text-[9px] text-muted-foreground">Accède aux analyses avancées et évite les matchs à risque</p>
                         </div>
                         <Link to="/pricing">
                           <Button size="sm" className="h-7 text-[10px] gap-1 btn-shimmer">
