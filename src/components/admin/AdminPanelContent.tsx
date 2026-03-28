@@ -92,7 +92,10 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
   const [matchResults, setMatchResults] = useState<MatchResultEntry[]>([]);
   const [loadingResults, setLoadingResults] = useState(false);
-  const [resultSearch, setResultSearch] = useState("");
+  const [promoMessage, setPromoMessage] = useState("Profite de -10% sur tous nos abonnements Premium et Premium+ ! Offre limitée 🔥");
+  const [promoDiscount, setPromoDiscount] = useState(10);
+  const [promoDuration, setPromoDuration] = useState(5);
+  const [promoSending, setPromoSending] = useState(false);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
