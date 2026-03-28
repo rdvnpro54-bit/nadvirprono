@@ -284,8 +284,8 @@ function generatePRONOSIAPrediction(
   anomalyFactors.push(leagueLen < 8 ? 25 : leagueLen < 15 ? 10 : 0);
 
   // Factor 2: Extreme probability imbalance (too one-sided = potential trap)
-  const maxP = Math.max(predHome, predAway);
-  anomalyFactors.push(maxP > 78 ? 20 : maxP > 70 ? 10 : 0);
+  const anomalyMaxP = Math.max(predHome, predAway);
+  anomalyFactors.push(anomalyMaxP > 78 ? 20 : anomalyMaxP > 70 ? 10 : 0);
 
   // Factor 3: Data quality concerns
   anomalyFactors.push(dataQuality < 0.4 ? 30 : dataQuality < 0.55 ? 15 : 0);
