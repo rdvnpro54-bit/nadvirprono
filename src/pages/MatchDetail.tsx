@@ -91,7 +91,7 @@ export default function MatchDetail() {
     return Math.max(Number(match.pred_home_win), Number(match.pred_away_win), Number(match.pred_draw));
   }, [match]);
 
-  const handleShare = () => {
+  const handleShare = useCallback(() => {
     const url = window.location.href;
     const text = match ? `${match.home_team} vs ${match.away_team} - Pronostic IA sur Pronosia` : "Pronosia";
     if (navigator.share) {
@@ -99,7 +99,7 @@ export default function MatchDetail() {
     } else {
       navigator.clipboard.writeText(url);
     }
-  };
+  }, [match]);
 
   if (isLoading) {
     return (
