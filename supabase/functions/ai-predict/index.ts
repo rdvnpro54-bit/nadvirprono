@@ -574,6 +574,13 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
         [p.pred_score_home, p.pred_score_away] = [p.pred_score_away, p.pred_score_home];
         if (p.pred_score_home === p.pred_score_away) p.pred_score_away += 1;
       }
+
+      // Add default anomaly fields for AI gateway predictions (computed server-side)
+      if (!p.anomaly_score) {
+        p.anomaly_score = 0;
+        p.anomaly_label = null;
+        p.anomaly_reason = null;
+      }
     }
 
     return predictions;
