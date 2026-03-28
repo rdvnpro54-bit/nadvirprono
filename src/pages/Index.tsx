@@ -280,6 +280,26 @@ const Index = () => {
       {/* TOP PICK DU JOUR */}
       <TopPickSection matches={matches} />
 
+      {/* Missed match conversion banner */}
+      <div className="container px-3 sm:px-4 py-3">
+        <MissedMatchBanner />
+      </div>
+
+      {/* Win Streak badge */}
+      <div className="flex justify-center py-2">
+        <WinStreak />
+      </div>
+
+      {/* Combiné IA du jour */}
+      <ScrollSection>
+        <DailyCombo matches={matches} />
+      </ScrollSection>
+
+      {/* Matchs à éviter (Premium+) */}
+      <ScrollSection>
+        <MatchesToAvoid matches={matches} />
+      </ScrollSection>
+
       {/* Premium Teaser — Locked predictions preview */}
       <ScrollSection>
         <section className="border-t border-border/20 py-10 sm:py-14">
