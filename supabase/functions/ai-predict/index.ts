@@ -382,7 +382,8 @@ function generatePRONOSIAAnalysis(
 // ═══════════════════════════════════════════════════════════════
 async function callAI(
   apiKey: string,
-  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[]
+  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
+  learningContext: string = ""
 ): Promise<AIPrediction[]> {
   const matchList = matches
     .map((m, i) => `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`)
@@ -396,7 +397,7 @@ CRITICAL REMINDERS:
 - Value detection: only flag value_bet when edge >4%.
 - AI Score must reflect data quality — low data = lower score.
 - Analysis in French, 3-5 sentences, mention market type for SAFE picks.
-
+${learningContext}
 MATCHES:
 ${matchList}
 
@@ -547,6 +548,28 @@ Deno.serve(async (req) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
     const forceAll = url.searchParams.get("force") === "true";
 
+    // ═══════════════════════════════════════════════════════════
+    // SELF-LEARNING: Load historical performance stats
+    // ═══════════════════════════════════════════════════════════
+    let learningContext = "";
+    try {
+      const { data: learningStats } = await supabase
+        .from("ai_learning_stats")
+        .select("*")
+        .eq("league_name", "_all")
+        .order("total_predictions", { ascending: false })
+        .limit(20);
+
+      if (learningStats && learningStats.length > 0) {
+        const lines = learningStats.map((s: any) =>
+          `• ${s.sport.toUpperCase()} / ${s.confidence_level}: ${s.winrate}% winrate (${s.total_predictions} picks), avg predicted ${s.avg_predicted_prob}%, calibration error ${s.calibration_error}%${s.common_loss_pattern ? `, common loss: ${s.common_loss_pattern}` : ""}`
+        );
+        learningContext = `\n\n🧠 SELF-LEARNING DATA (from past results — use to calibrate your predictions):\n${lines.join("\n")}\n\nADJUSTMENTS REQUIRED:\n- If calibration_error > 10: your confidence is off — reduce predicted probability for that sport/confidence.\n- If winrate < 50% for SAFE: be MORE selective, raise threshold.\n- If common_loss = "upset_favorite": avoid overvaluing favorites in that sport.\n- Use this data to improve, NOT to inflate confidence.\n`;
+      }
+    } catch (e) {
+      console.log("[AI-PREDICT] Learning stats not available yet, proceeding without");
+    }
+
     // Fetch matches needing AI
     let query = supabase
       .from("cached_matches")
@@ -566,14 +589,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[AI-PREDICT] Processing ${matches.length} matches (offset=${offset}, force=${forceAll})`);
+    console.log(`[AI-PREDICT] Processing ${matches.length} matches (offset=${offset}, force=${forceAll}, learning=${learningContext ? "YES" : "NO"})`);
 
     // Try AI gateway first, fallback to deterministic PRONOSIA engine
     let predictions: AIPrediction[] = [];
     let source = "pronosia-deterministic";
 
     if (apiKey) {
-      predictions = await callAI(apiKey, matches);
+      predictions = await callAI(apiKey, matches, learningContext);
       if (predictions.length > 0) {
         source = "pronosia-ai";
       }
