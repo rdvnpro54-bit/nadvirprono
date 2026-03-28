@@ -105,8 +105,9 @@ ABSOLUTE RULES:
 - Maximum probability cap: 85%
 - RISQUÉ picks MUST have max probability <38%
 - Write analysis in French, 3-5 sentences, expert-level
-- For SAFE: analysis MUST mention the protected market (double chance)
-- For draw=0 sports (tennis, basketball): set pred_draw to 0
+- For SAFE: analysis MUST mention the protected market (double chance for football, "pari protégé" for no-draw sports)
+- For draw=0 sports (tennis, basketball, nba, nfl, mma): set pred_draw to 0, use "Pari protégé • [Team] vainqueur" NOT "Double Chance ou Nul"
+- SCORE CONSISTENCY: predicted score MUST match predicted winner. If home_win > away_win, score must show home winning. Validate BEFORE output.
 - Never invent data — reduce confidence when information is limited
 - Once a prediction is made, it is FINAL — no revisions
 - Prioritize consistency over hype, reduce losses, not just chase wins`;
