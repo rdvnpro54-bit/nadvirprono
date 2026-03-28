@@ -357,11 +357,9 @@ Deno.serve(async (req) => {
     console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
 
     if (isPremium) {
-      // Premium but not Premium+: strip predicted scores AND anomaly data
       const mapFn = (m: Record<string, unknown>) => {
         let base = isPremiumPlus ? m : stripScoresOnly(m);
-        // Strip anomaly data for non-Premium+ users
-        if (!isPremiumPlus) base = stripAnomalyData(base);
+        if (!isPremiumPlus) base = stripAnomalyDetails(base);
         return {
           ...base,
           is_free: freeIds.has(String(m.id)),
@@ -373,14 +371,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Non-premium: show predictions only for free + top pick, always strip scores + anomaly
+    // Non-premium: show predictions only for free + top pick, strip anomaly details but keep label
     const result = allMatches.map(m => {
       const id = String(m.id);
       const isFree = freeIds.has(id);
       const isTopPick = topPickId === id;
 
       if (isFree || isTopPick) {
-        return { ...stripAnomalyData(stripScoresOnly(m)), is_free: isFree, is_top_pick: isTopPick };
+        return { ...stripAnomalyDetails(stripScoresOnly(m)), is_free: isFree, is_top_pick: isTopPick };
       }
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });
