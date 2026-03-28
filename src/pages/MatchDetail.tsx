@@ -2,8 +2,9 @@ import { useParams, Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
 import { useMatch } from "@/hooks/useMatches";
-import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield } from "lucide-react";
+import { ArrowLeft, Loader2, Share2, Users, AlertCircle, Lock, Zap, Shield, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
@@ -43,10 +44,14 @@ function extractKeyFactors(analysis: string | null, homeTeam: string, awayTeam: 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: match, isLoading, error, refetch } = useMatch(id || "");
-  const { isPremium } = useAuth();
+  const { isPremium, isPremiumPlus } = useAuth();
   const { getMatchCount } = useGlobalActivity();
 
   const isLocked = match?.pred_confidence === "LOCKED" || (!isPremium && match?.pred_home_win === null);
+  const anomalyScore = (match as any)?.anomaly_score || 0;
+  const anomalyLabel = (match as any)?.anomaly_label as string | null;
+  const anomalyReason = (match as any)?.anomaly_reason as string | null;
+  const hasAnomaly = !!(anomalyLabel || anomalyScore >= 30);
 
   const apiLive = match && ["1H", "2H", "HT", "ET", "LIVE"].includes(match.status.toUpperCase());
   const smartLive = useMemo(() => {
@@ -319,7 +324,95 @@ export default function MatchDetail() {
               userCount={userCount}
             />
 
-            {/* CTA */}
+            {/* 🧠 AI Risk Analysis Section */}
+            {hasAnomaly && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="mt-4"
+              >
+                <div className={cn(
+                  "rounded-xl border p-4 space-y-3",
+                  anomalyScore >= 60 || (anomalyLabel && anomalyLabel.includes("🚨"))
+                    ? "bg-destructive/5 border-destructive/20 shadow-[0_0_12px_rgba(239,68,68,0.1)]"
+                    : "bg-amber-500/5 border-amber-500/15 shadow-[0_0_12px_rgba(245,158,11,0.08)]"
+                )}>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className={cn(
+                      "h-4 w-4",
+                      anomalyScore >= 60 || (anomalyLabel && anomalyLabel.includes("🚨"))
+                        ? "text-destructive animate-pulse"
+                        : "text-amber-400"
+                    )} />
+                    <h3 className="font-display text-sm font-bold">🧠 Analyse de Risque IA</h3>
+                  </div>
+
+                  {/* Badge */}
+                  <div className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold",
+                    anomalyScore >= 60 || (anomalyLabel && anomalyLabel.includes("🚨"))
+                      ? "bg-destructive/15 text-destructive"
+                      : "bg-amber-500/15 text-amber-400"
+                  )}>
+                    <AlertTriangle className="h-3 w-3" />
+                    {anomalyLabel || (anomalyScore >= 60 ? "🚨 Match suspect" : "⚠️ Risque détecté")}
+                  </div>
+
+                  {/* Public message */}
+                  <p className="text-xs text-muted-foreground">
+                    Ce match présente des patterns inhabituels détectés par notre IA.
+                  </p>
+
+                  {isPremiumPlus ? (
+                    /* Premium+ full details */
+                    <div className="space-y-2 pt-1 border-t border-border/30">
+                      {anomalyReason && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] text-muted-foreground shrink-0">📊 Détails :</span>
+                          <p className="text-[11px] text-foreground">{anomalyReason}</p>
+                        </div>
+                      )}
+                      {anomalyScore > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground">🎯 Score :</span>
+                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[120px]">
+                            <div
+                              className={cn(
+                                "h-full rounded-full",
+                                anomalyScore >= 80 ? "bg-destructive" : anomalyScore >= 60 ? "bg-amber-400" : "bg-amber-300"
+                              )}
+                              style={{ width: `${anomalyScore}%` }}
+                            />
+                          </div>
+                          <span className="text-[11px] font-bold">{anomalyScore}/100</span>
+                        </div>
+                      )}
+                      <p className="text-[9px] text-muted-foreground/60">
+                        Impact : confiance automatiquement réduite • Classification ajustée
+                      </p>
+                    </div>
+                  ) : (
+                    /* Locked for non-Premium+ */
+                    <div className="pt-2 border-t border-border/30">
+                      <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/15 p-3">
+                        <Lock className="h-4 w-4 text-primary shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-[10px] font-semibold text-foreground">Analyse complète verrouillée</p>
+                          <p className="text-[9px] text-muted-foreground">Score d'anomalie, type de risque et impact sur la prédiction</p>
+                        </div>
+                        <Link to="/pricing">
+                          <Button size="sm" className="h-7 text-[10px] gap-1 btn-shimmer">
+                            <Zap className="h-3 w-3" /> Débloquer
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link to="/matches">
                 <Button variant="outline" className="w-full sm:w-auto gap-2 text-xs">

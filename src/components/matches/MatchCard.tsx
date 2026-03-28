@@ -348,38 +348,57 @@ export function MatchCard({ match, locked = false, index = 0 }: { match: CachedM
                   );
                 })()}
 
-                {/* Anomaly badge — Premium+ only */}
-                {isPremiumPlus && anomalyScore >= 30 && anomalyLabel && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className={cn(
-                          "flex items-center gap-1.5 rounded-md border px-2 py-1",
-                          anomalyScore >= 80
-                            ? "bg-destructive/10 border-destructive/30"
-                            : anomalyScore >= 60
-                              ? "bg-amber-500/10 border-amber-500/20"
-                              : "bg-muted/50 border-border/30"
-                        )}>
-                          <AlertTriangle className={cn(
-                            "h-3 w-3 shrink-0",
-                            anomalyScore >= 80 ? "text-destructive" : anomalyScore >= 60 ? "text-amber-400" : "text-muted-foreground"
-                          )} />
-                          <span className={cn(
-                            "text-[9px] sm:text-[10px] font-semibold",
-                            anomalyScore >= 80 ? "text-destructive" : anomalyScore >= 60 ? "text-amber-400" : "text-muted-foreground"
-                          )}>
-                            {anomalyLabel}
-                          </span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[240px]">
-                        <p className="text-[10px]">{anomalyReason}</p>
-                        <p className="text-[9px] text-muted-foreground mt-1">Score d'anomalie : {anomalyScore}/100</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
+                {/* Anomaly badge — visible to ALL users, details locked for non-Premium+ */}
+                {anomalyScore >= 30 || anomalyLabel ? (() => {
+                  const label = anomalyLabel || (anomalyScore >= 60 ? "🚨 Match suspect" : "⚠️ Risque détecté");
+                  const isHigh = anomalyScore >= 60 || (anomalyLabel && anomalyLabel.includes("🚨"));
+                  const isMedium = !isHigh && (anomalyScore >= 30 || anomalyLabel);
+                  if (!isHigh && !isMedium) return null;
+                  return (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-md border px-2 py-1 cursor-pointer",
+                              isHigh
+                                ? "bg-destructive/10 border-destructive/30 shadow-[0_0_8px_rgba(239,68,68,0.15)]"
+                                : "bg-amber-500/10 border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.1)]"
+                            )}>
+                            <AlertTriangle className={cn(
+                              "h-3 w-3 shrink-0",
+                              isHigh ? "text-destructive animate-pulse" : "text-amber-400"
+                            )} />
+                            <span className={cn(
+                              "text-[9px] sm:text-[10px] font-semibold",
+                              isHigh ? "text-destructive" : "text-amber-400"
+                            )}>
+                              {label}
+                            </span>
+                            {!isPremiumPlus && (
+                              <Lock className="h-2.5 w-2.5 text-muted-foreground ml-0.5" />
+                            )}
+                          </motion.div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[260px]">
+                          {isPremiumPlus ? (
+                            <>
+                              <p className="text-[10px] font-medium">{anomalyReason || "Patterns inhabituels détectés par l'IA"}</p>
+                              <p className="text-[9px] text-muted-foreground mt-1">Score d'anomalie : {anomalyScore}/100</p>
+                            </>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-[10px]">Ce match présente des patterns inhabituels détectés par l'IA.</p>
+                              <p className="text-[9px] text-amber-400 font-semibold">🔒 Analyse complète disponible en Premium+</p>
+                            </div>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })() : null}
 
                 {/* Confidence bar */}
                 <div className="flex items-center gap-2">
