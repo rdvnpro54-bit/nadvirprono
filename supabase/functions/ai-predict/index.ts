@@ -693,6 +693,9 @@ Deno.serve(async (req) => {
           pred_value_bet: pred.pred_value_bet,
           pred_analysis: pred.pred_analysis,
           ai_score: pred.ai_score,
+          anomaly_score: pred.anomaly_score || 0,
+          anomaly_label: pred.anomaly_label || null,
+          anomaly_reason: pred.anomaly_reason || null,
         })
         .eq("fixture_id", m.fixture_id);
 
