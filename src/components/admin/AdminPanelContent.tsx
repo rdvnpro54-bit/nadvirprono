@@ -391,6 +391,33 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const withPreds = v2Err ? 0 : v2Data?.eligibleMatches || 0;
       const lowScore = v2Err ? 0 : v2Data?.excludedCount || 0;
 
+      // Fetch consensus stats from cached_matches
+      let consensusPassed = 0;
+      let consensusFailed = 0;
+      try {
+        const { count: passedCount } = await supabase
+          .from("cached_matches")
+          .select("fixture_id", { count: "exact", head: true })
+          .eq("consensus_passed", true)
+          .gt("ai_score", 0);
+        const { count: failedCount } = await supabase
+          .from("cached_matches")
+          .select("fixture_id", { count: "exact", head: true })
+          .eq("consensus_passed", false)
+          .gt("ai_score", 0);
+        consensusPassed = passedCount || 0;
+        consensusFailed = failedCount || 0;
+      } catch {}
+
+      const totalWithPreds = consensusPassed + consensusFailed;
+      const consensusRate = totalWithPreds > 0 ? Math.round((consensusPassed / totalWithPreds) * 100) : 0;
+
+      // Determine streak level
+      let streakLevel = "normal";
+      if (rollingWinrate < 35) streakLevel = "emergency";
+      else if (rollingWinrate < 45) streakLevel = "streak";
+      else if (rollingWinrate <= 50) streakLevel = "caution";
+
       setV2Stats({
         streakMode,
         rollingWinrate,
@@ -400,6 +427,11 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         predictionsGenerated: withPreds || 0,
         source: "—",
         lastRecalc: null,
+        consensusRate,
+        fallbackRate: 0,
+        consensusPassed,
+        consensusFailed,
+        streakLevel,
       });
     } catch (err) {
       console.error("v2 stats error:", err);
