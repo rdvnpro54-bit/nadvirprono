@@ -300,6 +300,7 @@ Deno.serve(async (req) => {
         actual_away_score: actualAway,
         result: isWon ? "win" : "loss",
         resolved_at: new Date().toISOString(),
+        bet_type: betType,
       });
     }
 
