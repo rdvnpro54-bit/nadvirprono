@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const CEREBRAS_API = "https://api.cerebras.ai/v1/chat/completions";
-// Dual-model Cerebras: Qwen 235B (primary) + GPT-OSS 120B (consensus)
+// Dual-model Cerebras: Qwen 235B (primary) + Llama 4 Scout (consensus)
 
 // ═══════════════════════════════════════════════════════════════
 // PRONOSIA v3.1 — EMERGENCY PERFORMANCE PATCH + FULL INTELLIGENCE UPGRADE
@@ -1176,17 +1176,17 @@ async function callCerebrasSecondary(
     clearTimeout(timeout);
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`[CEREBRAS-GPT-OSS] API error ${response.status}: ${errText}`);
+      console.error(`[CEREBRAS-LLAMA4] API error ${response.status}: ${errText}`);
       return [];
     }
     const result = await response.json();
     
     const content = result.choices?.[0]?.message?.content;
     if (!content) {
-      console.warn("[CEREBRAS-GPT-OSS] Empty content");
+      console.warn("[CEREBRAS-LLAMA4] Empty content");
       return [];
     }
-    console.log(`[CEREBRAS-GPT-OSS] Raw response (${content.length} chars): ${content.substring(0, 500)}`);
+    console.log(`[CEREBRAS-LLAMA4] Raw response (${content.length} chars): ${content.substring(0, 500)}`);
     
     // Same multi-strategy parsing as primary
     try { return normalizeCerebrasPreds(JSON.parse(content).predictions || []); } catch {}
@@ -1197,11 +1197,11 @@ async function callCerebrasSecondary(
     const arrayMatch = content.match(/\[\s*\{[\s\S]*"fixture_id"[\s\S]*\}\s*\]/);
     if (arrayMatch) try { return normalizeCerebrasPreds(JSON.parse(arrayMatch[0])); } catch {}
     
-    console.error("[CEREBRAS-GPT-OSS] ❌ All parse strategies failed");
+    console.error("[CEREBRAS-LLAMA4] ❌ All parse strategies failed");
     return [];
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[CEREBRAS-GPT-OSS] Error:", e);
+    console.error("[CEREBRAS-LLAMA4] Error:", e);
     return [];
   }
 }
@@ -1235,7 +1235,7 @@ function mergeConsensus(
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Qwen=${gWinner}, GPT-OSS=${mWinner} → EXCLUDED`);
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Qwen=${gWinner}, Llama4Scout=${mWinner} → EXCLUDED`);
       continue;
     }
 
@@ -1244,7 +1244,7 @@ function mergeConsensus(
     const confGap = Math.abs(gConf - mConf);
 
     if (confGap > 7) {
-      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Qwen=${gConf}%, GPT-OSS=${mConf}%`);
+      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Qwen=${gConf}%, Llama4Scout=${mConf}%`);
       g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
       g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
       g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
@@ -1252,10 +1252,10 @@ function mergeConsensus(
       g.consensus_passed = false;
       g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
     } else {
-      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Qwen=${gConf}%, GPT-OSS=${mConf}%)`);
+      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Qwen=${gConf}%, Llama4Scout=${mConf}%)`);
       g.consensus_passed = true;
       g.ai_score = Math.min(g.ai_score + 3, 100);
-      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Cerebras Qwen 235B + GPT-OSS 120B)";
+      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Cerebras Qwen 235B + Llama 4 Scout)";
     }
 
     g.anomaly_score = Math.max(g.anomaly_score, m.anomaly_score || 0);
@@ -1351,7 +1351,7 @@ function postProcessPredictions(
   return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
 }
 
-// Combined multi-model AI call: Cerebras Qwen 235B (primary) + Cerebras GPT-OSS 120B (consensus)
+// Combined multi-model AI call: Cerebras Qwen 235B (primary) + Cerebras Llama 4 Scout (consensus)
 async function callAI(
   _apiKey: string,
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
@@ -1369,15 +1369,15 @@ async function callAI(
     return [];
   }
 
-  // Launch dual Cerebras: Qwen 235B (primary) + GPT-OSS 120B (consensus) in parallel
-  console.log(`[AI v3.2] Launching DUAL-MODEL CEREBRAS (Qwen 235B + GPT-OSS 120B) consensus...`);
+  // Launch dual Cerebras: Qwen 235B (primary) + Llama 4 Scout (consensus) in parallel
+  console.log(`[AI v3.2] Launching DUAL-MODEL CEREBRAS (Qwen 235B + Llama 4 Scout) consensus...`);
 
   const [qwenPreds, gptPreds] = await Promise.all([
     callCerebrasAI(cerebrasKey, userPrompt),
     callCerebrasSecondary(cerebrasKey, userPrompt),
   ]);
 
-  console.log(`[AI v3.2] Qwen 235B: ${qwenPreds.length} predictions, GPT-OSS 120B: ${gptPreds.length} predictions`);
+  console.log(`[AI v3.2] Qwen 235B: ${qwenPreds.length} predictions, Llama 4 Scout: ${gptPreds.length} predictions`);
 
   let merged: AIPrediction[];
   if (gptPreds.length > 0 && qwenPreds.length > 0) {
@@ -1385,9 +1385,9 @@ async function callAI(
     console.log(`[AI v3.2] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
   } else if (qwenPreds.length > 0) {
     merged = qwenPreds.map(p => ({ ...p, consensus_passed: false }));
-    console.log("[AI v3.2] GPT-OSS failed — using Qwen 235B only");
+    console.log("[AI v3.2] Llama4Scout failed — using Qwen 235B only");
   } else if (gptPreds.length > 0) {
-    console.log("[AI v3.2] Qwen failed — using GPT-OSS 120B only");
+    console.log("[AI v3.2] Qwen failed — using Llama 4 Scout only");
     merged = gptPreds.map(p => ({ ...p, consensus_passed: false }));
   } else {
     return [];
