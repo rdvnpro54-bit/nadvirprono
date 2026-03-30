@@ -42,13 +42,19 @@ export type Database = {
         Row: {
           avg_actual_winrate: number
           avg_predicted_prob: number
+          bet_type: string | null
           calibration_error: number
           common_loss_pattern: string | null
           confidence_level: string
+          consensus_passed: boolean | null
+          day_of_week: string | null
           id: string
           league_name: string
           losses: number
+          odds_bracket: string | null
+          roi: number | null
           sport: string
+          streak_mode_active: boolean | null
           total_predictions: number
           updated_at: string
           winrate: number
@@ -57,13 +63,19 @@ export type Database = {
         Insert: {
           avg_actual_winrate?: number
           avg_predicted_prob?: number
+          bet_type?: string | null
           calibration_error?: number
           common_loss_pattern?: string | null
           confidence_level: string
+          consensus_passed?: boolean | null
+          day_of_week?: string | null
           id?: string
           league_name?: string
           losses?: number
+          odds_bracket?: string | null
+          roi?: number | null
           sport: string
+          streak_mode_active?: boolean | null
           total_predictions?: number
           updated_at?: string
           winrate?: number
@@ -72,13 +84,19 @@ export type Database = {
         Update: {
           avg_actual_winrate?: number
           avg_predicted_prob?: number
+          bet_type?: string | null
           calibration_error?: number
           common_loss_pattern?: string | null
           confidence_level?: string
+          consensus_passed?: boolean | null
+          day_of_week?: string | null
           id?: string
           league_name?: string
           losses?: number
+          odds_bracket?: string | null
+          roi?: number | null
           sport?: string
+          streak_mode_active?: boolean | null
           total_predictions?: number
           updated_at?: string
           winrate?: number
@@ -206,6 +224,57 @@ export type Database = {
           pred_value_bet?: boolean
           sport?: string
           status?: string
+        }
+        Relationships: []
+      }
+      league_performance: {
+        Row: {
+          blacklist_expires_at: string | null
+          blacklist_reason: string | null
+          blacklisted_at: string | null
+          consecutive_bad_weeks: number
+          id: string
+          is_blacklisted: boolean
+          league_name: string
+          losses: number
+          roi: number
+          sport: string
+          total_picks: number
+          updated_at: string
+          winrate: number
+          wins: number
+        }
+        Insert: {
+          blacklist_expires_at?: string | null
+          blacklist_reason?: string | null
+          blacklisted_at?: string | null
+          consecutive_bad_weeks?: number
+          id?: string
+          is_blacklisted?: boolean
+          league_name: string
+          losses?: number
+          roi?: number
+          sport?: string
+          total_picks?: number
+          updated_at?: string
+          winrate?: number
+          wins?: number
+        }
+        Update: {
+          blacklist_expires_at?: string | null
+          blacklist_reason?: string | null
+          blacklisted_at?: string | null
+          consecutive_bad_weeks?: number
+          id?: string
+          is_blacklisted?: boolean
+          league_name?: string
+          losses?: number
+          roi?: number
+          sport?: string
+          total_picks?: number
+          updated_at?: string
+          winrate?: number
+          wins?: number
         }
         Relationships: []
       }
@@ -341,6 +410,63 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_reports: {
+        Row: {
+          best_bet_type: string | null
+          best_league: string | null
+          consensus_rate: number | null
+          created_at: string
+          fallback_rate: number | null
+          id: string
+          losses: number
+          report_data: Json | null
+          roi: number
+          streak_mode_effectiveness: number | null
+          total_picks: number
+          week_end: string
+          week_start: string
+          winrate: number
+          wins: number
+          worst_league: string | null
+        }
+        Insert: {
+          best_bet_type?: string | null
+          best_league?: string | null
+          consensus_rate?: number | null
+          created_at?: string
+          fallback_rate?: number | null
+          id?: string
+          losses?: number
+          report_data?: Json | null
+          roi?: number
+          streak_mode_effectiveness?: number | null
+          total_picks?: number
+          week_end: string
+          week_start: string
+          winrate?: number
+          wins?: number
+          worst_league?: string | null
+        }
+        Update: {
+          best_bet_type?: string | null
+          best_league?: string | null
+          consensus_rate?: number | null
+          created_at?: string
+          fallback_rate?: number | null
+          id?: string
+          losses?: number
+          report_data?: Json | null
+          roi?: number
+          streak_mode_effectiveness?: number | null
+          total_picks?: number
+          week_end?: string
+          week_start?: string
+          winrate?: number
+          wins?: number
+          worst_league?: string | null
         }
         Relationships: []
       }
