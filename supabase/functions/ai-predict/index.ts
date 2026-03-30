@@ -1005,13 +1005,35 @@ function parseToolCallResponse(result: any): AIPrediction[] {
 function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
   const results: AIPrediction[] = [];
   for (const p of preds) {
-    // Normalize fixture_id from various field names
+    // Normalize fixture_id from various field names (id, match_id, fixture_id)
     if (!p.fixture_id && p.match_id) p.fixture_id = p.match_id;
+    if (!p.fixture_id && p.id) p.fixture_id = p.id;
     p.fixture_id = Number(p.fixture_id) || 0;
-    // Map alternative field names from smaller models
-    if (!p.pred_home_win && p.confidence !== undefined) {
-      // Llama 8B may return simplified format — skip these
+
+    // Handle nested prediction format from smaller models (Llama 8B)
+    // e.g. { id: 123, prediction: { home_win: 55, draw: 25, away_win: 20 } }
+    const pred = p.prediction || {};
+    if (pred.home_win !== undefined || pred.pred_home_win !== undefined) {
+      p.pred_home_win = pred.home_win ?? pred.pred_home_win ?? p.pred_home_win;
+      p.pred_draw = pred.draw ?? pred.pred_draw ?? p.pred_draw;
+      p.pred_away_win = pred.away_win ?? pred.pred_away_win ?? p.pred_away_win;
+      p.pred_score_home = pred.score_home ?? pred.pred_score_home ?? p.pred_score_home;
+      p.pred_score_away = pred.score_away ?? pred.pred_score_away ?? p.pred_score_away;
+      p.pred_over_under = pred.over_under ?? pred.pred_over_under ?? p.pred_over_under;
+      p.pred_over_prob = pred.over_prob ?? pred.pred_over_prob ?? p.pred_over_prob;
+      p.pred_btts_prob = pred.btts_prob ?? pred.pred_btts_prob ?? p.pred_btts_prob;
+      p.pred_confidence = pred.confidence ?? pred.pred_confidence ?? p.pred_confidence;
+      p.pred_value_bet = pred.value_bet ?? pred.pred_value_bet ?? p.pred_value_bet;
+      p.pred_analysis = pred.analysis ?? pred.pred_analysis ?? p.pred_analysis ?? "";
+      p.ai_score = pred.ai_score ?? p.ai_score;
+      p.anomaly_score = pred.anomaly_score ?? p.anomaly_score;
     }
+
+    // Also handle matchContext.data_completeness_score
+    if (p.matchContext?.data_completeness_score !== undefined) {
+      p.data_completeness_score = p.matchContext.data_completeness_score;
+    }
+
     p.pred_home_win = Number(p.pred_home_win) || 0;
     p.pred_draw = Number(p.pred_draw) || 0;
     p.pred_away_win = Number(p.pred_away_win) || 0;
@@ -1037,7 +1059,7 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
       p.pred_home_win = 50;
       p.pred_away_win = 50;
     }
-    results.push(p as AIPrediction);
+    if (p.fixture_id > 0) results.push(p as AIPrediction);
   }
   console.log(`[CEREBRAS] Normalized ${results.length} predictions`);
   return results;
