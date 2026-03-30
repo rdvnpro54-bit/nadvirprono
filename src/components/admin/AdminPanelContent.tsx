@@ -11,7 +11,7 @@ import {
   Shield, Users, Crown, BarChart3, Activity, AlertCircle, CheckCircle,
   XCircle, Loader2, RefreshCw, Search, Radio, FileEdit, Trophy, Ban,
   Megaphone, Send, Brain, Zap, TrendingDown, Filter, ShieldAlert,
-  Calendar, Globe, Download,
+  Calendar, Globe, Download, EyeOff, Eye,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
