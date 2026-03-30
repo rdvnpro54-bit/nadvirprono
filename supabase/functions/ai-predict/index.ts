@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
 const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
 
 // ═══════════════════════════════════════════════════════════════
@@ -994,32 +994,60 @@ function parseToolCallResponse(result: any): AIPrediction[] {
   }
 }
 
-async function callGeminiAI(
-  apiKey: string, userPrompt: string
+async function callGroqAI(
+  groqKey: string, userPrompt: string
 ): Promise<AIPrediction[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
   try {
-    const response = await fetch(AI_GATEWAY, {
+    // Groq with Llama works better with JSON mode instead of tool_choice
+    const response = await fetch(GROQ_API, {
       method: "POST",
       signal: controller.signal,
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${groqKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: AI_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
+          { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have: fixture_id, pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence (SAFE/MODÉRÉ/RISQUÉ), pred_value_bet, pred_analysis, ai_score, anomaly_score, data_completeness_score, consensus_passed, context_penalties_total." },
+          { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}" },
         ],
-        tools: AI_TOOLS,
-        tool_choice: { type: "function", function: { name: "predict_matches" } },
+        temperature: 0.3,
+        max_tokens: 8000,
+        response_format: { type: "json_object" },
       }),
     });
     clearTimeout(timeout);
-    if (!response.ok) { console.error(`[GEMINI] Gateway error ${response.status}`); return []; }
-    return parseToolCallResponse(await response.json());
+    if (!response.ok) { 
+      const errText = await response.text();
+      console.error(`[GROQ] API error ${response.status}: ${errText}`); 
+      return []; 
+    }
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content;
+    if (!content) return [];
+    try {
+      const parsed = JSON.parse(content);
+      const preds = (parsed.predictions || []) as AIPrediction[];
+      // Groq/Llama sometimes returns 0-1 scale instead of 0-100 — normalize
+      for (const p of preds) {
+        if (p.pred_home_win <= 1 && p.pred_away_win <= 1) {
+          p.pred_home_win = Math.round(p.pred_home_win * 100);
+          p.pred_draw = Math.round(p.pred_draw * 100);
+          p.pred_away_win = Math.round(p.pred_away_win * 100);
+          p.pred_over_prob = Math.round((p.pred_over_prob || 0) * 100);
+          p.pred_btts_prob = Math.round((p.pred_btts_prob || 0) * 100);
+        }
+        if (p.ai_score <= 1) p.ai_score = Math.round(p.ai_score * 100);
+        if ((p.anomaly_score || 0) <= 1) p.anomaly_score = Math.round((p.anomaly_score || 0) * 100);
+      }
+      return preds;
+    } catch {
+      console.error("[GROQ] Failed to parse JSON response");
+      return [];
+    }
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[GEMINI] Error:", e);
+    console.error("[GROQ] Error:", e);
     return [];
   }
 }
@@ -1065,7 +1093,7 @@ async function callMistralAI(
 // MULTI-MODEL CONSENSUS ENGINE (A1)
 // ═══════════════════════════════════════════════════════════════
 function mergeConsensus(
-  geminiPreds: AIPrediction[], mistralPreds: AIPrediction[],
+  groqPreds: AIPrediction[], mistralPreds: AIPrediction[],
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string }[],
   streak: StreakState
 ): AIPrediction[] {
@@ -1074,48 +1102,41 @@ function mergeConsensus(
 
   const merged: AIPrediction[] = [];
 
-  for (const g of geminiPreds) {
+  for (const g of groqPreds) {
     const m = mistralMap.get(g.fixture_id);
     const matchInfo = matches.find(x => x.fixture_id === g.fixture_id);
 
     if (!m) {
-      // Mistral didn't predict this match — still use Gemini but flag no consensus
       console.log(`[CONSENSUS] ${matchInfo?.home_team || g.fixture_id}: Mistral skipped — single-pass only`);
       g.consensus_passed = false;
-      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Gemini uniquement)";
+      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Groq uniquement)";
       merged.push(g);
       continue;
     }
 
-    // Check consensus: same predicted winner
     const gWinner = g.pred_home_win >= g.pred_away_win ? "home" : "away";
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Gemini=${gWinner}, Mistral=${mWinner} → UNCERTAIN, downgraded`);
-      // Models disagree — downgrade to SAFE or discard
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → UNCERTAIN, downgraded`);
       const gMax = Math.max(g.pred_home_win, g.pred_away_win);
       if (gMax < 60 || streak.isStreakMode) {
-        // Discard in streak mode or low confidence
         continue;
       }
-      // Downgrade to SAFE
       g.pred_confidence = "SAFE";
       g.consensus_passed = false;
       g.ai_score = Math.min(g.ai_score, 72);
-      g.pred_analysis = g.pred_analysis + "\n⚠️ Désaccord IA (Gemini vs Mistral) — pick dégradé en SAFE";
+      g.pred_analysis = g.pred_analysis + "\n⚠️ Désaccord IA (Groq vs Mistral) — pick dégradé en SAFE";
       merged.push(g);
       continue;
     }
 
-    // Same winner — check confidence gap
     const gConf = Math.max(g.pred_home_win, g.pred_away_win);
     const mConf = Math.max(m.pred_home_win, m.pred_away_win);
     const confGap = Math.abs(gConf - mConf);
 
     if (confGap > 7) {
-      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Gemini=${gConf}%, Mistral=${mConf}%`);
-      // Average the probabilities when gap is significant
+      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Groq=${gConf}%, Mistral=${mConf}%`);
       g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
       g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
       g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
@@ -1123,12 +1144,10 @@ function mergeConsensus(
       g.consensus_passed = false;
       g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
     } else {
-      // Full consensus ✅
-      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Gemini=${gConf}%, Mistral=${mConf}%)`);
+      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Groq=${gConf}%, Mistral=${mConf}%)`);
       g.consensus_passed = true;
-      // Boost AI score slightly for double-validated picks
       g.ai_score = Math.min(g.ai_score + 3, 100);
-      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Gemini + Mistral)";
+      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Groq + Mistral)";
     }
 
     // Take higher suspect score (more cautious)
@@ -1231,9 +1250,9 @@ function postProcessPredictions(
   return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
 }
 
-// Combined multi-model AI call
+// Combined multi-model AI call: Groq (primary) + Mistral (fallback 1)
 async function callAI(
-  apiKey: string,
+  _apiKey: string,
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
   learningContext: string,
   streak: StreakState,
@@ -1242,27 +1261,42 @@ async function callAI(
   const { eligible, userPrompt } = buildAIPrompt(matches, learningContext, streak, blacklistedLeagues);
   if (eligible.length === 0) return [];
 
+  const groqKey = Deno.env.get("GROQ_API_KEY");
   const mistralKey = Deno.env.get("MISTRAL_API_KEY");
 
-  // Launch both models in parallel
-  console.log(`[AI v3.1] Launching ${mistralKey ? "DUAL-MODEL (Gemini + Mistral)" : "SINGLE-MODEL (Gemini)"} consensus...`);
+  if (!groqKey) {
+    console.error("[AI v3.1] GROQ_API_KEY not configured — falling back to Mistral only");
+    if (mistralKey) {
+      const mistralPreds = await callMistralAI(mistralKey, userPrompt);
+      if (mistralPreds.length > 0) {
+        return postProcessPredictions(mistralPreds.map(p => ({ ...p, consensus_passed: false })), matches, streak);
+      }
+    }
+    return [];
+  }
 
-  const [geminiPreds, mistralPreds] = await Promise.all([
-    callGeminiAI(apiKey, userPrompt),
+  // Launch Groq (primary) + Mistral (consensus) in parallel
+  console.log(`[AI v3.1] Launching ${mistralKey ? "DUAL-MODEL (Groq + Mistral)" : "SINGLE-MODEL (Groq)"} consensus...`);
+
+  const [groqPreds, mistralPreds] = await Promise.all([
+    callGroqAI(groqKey, userPrompt),
     mistralKey ? callMistralAI(mistralKey, userPrompt) : Promise.resolve([] as AIPrediction[]),
   ]);
 
-  console.log(`[AI v3.1] Gemini: ${geminiPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
+  console.log(`[AI v3.1] Groq: ${groqPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
 
   let merged: AIPrediction[];
-  if (mistralPreds.length > 0 && geminiPreds.length > 0) {
-    merged = mergeConsensus(geminiPreds, mistralPreds, eligible, streak);
+  if (mistralPreds.length > 0 && groqPreds.length > 0) {
+    merged = mergeConsensus(groqPreds, mistralPreds, eligible, streak);
     console.log(`[AI v3.1] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
-  } else if (geminiPreds.length > 0) {
-    merged = geminiPreds.map(p => ({ ...p, consensus_passed: false }));
+  } else if (groqPreds.length > 0) {
+    merged = groqPreds.map(p => ({ ...p, consensus_passed: false }));
   } else if (mistralPreds.length > 0) {
+    // Groq failed → Mistral as fallback 1
+    console.log("[AI v3.1] Groq failed — using Mistral as fallback");
     merged = mistralPreds.map(p => ({ ...p, consensus_passed: false }));
   } else {
+    // Both failed → deterministic fallback 2 will kick in
     return [];
   }
 

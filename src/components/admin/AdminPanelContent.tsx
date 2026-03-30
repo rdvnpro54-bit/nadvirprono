@@ -702,7 +702,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
             {/* Consensus Stats */}
             <Card className="p-4">
               <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
-                <Brain className="h-4 w-4 text-primary" /> Consensus Gemini + Mistral
+                <Brain className="h-4 w-4 text-primary" /> Consensus Groq + Mistral
               </h3>
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-lg bg-muted/30 p-3 text-center">
@@ -752,7 +752,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Consensus Gemini + Mistral (A1)</span>
+                  <span>Consensus Groq + Mistral (A1)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
@@ -835,7 +835,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </motion.div>
                 <p className="text-sm font-semibold">Recalcul IA v3.1 en cours...</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Consensus Gemini + Mistral, seuils relevés, détection suspects, blacklist active
+                  Consensus Groq + Mistral, seuils relevés, détection suspects, blacklist active
                 </p>
               </motion.div>
             )}
