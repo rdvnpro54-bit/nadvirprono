@@ -699,10 +699,35 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               />
             </div>
 
+            {/* Consensus Stats */}
+            <Card className="p-4">
+              <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
+                <Brain className="h-4 w-4 text-primary" /> Consensus Gemini + Mistral
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-primary">{v2Stats?.consensusRate ?? 0}%</p>
+                  <p className="text-[10px] text-muted-foreground">Taux de consensus</p>
+                </div>
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-success">{v2Stats?.consensusPassed ?? 0}</p>
+                  <p className="text-[10px] text-muted-foreground">✅ Double validés</p>
+                </div>
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-warning">{v2Stats?.consensusFailed ?? 0}</p>
+                  <p className="text-[10px] text-muted-foreground">🔍 Simple validation</p>
+                </div>
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-secondary">{v2Stats?.streakLevel ?? "normal"}</p>
+                  <p className="text-[10px] text-muted-foreground">Mode streak actuel</p>
+                </div>
+              </div>
+            </Card>
+
             {/* Filter Rules */}
             <Card className="p-4">
               <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
-                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v3.0
+                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v3.1
               </h3>
               <div className="grid gap-2 sm:grid-cols-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -715,7 +740,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <Ban className="h-3 w-3 text-destructive" />
-                  <span>Value Score &lt; 0.05 → Exclu</span>
+                  <span>Value Score &lt; 0.08 → Exclu (v3.1)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Ban className="h-3 w-3 text-destructive" />
@@ -727,7 +752,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Profils sport granulaires (A2)</span>
+                  <span>Consensus Gemini + Mistral (A1)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
@@ -735,7 +760,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Consensus validation IA (A1)</span>
+                  <span>Odds minimum: 1.35, sweet spot: 1.65-2.40</span>
                 </div>
               </div>
             </Card>

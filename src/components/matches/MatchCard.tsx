@@ -298,7 +298,16 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                     <TrendingUp className="h-2.5 w-2.5" /> Value
                   </span>
                 )}
-                {hasAnomaly && (
+                {/* Consensus badge - Premium+ only */}
+                {isPremiumPlus && consensusPassed === true && (
+                  <span className="flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
+                    <ShieldCheck className="h-2.5 w-2.5" /> Double IA
+                  </span>
+                )}
+                {isPremiumPlus && consensusPassed === false && (
+                  <span className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                    <Brain className="h-2.5 w-2.5" /> Simple IA
+                  </span>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
