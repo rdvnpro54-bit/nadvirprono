@@ -1569,6 +1569,9 @@ Deno.serve(async (req) => {
 
       if (sections.length > 0) {
         learningContext = `\n\n🧠 SELF-LEARNING ENGINE v3.2 — MANDATORY ADJUSTMENTS:\n${sections.join("\n\n")}\n\nRULES BASED ON DATA:\n- If calibration_error > 10% for a sport/confidence → REDUCE probability by calibration_error/2\n- If a league has winrate < 50% → INCREASE minimum confidence threshold by 5%\n- If a bet type has < 45% winrate → AVOID that bet type\n- If recent losses show upset_favorite pattern → cap favorite probability at 72%\n- NEVER repeat the same error pattern twice. Your reputation depends on LEARNING.\n`;
+        console.log(`[AI-PREDICT v3.2] 🧠 Learning context loaded: ${sections.length} sections, ${learningContext.length} chars`);
+      } else {
+        console.log("[AI-PREDICT v3.2] ⚠️ No learning data available yet");
       }
     } catch (e) {
       console.log("[AI-PREDICT v3.2] Learning stats error:", e);
