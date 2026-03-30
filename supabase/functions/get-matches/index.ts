@@ -375,6 +375,8 @@ Deno.serve(async (req) => {
 
     console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}, streak=${streakMode}`);
 
+    const meta = { streak_mode: streakMode, rolling_winrate: rollingWinrate };
+
     if (isPremium) {
       const mapFn = (m: Record<string, unknown>) => {
         let base = isPremiumPlus ? m : stripScoresOnly(m);
@@ -385,12 +387,12 @@ Deno.serve(async (req) => {
           is_top_pick: topPickId === String(m.id),
         };
       };
-      return new Response(JSON.stringify(allMatches.map(mapFn)), {
+      return new Response(JSON.stringify({ matches: allMatches.map(mapFn), ...meta }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Non-premium: show predictions only for free + top pick, strip anomaly details but keep label
+    // Non-premium
     const result = allMatches.map(m => {
       const id = String(m.id);
       const isFree = freeIds.has(id);
@@ -402,7 +404,7 @@ Deno.serve(async (req) => {
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ matches: result, ...meta }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
