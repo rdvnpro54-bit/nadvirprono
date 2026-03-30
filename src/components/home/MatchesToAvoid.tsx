@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, forwardRef } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Lock, ShieldAlert, Ban } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -16,7 +16,7 @@ interface MatchesToAvoidProps {
 const SUSPECT_THRESHOLD = 65;
 const RISKY_THRESHOLD = 40;
 
-function MatchRow({ m, i }: { m: MatchWithFlags; i: number }) {
+const MatchRow = forwardRef<HTMLDivElement, { m: MatchWithFlags; i: number }>(function MatchRow({ m, i }, ref) {
   const isSuspect = (m.anomaly_score || 0) >= SUSPECT_THRESHOLD;
   return (
     <motion.div
@@ -63,7 +63,7 @@ function MatchRow({ m, i }: { m: MatchWithFlags; i: number }) {
       </Link>
     </motion.div>
   );
-}
+});
 
 export function MatchesToAvoid({ matches }: MatchesToAvoidProps) {
   const { isPremiumPlus } = useAuth();
