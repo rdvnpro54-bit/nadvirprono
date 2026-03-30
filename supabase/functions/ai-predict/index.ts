@@ -383,9 +383,9 @@ async function checkStreakMode(supabase: any): Promise<StreakState> {
     level: "normal",
     isStreakMode: false,
     rollingWinrate: 100,
-    maxPicks: 3, // v3.1: down from 4
-    minConfidence: 70, // v3.1: up from 65
-    minAiScore: 75, // v3.1: up from 70
+    maxPicks: 3,
+    minConfidence: 72, // v3.2: up from 70
+    minAiScore: 78, // v3.2: up from 75
     lastResults: [],
     consecutiveLosses: 0,
   };
