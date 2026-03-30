@@ -551,7 +551,17 @@ function generatePRONOSIAAnalysis(
   const streakNote = isStreakMode ? " 📉 Mode Streak actif — sélection ultra-stricte." : "";
   const safeModeNote = isSafeMode ? " ⚠️ SAFE MODE — risque réduit, marché protégé uniquement." : "";
 
+  // v2.0 Part 18: Transparency sections
+  const whyPick: string[] = [];
+  const risks: string[] = [];
+
   if (sport === "football" || sport === "soccer") {
+    whyPick.push(`Avantage quantifié de ${maxProb}% pour ${fav} sur 11 facteurs`);
+    whyPick.push(isSafe ? `Marché protégé Double Chance sécurisé` : `Signal cohérent forme + données`);
+    if (valueBet) whyPick.push(`Value Score positif — cote sous-estimée par le marché`);
+    risks.push(`Variance naturelle du football — résultat jamais garanti`);
+    if (maxProb < 70) risks.push(`Confiance modérée — gestion de mise prudente conseillée`);
+
     analyses.push(
       `Analyse PRONOSIA v2.0 : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns, données).`,
       isSafe ? marketLine : (valueBet ? `Value Bet détecté (edge significatif) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — variance élevée du football.`),
@@ -559,6 +569,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   } else if (sport === "tennis") {
+    whyPick.push(`Avantage technique ELO surface pour ${fav}`);
+    whyPick.push(`Probabilité calibrée à ${maxProb}%`);
+    risks.push(`Conditions physiques et forme du jour inconnues`);
+
     analyses.push(
       `Analyse surface-ELO : ${fav} montre un avantage technique quantifié.`,
       isSafe ? marketLine : `Probabilité calibrée à ${maxProb}%.`,
@@ -566,6 +580,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   } else if (sport === "basketball" || sport === "nba") {
+    whyPick.push(`Net rating et pace favorisent ${fav}`);
+    whyPick.push(`Impact B2B et altitude évalués`);
+    risks.push(`Variance élevée du basketball — rotation possible`);
+
     analyses.push(
       `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
       isSafe ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
@@ -573,6 +591,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   } else {
+    whyPick.push(`Avantage quantifié pour ${fav} (${maxProb}%)`);
+    whyPick.push(`Signal cohérent sur la majorité des dimensions`);
+    risks.push(`Données limitées — confiance ajustée`);
+
     analyses.push(
       `Modèle PRONOSIA v2.0 : avantage quantifié pour ${fav} (${maxProb}%).`,
       isSafe ? marketLine : `Signal cohérent sur la majorité des dimensions analysées.`,
@@ -580,6 +602,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   }
+
+  // Append transparency sections
+  const whySection = `\n✅ Pourquoi ce pick : ${whyPick.map(w => `• ${w}`).join(" ")}`;
+  const riskSection = `\n⚠️ Risques identifiés : ${risks.map(r => `• ${r}`).join(" ")}`;
 
   return {
     fixture_id: match.fixture_id,
@@ -593,7 +619,7 @@ function generatePRONOSIAAnalysis(
     pred_btts_prob: bttsProb,
     pred_confidence: confidence,
     pred_value_bet: valueBet,
-    pred_analysis: `🤖 ${analyses.join(" ")}`,
+    pred_analysis: `🤖 ${analyses.join(" ")}${whySection}${riskSection}`,
     ai_score: aiScore,
     anomaly_score: 0,
     anomaly_label: null,

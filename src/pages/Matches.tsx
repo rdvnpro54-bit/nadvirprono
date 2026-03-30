@@ -4,6 +4,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
 import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain, Flame } from "lucide-react";
+import { FilteredMatchesSection } from "@/components/matches/FilteredMatchesSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
