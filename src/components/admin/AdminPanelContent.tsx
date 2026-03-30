@@ -324,22 +324,14 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const rollingWinrate = total >= 3 ? Math.round((wins / total) * 100) : 100;
       const streakMode = total >= 3 && rollingWinrate < 50;
 
-      // Fetch match counts
-      const { count: totalMatches } = await supabase
-        .from("cached_matches")
-        .select("id", { count: "exact", head: true });
-      
-      const { count: withPreds } = await supabase
-        .from("cached_matches")
-        .select("id", { count: "exact", head: true })
-        .not("pred_analysis", "is", null)
-        .gt("ai_score", 0);
-
-      const { count: lowScore } = await supabase
-        .from("cached_matches")
-        .select("id", { count: "exact", head: true })
-        .lt("ai_score", 70)
-        .gt("ai_score", 0);
+      // Fetch match counts via admin edge function (service_role bypasses RLS)
+      const { data: v2Data, error: v2Err } = await supabase.functions.invoke("admin-actions", {
+        body: { action: "v2-stats" },
+        headers: { Authorization: `Bearer ${s.access_token}` },
+      });
+      const totalMatches = v2Err ? 0 : v2Data?.totalMatches || 0;
+      const withPreds = v2Err ? 0 : v2Data?.eligibleMatches || 0;
+      const lowScore = v2Err ? 0 : v2Data?.excludedCount || 0;
 
       setV2Stats({
         streakMode,

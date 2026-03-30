@@ -337,6 +337,33 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── V2 STATS (for admin IA v2 dashboard) ────────────────
+    if (action === "v2-stats") {
+      const { count: totalMatches } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true });
+
+      const { count: withPreds } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true })
+        .not("pred_analysis", "is", null)
+        .gt("ai_score", 0);
+
+      const { count: lowScore } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true })
+        .lt("ai_score", 70)
+        .gt("ai_score", 0);
+
+      return new Response(JSON.stringify({
+        totalMatches: totalMatches || 0,
+        eligibleMatches: withPreds || 0,
+        excludedCount: lowScore || 0,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
