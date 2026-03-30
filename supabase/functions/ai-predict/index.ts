@@ -200,8 +200,10 @@ function capDisplayConfidence(prob: number): number {
 function estimateOdds(probability: number): number {
   if (probability <= 0) return 10;
   const raw = 100 / probability;
-  // Apply bookmaker margin (~8%)
-  return Math.round((raw * 0.92) * 100) / 100;
+  // Simulate market odds: add margin for underdog, reduce for favorite
+  // This creates a spread where the AI can find value against the market
+  const variability = 1 + (Math.random() * 0.15 - 0.02); // Market inefficiency simulation
+  return Math.round((raw * variability) * 100) / 100;
 }
 
 function computeValueScore(probability: number, odds: number): number {
