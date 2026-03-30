@@ -1294,10 +1294,36 @@ async function enrichMatchesWithAPIs(
       } catch { /* skip */ }
     }
 
+    // G) AllSportsAPI2 — standings enrichment for football
+    if (row.sport === "football") {
+      const homeKey = row.home_team.toLowerCase().trim();
+      const awayKey = row.away_team.toLowerCase().trim();
+      const homeStanding = allSportsStandings.get(homeKey);
+      const awayStanding = allSportsStandings.get(awayKey);
+      if (homeStanding || awayStanding) {
+        row.match_stats = {
+          ...(row.match_stats || {}),
+          standings: { home: homeStanding || null, away: awayStanding || null },
+        };
+        if (!sources.includes("allsportsapi2")) sources.push("allsportsapi2");
+      }
+    }
+
     row.data_sources = sources;
+
+    // H) Determine ai_hidden: hide if no real data enrichment was found
+    const hasRealData = sources.length > 1 || row.match_stats || row.h2h_data || row.odds || row.home_lineup;
+    const hasAIAnalysis = row.pred_analysis && !row.pred_analysis.startsWith("🤖 Analyse basée sur le modèle statistique");
+    if (!hasRealData && !hasAIAnalysis) {
+      row.ai_hidden = true;
+      row.ai_hidden_reason = "Données insuffisantes — aucune stat, cote, ou analyse IA disponible";
+    } else {
+      row.ai_hidden = false;
+      row.ai_hidden_reason = null;
+    }
   }
 
-  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}`);
+  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}, AllSports: ${allSportsStandings.size}`);
 }
 
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
