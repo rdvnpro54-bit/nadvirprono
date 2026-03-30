@@ -129,7 +129,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen pb-20 relative">
-      <div className="particles-bg" />
       <Navbar />
 
       {/* Hero */}
