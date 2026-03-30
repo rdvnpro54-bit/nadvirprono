@@ -220,6 +220,16 @@ export default function Matches() {
   const hasMore = filtered.length > visibleCount;
   const freeMatches = filtered.filter(m => m.is_free).sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
 
+  // Elite 5: top 5 highest-confidence matches tagged by server (Premium+ only)
+  const elite5Matches = useMemo(() => {
+    if (!isPremiumPlus && !isAdmin) return [];
+    if (!matches) return [];
+    return matches
+      .filter(m => m.is_elite5 === true)
+      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0))
+      .slice(0, 5);
+  }, [matches, isPremiumPlus, isAdmin]);
+
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Navbar />
