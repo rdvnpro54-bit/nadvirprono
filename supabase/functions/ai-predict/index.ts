@@ -854,8 +854,10 @@ Deno.serve(async (req) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
     const forceAll = url.searchParams.get("force") === "true";
 
-    // v2.0: Check streak mode
-    const streak = await checkStreakMode(supabase);
+    // v2.0: Check streak mode (bypass for forced recalc)
+    const streak = forceAll 
+      ? { isStreakMode: false, rollingWinrate: 100, maxPicks: 999, minConfidence: 60, minAiScore: 60 } as StreakState
+      : await checkStreakMode(supabase);
     if (streak.isStreakMode) {
       console.log(`[AI-PREDICT v2] 📉 STREAK MODE: winrate=${streak.rollingWinrate}%, maxPicks=${streak.maxPicks}, minConf=${streak.minConfidence}%, minAI=${streak.minAiScore}`);
     }
