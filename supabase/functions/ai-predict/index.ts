@@ -1218,15 +1218,9 @@ function postProcessPredictions(
     }
     if (p.context_penalties_total >= 25) { p.ai_score = 0; continue; }
 
+    // v3.2: RISQUÉ picks completely suspended
     if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
-      if (streak.isStreakMode) { p.ai_score = 0; continue; }
-      const mp = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
-      if (mp >= 38) {
-        const scale2 = 37 / mp;
-        p.pred_home_win = Math.round(p.pred_home_win * scale2);
-        p.pred_draw = Math.round(p.pred_draw * scale2);
-        p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
-      }
+      p.ai_score = 0; continue;
     }
 
     if (streak.level === "emergency" && p.league_tier !== 1) { p.ai_score = 0; continue; }
