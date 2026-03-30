@@ -280,7 +280,12 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
               <div className="flex items-center gap-1 flex-wrap mb-2">
                 <ConfidenceBadge confidence={match.pred_confidence as any} />
                 {aiScore > 0 && <AiScoreBadge score={aiScore} />}
-                {match.pred_value_bet && (
+                {valueInfo && (
+                  <span className={cn("flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold", valueInfo.color)}>
+                    <TrendingUp className="h-2.5 w-2.5" /> {valueInfo.label}
+                  </span>
+                )}
+                {match.pred_value_bet && !valueInfo && (
                   <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
                     <TrendingUp className="h-2.5 w-2.5" /> Value
                   </span>
