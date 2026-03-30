@@ -1000,6 +1000,7 @@ async function callGroqAI(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
   try {
+    // Groq with Llama works better with JSON mode instead of tool_choice
     const response = await fetch(GROQ_API, {
       method: "POST",
       signal: controller.signal,
@@ -1007,13 +1008,12 @@ async function callGroqAI(
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: AI_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
+          { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have: fixture_id, pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence (SAFE/MODÉRÉ/RISQUÉ), pred_value_bet, pred_analysis, ai_score, anomaly_score, data_completeness_score, consensus_passed, context_penalties_total." },
+          { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}" },
         ],
-        tools: AI_TOOLS,
-        tool_choice: { type: "function", function: { name: "predict_matches" } },
         temperature: 0.3,
         max_tokens: 8000,
+        response_format: { type: "json_object" },
       }),
     });
     clearTimeout(timeout);
@@ -1022,7 +1022,16 @@ async function callGroqAI(
       console.error(`[GROQ] API error ${response.status}: ${errText}`); 
       return []; 
     }
-    return parseToolCallResponse(await response.json());
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content;
+    if (!content) return [];
+    try {
+      const parsed = JSON.parse(content);
+      return (parsed.predictions || []) as AIPrediction[];
+    } catch {
+      console.error("[GROQ] Failed to parse JSON response");
+      return [];
+    }
   } catch (e) {
     clearTimeout(timeout);
     console.error("[GROQ] Error:", e);
