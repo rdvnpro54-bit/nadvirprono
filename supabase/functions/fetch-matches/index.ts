@@ -1095,7 +1095,12 @@ async function enrichMatchesWithAPIs(
   const dateCompact = dateISO.replace(/-/g, "");
 
   // 1. Fetch all enrichment data sources in parallel
-  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData] = await Promise.all([
+  const allSportsStandingsPromises: Promise<Map<string, any>>[] = [];
+  for (const [, cfg] of Object.entries(ALLSPORTS_TOURNAMENTS)) {
+    allSportsStandingsPromises.push(fetchAllSportsStandings(cfg.tournamentId, cfg.seasonId));
+  }
+
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData, ...allSportsResults] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
     fetchSofaScoreRapidEvents(dateISO, "football"),
@@ -1103,7 +1108,15 @@ async function enrichMatchesWithAPIs(
     fetchSofaScoreRapidEvents(dateISO, "tennis"),
     fetchTank01MLBScores(dateCompact),
     fetchNHLSchedule(dateISO),
+    ...allSportsStandingsPromises,
   ]);
+
+  // Merge all AllSports standings into one map
+  const allSportsStandings = new Map<string, any>();
+  for (const standingsMap of allSportsResults) {
+    for (const [k, v] of standingsMap) allSportsStandings.set(k, v);
+  }
+  console.log(`[AllSports] Total standings: ${allSportsStandings.size} teams`);
 
   // Build lookup maps
   const apiFootballMap = new Map<string, APIFootballFixture>();
