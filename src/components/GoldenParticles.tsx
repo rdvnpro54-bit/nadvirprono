@@ -61,8 +61,10 @@ export const GoldenParticles = memo(function GoldenParticles() {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255, 215, 0, ${p.opacity})`;
-        ctx.shadowColor = `rgba(255, 215, 0, ${p.opacity * 0.5})`;
-        ctx.shadowBlur = p.size * 4;
+        if (!isMobile) {
+          ctx.shadowColor = `rgba(255, 215, 0, ${p.opacity * 0.5})`;
+          ctx.shadowBlur = p.size * 4;
+        }
         ctx.fill();
         ctx.shadowBlur = 0;
       }
