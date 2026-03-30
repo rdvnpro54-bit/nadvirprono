@@ -320,11 +320,11 @@ export default function PronosiaAI() {
                   <Bot className="h-10 w-10 text-primary-foreground" />
                 </div>
                 <motion.div
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary flex items-center justify-center"
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  <span className="text-[8px] font-bold text-white">AI</span>
+                  <span className="text-[8px] font-bold text-primary-foreground">AI</span>
                 </motion.div>
               </div>
               <div className="text-center space-y-1">
