@@ -108,11 +108,12 @@ BOXING/MMA: Weight: Styles matchup 40%, Recent KO/sub rate 25%, Ring rust 20%, R
 - First match after international break → apply -8% confidence penalty
 
 ═══ ALLOWED BET TYPES ═══
-✅ 1X2 (only if confidence > 70% and implied odds > 1.40)
-✅ Double Chance (preferred for 65-74% confidence)
-✅ Over/Under 2.5 (only if supported by last 6 H2H or team form)
-✅ BTTS Yes (only if both teams scored in >65% of recent matches)
+✅ 1X2 (only if confidence > 72% and implied odds > 1.40)
+✅ Double Chance (preferred for 68-74% confidence — SAFEST option, prefer this)
+✅ Over/Under 2.5 (only if supported by last 6 H2H or team form AND confidence > 70%)
+✅ BTTS Yes (only if both teams scored in >70% of recent matches)
 ❌ NEVER: Accumulators, Handicap, First goalscorer, Prop bets
+⚠️ PREFER Double Chance over 1X2 when in doubt — it dramatically reduces losses
 
 ═══ CONFIDENCE CALIBRATION ═══
 - Raw confidence > 80% → display as raw minus 8%
