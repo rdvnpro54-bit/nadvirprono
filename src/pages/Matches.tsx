@@ -221,6 +221,23 @@ export default function Matches() {
           </div>
         </motion.div>
 
+        {/* v2.0: Streak Mode Banner */}
+        {(window as any).__pronosia_streak?.streakMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 flex items-center gap-2"
+          >
+            <span className="text-base">📉</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-destructive">Streak Mode Actif — Sélection Ultra-Stricte</p>
+              <p className="text-[10px] text-muted-foreground">
+                Winrate récent : {(window as any).__pronosia_streak?.rollingWinrate ?? 0}% • Seuls les picks les plus sûrs sont affichés
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* Premium banner */}
         {!isPremium && !isLoading && (
           <motion.div

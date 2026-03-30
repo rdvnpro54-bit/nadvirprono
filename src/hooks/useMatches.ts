@@ -354,7 +354,16 @@ export function useMatches() {
         const { data, error } = matchesResponse;
         if (error) throw error;
 
-        const matches = Array.isArray(data) ? (data as MatchWithFlags[]) : [];
+        // v2.0: handle both array (legacy) and { matches, streak_mode } object
+        const rawMatches = Array.isArray(data) ? data : (data?.matches ?? []);
+        const matches = rawMatches as MatchWithFlags[];
+        // Store streak metadata globally
+        if (data && !Array.isArray(data)) {
+          (window as any).__pronosia_streak = {
+            streakMode: data.streak_mode ?? false,
+            rollingWinrate: data.rolling_winrate ?? 100,
+          };
+        }
         if (matches.length === 0) {
           console.warn("[useMatches] API vide, conservation du cache courant");
           const cached = removeResolvedMatches(cacheRef.current, resolvedFixtureIds);

@@ -356,7 +356,26 @@ Deno.serve(async (req) => {
     const freeIds = pickTop2Free(allMatches);
     const topPickId = pickTopPick(allMatches, freeIds);
 
-    console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
+    // v2.0: Check streak mode from recent results
+    let streakMode = false;
+    let rollingWinrate = 100;
+    try {
+      const { data: recentResults } = await adminClient
+        .from("match_results")
+        .select("result")
+        .not("result", "is", null)
+        .order("resolved_at", { ascending: false })
+        .limit(5);
+      if (recentResults && recentResults.length >= 3) {
+        const wins = recentResults.filter((r: any) => r.result === "win").length;
+        rollingWinrate = Math.round((wins / recentResults.length) * 100);
+        streakMode = rollingWinrate < 50;
+      }
+    } catch {}
+
+    console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}, streak=${streakMode}`);
+
+    const meta = { streak_mode: streakMode, rolling_winrate: rollingWinrate };
 
     if (isPremium) {
       const mapFn = (m: Record<string, unknown>) => {
@@ -368,12 +387,12 @@ Deno.serve(async (req) => {
           is_top_pick: topPickId === String(m.id),
         };
       };
-      return new Response(JSON.stringify(allMatches.map(mapFn)), {
+      return new Response(JSON.stringify({ matches: allMatches.map(mapFn), ...meta }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Non-premium: show predictions only for free + top pick, strip anomaly details but keep label
+    // Non-premium
     const result = allMatches.map(m => {
       const id = String(m.id);
       const isFree = freeIds.has(id);
@@ -385,7 +404,7 @@ Deno.serve(async (req) => {
       return { ...stripPredictions(m), is_free: false, is_top_pick: false };
     });
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ matches: result, ...meta }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

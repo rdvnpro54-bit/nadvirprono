@@ -109,6 +109,18 @@ function getPredictionText(match: CachedMatch): string {
   return `${shortName(winner)}`;
 }
 
+// v2.0: Value score computation
+function computeValueInfo(match: CachedMatch): { score: number; label: string; color: string } | null {
+  const mainProb = Math.max(Number(match.pred_home_win), Number(match.pred_away_win));
+  if (mainProb <= 0) return null;
+  const odds = Math.round((100 / mainProb) * 0.92 * 100) / 100;
+  const value = (mainProb / 100 * odds) - 1;
+  if (value < 0.05) return null;
+  if (value <= 0.10) return { score: value, label: "🟡 Low Value", color: "text-amber-400" };
+  if (value <= 0.20) return { score: value, label: "🟢 Good Value", color: "text-emerald-400" };
+  return { score: value, label: "🔥 High Value", color: "text-primary" };
+}
+
 function getAiScoreGlow(score: number): string {
   if (score >= 90) return "ring-1 ring-amber-400/30 shadow-md shadow-amber-500/10";
   if (score >= 80) return "ring-1 ring-emerald-400/20 shadow-sm shadow-emerald-500/5";
@@ -131,6 +143,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
   const anomalyScore = (match as any).anomaly_score || 0;
   const anomalyLabel = (match as any).anomaly_label as string | null;
   const anomalyReason = (match as any).anomaly_reason as string | null;
+  const valueInfo = computeValueInfo(match);
 
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -267,7 +280,12 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
               <div className="flex items-center gap-1 flex-wrap mb-2">
                 <ConfidenceBadge confidence={match.pred_confidence as any} />
                 {aiScore > 0 && <AiScoreBadge score={aiScore} />}
-                {match.pred_value_bet && (
+                {valueInfo && (
+                  <span className={cn("flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold", valueInfo.color)}>
+                    <TrendingUp className="h-2.5 w-2.5" /> {valueInfo.label}
+                  </span>
+                )}
+                {match.pred_value_bet && !valueInfo && (
                   <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
                     <TrendingUp className="h-2.5 w-2.5" /> Value
                   </span>
@@ -328,7 +346,9 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                   />
                 </div>
 
-                {/* SAFE market badge */}
+                <p className="text-[8px] text-muted-foreground/60 italic">Probabilité calibrée — ajustée pour biais du modèle</p>
+
+
                 {match.pred_confidence === "SAFE" && (
                   <div className="flex items-center gap-1 text-[9px]">
                     <ShieldCheck className="h-2.5 w-2.5 text-emerald-400" />
