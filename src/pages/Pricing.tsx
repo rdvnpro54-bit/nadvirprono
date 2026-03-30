@@ -249,7 +249,7 @@ export default function Pricing() {
           <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-3 px-3 md:grid md:grid-cols-[1fr_1fr_1.15fr] md:overflow-visible md:mx-0 md:px-0 md:gap-5 md:items-start scrollbar-hide">
 
             {/* FREE */}
-            <div className="glass-card p-5 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink opacity-80">
+            <div className="glass-card p-5 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink opacity-70">
               <h2 className="font-display text-lg font-bold">Gratuit</h2>
               <p className="text-[11px] text-muted-foreground mt-1">Découverte limitée</p>
               <div className="mt-4 flex items-baseline gap-1">
