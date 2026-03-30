@@ -139,14 +139,11 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
   let resp = `📊 **Performance Pronosia AI :**\n\n`;
   resp += `🎯 Winrate global : **${winrate}%** (${wins}W / ${total - wins}L sur ${total} picks)\n\n`;
   
-  const sports = [...new Set(resolved.map(r => r.sport))];
-  if (sports.length > 0) {
+  const sportStats = computeSportStats(resolved);
+  if (sportStats.length > 0) {
     resp += `**Par sport :**\n`;
-    for (const sport of sports) {
-      const sportRes = resolved.filter(r => r.sport === sport);
-      const sw = sportRes.filter(r => r.result === "win").length;
-      const wr = Math.round((sw / sportRes.length) * 100);
-      resp += `- ${sport === "football" ? "⚽" : sport === "basketball" ? "🏀" : sport === "hockey" ? "🏒" : sport === "baseball" ? "⚾" : "🎾"} ${sport} : ${wr}% (${sw}/${sportRes.length})\n`;
+    for (const s of sportStats) {
+      resp += `- ${getSportEmoji(s.sport)} ${s.sport} : **${s.winrate}%** (${s.wins}/${s.total})\n`;
     }
   }
   
@@ -156,7 +153,7 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
     if (cr.length > 0) {
       const cw = cr.filter(r => r.result === "win").length;
       const emoji = conf === "SAFE" ? "🟢" : conf === "MODÉRÉ" ? "🟡" : "🔴";
-      resp += `- ${emoji} ${conf} : ${Math.round((cw / cr.length) * 100)}% (${cw}/${cr.length})\n`;
+      resp += `- ${emoji} ${conf} : **${Math.round((cw / cr.length) * 100)}%** (${cw}/${cr.length})\n`;
     }
   }
   
@@ -165,6 +162,101 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
   resp += `\n📈 Derniers 10 picks : **${last10W}/10** (${Math.round(last10W * 10)}%)\n`;
   
   resp += `\n_Statistiques basées sur l'historique complet des prédictions._`;
+  return resp;
+}
+
+// ── Helper: compute per-sport stats ──
+interface SportStat { sport: string; wins: number; losses: number; total: number; winrate: number; }
+
+function computeSportStats(resolved: ResultData[]): SportStat[] {
+  const map: Record<string, { wins: number; losses: number }> = {};
+  for (const r of resolved) {
+    if (!map[r.sport]) map[r.sport] = { wins: 0, losses: 0 };
+    if (r.result === "win") map[r.sport].wins++;
+    else map[r.sport].losses++;
+  }
+  return Object.entries(map).map(([sport, d]) => ({
+    sport, wins: d.wins, losses: d.losses, total: d.wins + d.losses,
+    winrate: Math.round((d.wins / (d.wins + d.losses)) * 100),
+  })).sort((a, b) => b.total - a.total);
+}
+
+function getSportEmoji(sport: string): string {
+  const map: Record<string, string> = { football: "⚽", basketball: "🏀", hockey: "🏒", baseball: "⚾", tennis: "🎾", mma: "🥊", afl: "🏈", rugby: "🏉" };
+  return map[sport.toLowerCase()] || "🎯";
+}
+
+function generateSportDetailResponse(sportName: string, results: ResultData[]): string {
+  const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+  const sportResults = resolved.filter(r => normalize(r.sport).includes(normalize(sportName)));
+  
+  if (sportResults.length === 0) {
+    return `${getSportEmoji(sportName)} Aucune donnée disponible pour le **${sportName}** dans notre historique de prédictions.`;
+  }
+  
+  const wins = sportResults.filter(r => r.result === "win").length;
+  const total = sportResults.length;
+  const winrate = Math.round((wins / total) * 100);
+  
+  let resp = `${getSportEmoji(sportName)} **Performance en ${sportName} :**\n\n`;
+  resp += `🎯 Winrate : **${winrate}%** (${wins}W / ${total - wins}L sur ${total} picks)\n\n`;
+  
+  // Par confiance
+  resp += `**Par confiance :**\n`;
+  for (const conf of ["SAFE", "MODÉRÉ", "RISQUÉ"]) {
+    const cr = sportResults.filter(r => r.predicted_confidence === conf);
+    if (cr.length > 0) {
+      const cw = cr.filter(r => r.result === "win").length;
+      const emoji = conf === "SAFE" ? "🟢" : conf === "MODÉRÉ" ? "🟡" : "🔴";
+      resp += `- ${emoji} ${conf} : **${Math.round((cw / cr.length) * 100)}%** (${cw}/${cr.length})\n`;
+    }
+  }
+  
+  // Par ligue
+  const leagues: Record<string, { wins: number; total: number }> = {};
+  for (const r of sportResults) {
+    if (!leagues[r.league_name]) leagues[r.league_name] = { wins: 0, total: 0 };
+    leagues[r.league_name].total++;
+    if (r.result === "win") leagues[r.league_name].wins++;
+  }
+  const leagueEntries = Object.entries(leagues).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
+  if (leagueEntries.length > 0) {
+    resp += `\n**Par ligue :**\n`;
+    for (const [name, d] of leagueEntries) {
+      resp += `- ${name} : **${Math.round((d.wins / d.total) * 100)}%** (${d.wins}/${d.total})\n`;
+    }
+  }
+  
+  resp += `\n_Statistiques basées sur l'historique complet._`;
+  return resp;
+}
+
+function generateBestSportResponse(results: ResultData[]): string {
+  const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+  const sportStats = computeSportStats(resolved);
+  
+  if (sportStats.length === 0) return "📊 Pas encore assez de données pour comparer les sports.";
+  
+  // Sort by winrate (min 3 picks to be meaningful)
+  const meaningful = sportStats.filter(s => s.total >= 3);
+  if (meaningful.length === 0) return "📊 Pas encore assez de données pour comparer les sports (minimum 3 picks par sport).";
+  
+  const best = [...meaningful].sort((a, b) => b.winrate - a.winrate);
+  const worst = [...meaningful].sort((a, b) => a.winrate - b.winrate);
+  
+  let resp = `📊 **Classement par sport :**\n\n`;
+  resp += `🏆 **Meilleur sport :** ${getSportEmoji(best[0].sport)} ${best[0].sport} — **${best[0].winrate}%** (${best[0].wins}/${best[0].total})\n`;
+  if (worst[0].sport !== best[0].sport) {
+    resp += `⚠️ **Sport le plus difficile :** ${getSportEmoji(worst[0].sport)} ${worst[0].sport} — **${worst[0].winrate}%** (${worst[0].wins}/${worst[0].total})\n`;
+  }
+  
+  resp += `\n**Détail complet :**\n`;
+  for (const s of best) {
+    const bar = s.winrate >= 65 ? "🟢" : s.winrate >= 50 ? "🟡" : "🔴";
+    resp += `${bar} ${getSportEmoji(s.sport)} ${s.sport} : **${s.winrate}%** (${s.wins}W/${s.losses}L sur ${s.total})\n`;
+  }
+  
+  resp += `\n_Seuls les sports avec ≥3 picks sont classés._`;
   return resp;
 }
 
