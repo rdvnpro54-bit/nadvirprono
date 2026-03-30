@@ -229,7 +229,7 @@ export default function Compte() {
                   animate={isPremium ? { scale: [1, 1.05, 1] } : {}}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  {isPremium ? "PREMIUM" : "FREE"}
+                  {isPremium ? (isPremiumPlus ? "PREMIUM+" : "PREMIUM") : "FREE"}
                 </motion.span>
               </div>
               {isPremium && subscription.subscriptionEnd && (
