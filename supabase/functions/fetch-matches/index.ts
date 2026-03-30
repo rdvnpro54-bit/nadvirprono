@@ -746,7 +746,8 @@ async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
       return [];
     }
     const json = await res.json();
-    console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures for ${dateISO}`);
+    if (json.message) { console.error(`[SportMonks] API message: ${json.message}`); }
+    console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures, pagination: ${json.pagination?.total || 'n/a'}`);
     return json.data || [];
   } catch (e) { console.error("[SportMonks] error:", e); return []; }
 }
