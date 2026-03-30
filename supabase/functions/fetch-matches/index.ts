@@ -969,6 +969,66 @@ async function fetchTank01MLBScores(dateCompact: string): Promise<Map<string, an
   } catch (e) { console.error("[Tank01-MLB] error:", e); return new Map(); }
 }
 
+// ─── NHL API5 — ENRICHMENT: rosters and player stats ────────────────
+const NHL_API5_BASE = "https://nhl-api5.p.rapidapi.com";
+
+function getNHLAPI5Headers(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "nhl-api5.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+async function fetchNHLSchedule(dateISO: string): Promise<Map<string, any>> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return new Map();
+  try {
+    const res = await fetch(`${NHL_API5_BASE}/nhlschedule?date=${dateISO}`, {
+      headers: getNHLAPI5Headers(),
+    });
+    if (!res.ok) { console.error(`[NHL-API5] schedule error: ${res.status}`); return new Map(); }
+    const json = await res.json();
+    const games = json.body || json.games || json;
+    const gamesList = Array.isArray(games) ? games : (games?.dates?.[0]?.games || []);
+    console.log(`[NHL-API5] Found ${gamesList.length} NHL games for ${dateISO}`);
+    const map = new Map<string, any>();
+    for (const g of gamesList) {
+      const home = (g.homeTeam?.name || g.home || g.teams?.home?.team?.name || "").toLowerCase().trim();
+      const away = (g.awayTeam?.name || g.away || g.teams?.away?.team?.name || "").toLowerCase().trim();
+      if (home && away) {
+        map.set(`${home}_${away}`, {
+          gameId: g.id || g.gameId || g.gamePk,
+          homeId: g.homeTeam?.id || g.teams?.home?.team?.id,
+          awayId: g.awayTeam?.id || g.teams?.away?.team?.id,
+          venue: g.venue?.name || g.venue || null,
+          homeScore: g.homeScore ?? g.teams?.home?.score ?? null,
+          awayScore: g.awayScore ?? g.teams?.away?.score ?? null,
+          status: g.gameStatus || g.status?.detailedState || null,
+        });
+      }
+    }
+    return map;
+  } catch (e) { console.error("[NHL-API5] error:", e); return new Map(); }
+}
+
+async function fetchNHLRoster(teamId: number): Promise<any[] | null> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey || !teamId) return null;
+  try {
+    const res = await fetch(`${NHL_API5_BASE}/players/id?teamId=${teamId}`, {
+      headers: getNHLAPI5Headers(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const players = json.body || json;
+    const roster = Array.isArray(players) ? players : [];
+    return roster.slice(0, 25).map((p: any) => ({
+      name: p.longName || p.playerName || p.name,
+      number: p.jerseyNum || p.jerseyNumber,
+      pos: p.pos || p.position,
+      team: p.team || null,
+    }));
+  } catch { return null; }
+}
+
 // ─── ENRICHMENT ORCHESTRATOR ─────────────────────────────────────────
 async function enrichMatchesWithAPIs(
   rows: any[], dateISO: string
@@ -977,13 +1037,14 @@ async function enrichMatchesWithAPIs(
   const dateCompact = dateISO.replace(/-/g, "");
 
   // 1. Fetch all enrichment data sources in parallel
-  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData] = await Promise.all([
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
     fetchSofaScoreRapidEvents(dateISO, "football"),
     fetchSofaScoreRapidEvents(dateISO, "basketball"),
     fetchSofaScoreRapidEvents(dateISO, "tennis"),
     fetchTank01MLBScores(dateCompact),
+    fetchNHLSchedule(dateISO),
   ]);
 
   // Build lookup maps
