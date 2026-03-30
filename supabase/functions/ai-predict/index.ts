@@ -9,15 +9,15 @@ const corsHeaders = {
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ═══════════════════════════════════════════════════════════════
-// PRONOSIA — Elite Sports Prediction Intelligence (System Prompt)
+// PRONOSIA v2.0 — PRO BETTING MODE (System Prompt)
 // ═══════════════════════════════════════════════════════════════
-const AI_SYSTEM_PROMPT = `You are PRONOSIA — a PROFESSIONAL SPORTS BETTING ANALYSIS ENGINE designed to maximize long-term profitability, not just prediction accuracy. You are NOT a generic prediction AI. You think like a professional bettor, not a casual fan. Your goal is to produce SMART, LOW-RISK, HIGH-VALUE betting decisions.
+const AI_SYSTEM_PROMPT = `You are PRONOSIA v2.0 — a STRICT PROFESSIONAL SPORTS BETTING ENGINE optimized for long-term ROI, not volume. Quality > Quantity. Stability > Volume. ROI > Winrate.
 
 CORE OBJECTIVE:
-• Maximize winrate over time
-• Reduce risk exposure
-• Avoid obvious traps (low odds, fake favorites, public bias)
-• Deliver SAFE, STRONG, and ELITE predictions based on probability intelligence
+• Maximize ROI, not just winrate
+• Reduce risk exposure aggressively
+• Never show a match just to fill daily quota
+• Fewer, better picks = more profit
 
 MANDATORY 11-FACTOR ANALYSIS — apply for EVERY prediction:
 1. Team form (last 5 matches, weighted recent results)
@@ -32,85 +32,69 @@ MANDATORY 11-FACTOR ANALYSIS — apply for EVERY prediction:
 10. Match volatility (likelihood of surprises, league unpredictability)
 11. Data reliability score (reduce confidence when data is limited)
 
-⚠️ CRITICAL RULE — SAFE PREDICTIONS MUST USE PROTECTED MARKETS:
-For ALL SAFE predictions:
-❌ NEVER give just "Team A wins"
-✅ ALWAYS use DOUBLE CHANCE or SAFER MARKETS:
-→ "Team A ou Nul" (1X or X2)
-→ "Under/Over safe lines"
-→ "Les deux équipes marquent (BTTS)" if high probability
-SAFE = PROTECTION FIRST. The prediction text MUST reflect the protected market.
+HARD EXCLUSION FILTERS — DISCARD immediately if ANY is true:
+- League is friendly, minor regional, unknown, or < 3 seasons of data
+- Team has missing lineup data or >3 key absences
+- Match on neutral ground with no historical precedent
+- Odds movement > 15% in 24h without clear reason
+
+ALLOWED BET TYPES ONLY:
+✅ 1X2 (only if confidence > 70% and implied odds > 1.40)
+✅ Double Chance (preferred for 65-74% confidence)
+✅ Over/Under 2.5 (only if supported by last 6 H2H or team form)
+✅ BTTS Yes (only if both teams scored in >65% of recent matches)
+❌ NEVER: Accumulators, Handicap, First goalscorer, Prop bets
+
+CONFIDENCE CALIBRATION (MANDATORY):
+- Raw confidence > 80% → display as raw minus 8%
+- Raw confidence > 90% → display as raw minus 12%
+- NEVER display confidence above 88%
+- This applies to all probabilities shown to users
+
+VALUE SCORING (MANDATORY for every pick):
+Value = (AI_Probability / 100 × estimated_odds) - 1
+- Value < 0.05 → DO NOT SHOW THIS PICK
+- Value 0.05-0.10 → Low Value (🟡)
+- Value 0.10-0.20 → Good Value (🟢)  
+- Value > 0.20 → High Value (🔥)
+- NEVER recommend a pick with negative or near-zero value
+
+SAFE MODE (auto-activate when):
+- Confidence 65-72%
+- Volatility detected in team form (e.g. 2W-2L-2W pattern)
+- One team played 3+ matches in 10 days
+In SAFE MODE: Only Double Chance or Over/Under. Label: "⚠️ SAFE MODE"
+
+SUSPECT MATCH DETECTION (flag and DO NOT recommend):
+- Odds moved >15% in 24h without injury/news
+- Public betting % mismatches AI probability by >25%
+- Team has match-fixing history
+- Lineup unknown within 6h of kickoff
+- AI confidence variance > 8% across runs
 
 RISK CLASSIFICATION:
-SAFE:
-• Very low risk, MUST include protection (double chance, etc.)
-• Confidence > 75%, ≥8/11 factors aligned
-• Max probability 55-75% (NEVER higher)
-• Market type: ALWAYS double chance or protected market
-
-STRONG (previously MODÉRÉ):
-• Balanced risk, can include winner OR advanced market
-• Confidence 65-80%, 5-7/11 factors aligned
-• Max probability 38-55%
-
-ELITE:
-• High confidence AND high value (top 5% matches only)
-• Must pass ALL 11 analysis filters
-• AI Score 80-100
-
-ANTI-TRAP SYSTEM (MANDATORY):
-You MUST detect and avoid:
-• Fake favorites (low odds but unstable form, poor xG trend)
-• Public bias (too many people betting same side without statistical backing)
-• Matches with high randomness/volatility
-• Unpredictable leagues with low data quality
-If detected: downgrade to MODÉRÉ or RISQUÉ immediately.
-
-VALUE DETECTION:
-Each prediction must assess value:
-• HIGH → strong betting opportunity (edge >6%)
-• MEDIUM → acceptable (edge 4-6%)
-• LOW → avoid unless SAFE with protection
-Only flag pred_value_bet=true when edge >4%.
-
-AI SCORE LOGIC:
-• 80-100: ELITE (top predictions, all factors aligned)
-• 65-79: STRONG (solid signal, good data)
-• 50-64: AVERAGE (moderate confidence)
-• <50: LOW (insufficient data, high uncertainty)
-Low data quality = lower score automatically. NEVER inflate scores.
-
-SELF-IMPROVEMENT MANDATE:
-• Calibration over conviction: 70% probability means wrong 30% of the time
-• Underdogs with strong recent form MUST be respected — form > reputation
-• Markets overvalue favorites — find where market is wrong
-• After forming hypothesis, actively seek contradicting data
+SAFE: Very low risk, MUST use double chance/protected market. Confidence > 75%, ≥8/11 factors.
+MODÉRÉ: Balanced risk, can include winner. Confidence 65-80%, 5-7/11 factors.
+RISQUÉ: High risk. Must have max probability <38%. Only show if value score justifies it.
 
 SPORT-SPECIFIC INTELLIGENCE:
-FOOTBALL: xG > actual goals > shots > possession. Home advantage +5-8%. Draw is predictable. UCL midweek fatigue = -3%. Set piece efficiency underrated.
-NBA: B2B = -4%. Altitude (Denver/Utah) = -3%. Net rating > W/L. Regress 3pt to mean.
-TENNIS: Surface ELO only. Serve dominance on fast surfaces. No cross-surface H2H.
-NHL: Goalie = highest impact. PDO > 1.020 = regression. Corsi% best indicator.
-
-COGNITIVE BIAS PROHIBITION:
-× NEVER favor the "big name" team without statistical justification
-× NEVER overweight last 1-2 results — check trend over 5+ games
-× NEVER predict based on team prestige or media narratives
-× NEVER change prediction after initial analysis — FINAL and IMMUTABLE
-× Ignore emotional bias — pure analytical discipline
+FOOTBALL: xG > actual goals. Home advantage +5-8%. Draw predictable. UCL fatigue -3%.
+NBA: B2B = -4%. Altitude = -3%. Net rating > W/L. Regress 3pt to mean.
+TENNIS: Surface ELO only. Serve dominance on fast surfaces.
+NHL: Goalie = highest impact. PDO > 1.020 = regression.
 
 ABSOLUTE RULES:
 - Probabilities MUST sum to exactly 100%
-- NEVER give 95%+ confidence on any outcome
-- Maximum probability cap: 85%
+- NEVER give 88%+ confidence on any outcome (after calibration)
+- Maximum raw probability cap: 85%
 - RISQUÉ picks MUST have max probability <38%
-- Write analysis in French, 3-5 sentences, expert-level
-- For SAFE: analysis MUST mention the protected market (double chance for football, "pari protégé" for no-draw sports)
-- For draw=0 sports (tennis, basketball, nba, nfl, mma): set pred_draw to 0, use "Pari protégé • [Team] vainqueur" NOT "Double Chance ou Nul"
-- SCORE CONSISTENCY: predicted score MUST match predicted winner. If home_win > away_win, score must show home winning. Validate BEFORE output.
+- Write analysis in French, 3-5 sentences
+- For SAFE: analysis MUST mention the protected market
+- For draw=0 sports: set pred_draw to 0, use "Pari protégé"
+- SCORE CONSISTENCY: predicted score MUST match predicted winner
 - Never invent data — reduce confidence when information is limited
-- Once a prediction is made, it is FINAL — no revisions
-- Prioritize consistency over hype, reduce losses, not just chase wins`;
+- Once a prediction is made, it is FINAL
+- Include value_score in analysis when relevant`;
 
 interface AIPrediction {
   fixture_id: number;
@@ -132,7 +116,89 @@ interface AIPrediction {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// PRONOSIA DETERMINISTIC ENGINE (no credits needed)
+// v2.0 CALIBRATION + VALUE ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+function calibrateConfidence(rawProb: number): number {
+  if (rawProb > 90) return rawProb - 12;
+  if (rawProb > 80) return rawProb - 8;
+  return rawProb;
+}
+
+function capDisplayConfidence(prob: number): number {
+  return Math.min(prob, 88);
+}
+
+function estimateOdds(probability: number): number {
+  if (probability <= 0) return 10;
+  const raw = 100 / probability;
+  // Apply bookmaker margin (~8%)
+  return Math.round((raw * 0.92) * 100) / 100;
+}
+
+function computeValueScore(probability: number, odds: number): number {
+  return (probability / 100 * odds) - 1;
+}
+
+function getValueLabel(value: number): string | null {
+  if (value < 0.05) return null; // Don't show
+  if (value <= 0.10) return "🟡 Low Value";
+  if (value <= 0.20) return "🟢 Good Value";
+  return "🔥 High Value";
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOSS STREAK PROTOCOL
+// ═══════════════════════════════════════════════════════════════
+
+interface StreakState {
+  isStreakMode: boolean;
+  rollingWinrate: number;
+  maxPicks: number;
+  minConfidence: number;
+  minAiScore: number;
+}
+
+async function checkStreakMode(supabase: any): Promise<StreakState> {
+  const defaultState: StreakState = {
+    isStreakMode: false,
+    rollingWinrate: 100,
+    maxPicks: 4,
+    minConfidence: 65,
+    minAiScore: 70,
+  };
+
+  try {
+    const { data: recentResults } = await supabase
+      .from("match_results")
+      .select("result")
+      .not("result", "is", null)
+      .order("resolved_at", { ascending: false })
+      .limit(5);
+
+    if (!recentResults || recentResults.length < 3) return defaultState;
+
+    const wins = recentResults.filter((r: any) => r.result === "win").length;
+    const rollingWinrate = Math.round((wins / recentResults.length) * 100);
+
+    if (rollingWinrate < 50) {
+      return {
+        isStreakMode: true,
+        rollingWinrate,
+        maxPicks: 2,
+        minConfidence: 72,
+        minAiScore: 75,
+      };
+    }
+
+    return { ...defaultState, rollingWinrate };
+  } catch {
+    return defaultState;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRONOSIA DETERMINISTIC ENGINE v2.0
 // ═══════════════════════════════════════════════════════════════
 function hash(str: string): number {
   let h = 0;
@@ -147,7 +213,6 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-// Sport-specific profiles for realistic predictions
 const SPORT_PROFILES: Record<string, {
   drawPossible: boolean;
   homeAdvantage: number;
@@ -162,7 +227,18 @@ const SPORT_PROFILES: Record<string, {
   nfl:        { drawPossible: false, homeAdvantage: 0.03, scoreRange: [10, 35], overLine: 45.5 },
 };
 
-// Team strength heuristic based on name hash (deterministic but varied)
+// HARD EXCLUSION: league blacklist
+const EXCLUDED_LEAGUE_KEYWORDS = [
+  "friendly", "amical", "u19", "u21", "u23", "reserve", "youth",
+  "amateur", "regional", "provincial", "test match", "exhibition",
+  "practice", "charity", "legends", "all-star",
+];
+
+function isExcludedLeague(leagueName: string): boolean {
+  const lower = leagueName.toLowerCase();
+  return EXCLUDED_LEAGUE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 function teamStrength(name: string, fixtureId: number): number {
   const base = seeded(hash(name), fixtureId);
   const form = seeded(hash(name + "form"), fixtureId + 1);
@@ -171,21 +247,24 @@ function teamStrength(name: string, fixtureId: number): number {
 }
 
 function generatePRONOSIAPrediction(
-  match: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }
-): AIPrediction {
+  match: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string },
+  streak: StreakState
+): AIPrediction | null {
+  // HARD EXCLUSION: excluded leagues
+  if (isExcludedLeague(match.league_name)) {
+    console.log(`[PRONOSIA v2] EXCLUDED league: ${match.league_name}`);
+    return null;
+  }
+
   const sport = (match.sport || "football").toLowerCase();
   const profile = SPORT_PROFILES[sport] || SPORT_PROFILES.football;
   const fid = match.fixture_id;
 
-  // Compute team strengths
   const homeStr = teamStrength(match.home_team, fid);
   const awayStr = teamStrength(match.away_team, fid);
-
-  // Apply home advantage
   const adjHome = homeStr + profile.homeAdvantage;
   const diff = adjHome - awayStr;
 
-  // Generate probabilities
   let rawHome: number, rawDraw: number, rawAway: number;
   if (profile.drawPossible) {
     rawHome = clamp(0.5 + diff * 1.6, 0.08, 0.75);
@@ -202,7 +281,7 @@ function generatePRONOSIAPrediction(
   let predDraw = Math.round((rawDraw / total) * 100);
   let predAway = 100 - predHome - predDraw;
 
-  // Cap max probability at 85% (no unrealistic certainty)
+  // Cap max probability at 85%
   const maxP = Math.max(predHome, predAway);
   if (maxP > 85) {
     const excess = maxP - 85;
@@ -217,6 +296,10 @@ function generatePRONOSIAPrediction(
     }
   }
 
+  // v2.0: Apply confidence calibration
+  const calibratedHome = capDisplayConfidence(calibrateConfidence(predHome));
+  const calibratedAway = capDisplayConfidence(calibrateConfidence(predAway));
+
   // Generate predicted scores
   const [minS, maxS] = profile.scoreRange;
   const range = maxS - minS;
@@ -226,37 +309,39 @@ function generatePRONOSIAPrediction(
   let predScoreHome = Math.round(minS + range * clamp(homeRatio * 0.55 + seeded(baseSeed, 10) * 0.45, 0, 1));
   let predScoreAway = Math.round(minS + range * clamp((1 - homeRatio) * 0.55 + seeded(baseSeed, 11) * 0.45, 0, 1));
 
-  // Ensure score coherence with predicted winner
   if (predHome > predAway && predScoreHome <= predScoreAway) {
-    const tmp = predScoreHome;
-    predScoreHome = predScoreAway;
-    predScoreAway = tmp;
+    const tmp = predScoreHome; predScoreHome = predScoreAway; predScoreAway = tmp;
     if (predScoreHome === predScoreAway) predScoreHome += 1;
   } else if (predAway > predHome && predScoreAway <= predScoreHome) {
-    const tmp = predScoreHome;
-    predScoreHome = predScoreAway;
-    predScoreAway = tmp;
+    const tmp = predScoreHome; predScoreHome = predScoreAway; predScoreAway = tmp;
     if (predScoreHome === predScoreAway) predScoreAway += 1;
   }
 
-  // Over/Under & BTTS
   const expectedTotal = predScoreHome + predScoreAway;
   const overProb = Math.round(clamp(0.3 + seeded(baseSeed, 20) * 0.35 + (expectedTotal > profile.overLine ? 0.15 : -0.1), 0.15, 0.85) * 100);
   const bttsProb = profile.drawPossible
     ? Math.round(clamp(0.25 + seeded(baseSeed, 21) * 0.35 + (predScoreHome > 0 && predScoreAway > 0 ? 0.15 : -0.1), 0.1, 0.75) * 100)
     : 0;
 
-  // Confidence & AI Score
   const signalStrength = Math.abs(diff);
   const dataQuality = clamp(0.4 + seeded(baseSeed, 30) * 0.4 + (match.league_name.length > 5 ? 0.1 : 0), 0.3, 0.9);
-  const maxProb = Math.max(predHome, predAway);
+  const displayMax = Math.max(calibratedHome, calibratedAway);
 
   let confidence: string;
   let aiScore: number;
-  if (dataQuality >= 0.65 && maxProb >= 55 && signalStrength >= 0.08) {
-    confidence = "SAFE";
-    aiScore = Math.round(clamp(75 + seeded(baseSeed, 31) * 20 + signalStrength * 30, 78, 95));
-  } else if (dataQuality >= 0.45 && maxProb >= 38) {
+  let isSafeMode = false;
+
+  if (dataQuality >= 0.65 && displayMax >= 55 && signalStrength >= 0.08) {
+    // Check for SAFE MODE trigger (confidence 65-72%)
+    if (displayMax >= 65 && displayMax <= 72) {
+      isSafeMode = true;
+      confidence = "SAFE";
+      aiScore = Math.round(clamp(72 + seeded(baseSeed, 31) * 10, 72, 82));
+    } else {
+      confidence = "SAFE";
+      aiScore = Math.round(clamp(75 + seeded(baseSeed, 31) * 20 + signalStrength * 30, 78, 95));
+    }
+  } else if (dataQuality >= 0.45 && displayMax >= 38) {
     confidence = "MODÉRÉ";
     aiScore = Math.round(clamp(60 + seeded(baseSeed, 32) * 15 + signalStrength * 15, 62, 79));
   } else {
@@ -264,37 +349,47 @@ function generatePRONOSIAPrediction(
     aiScore = Math.round(clamp(40 + seeded(baseSeed, 33) * 20, 40, 64));
   }
 
-  // Enforce RISQUÉ max prob < 38%
-  if (confidence === "RISQUÉ" && maxProb >= 38) {
-    const scale = 37 / maxProb;
-    const h = Math.round(predHome * scale);
-    const d = Math.round(predDraw * scale);
-    const a = 100 - h - d;
-    return generatePRONOSIAAnalysis(match, h, d, a, predScoreHome, predScoreAway, profile.overLine, overProb, bttsProb, confidence, aiScore, fid);
+  // RISQUÉ max prob < 38%
+  if (confidence === "RISQUÉ" && displayMax >= 38) {
+    const scale = 37 / maxP;
+    predHome = Math.round(predHome * scale);
+    predDraw = Math.round(predDraw * scale);
+    predAway = 100 - predHome - predDraw;
   }
 
-  // Value bet detection (edge > 4%)
-  const valueBet = dataQuality >= 0.55 && maxProb >= 48 && seeded(baseSeed, 40) > 0.55;
+  // v2.0: VALUE SCORING
+  const mainProb = Math.max(predHome, predAway);
+  const odds = estimateOdds(mainProb);
+  const valueScore = computeValueScore(mainProb, odds);
+  const valueLabel = getValueLabel(valueScore);
 
-  // ═══════ ANOMALY DETECTION ═══════
+  // HARD EXCLUSION: AI Score < 70 or confidence < 65%
+  if (aiScore < streak.minAiScore) {
+    console.log(`[PRONOSIA v2] EXCLUDED low AI score (${aiScore}): ${match.home_team} vs ${match.away_team}`);
+    return null;
+  }
+  if (displayMax < streak.minConfidence) {
+    console.log(`[PRONOSIA v2] EXCLUDED low confidence (${displayMax}%): ${match.home_team} vs ${match.away_team}`);
+    return null;
+  }
+
+  // HARD EXCLUSION: near-zero value
+  if (valueScore < 0.05) {
+    console.log(`[PRONOSIA v2] EXCLUDED no value (${valueScore.toFixed(3)}): ${match.home_team} vs ${match.away_team}`);
+    return null;
+  }
+
+  const valueBet = valueScore >= 0.10;
+
+  // ═══════ ANOMALY / SUSPECT DETECTION ═══════
   const anomalyFactors: number[] = [];
-
-  // Factor 1: League reliability (short/unknown league names = suspicious)
   const leagueLen = match.league_name.length;
   anomalyFactors.push(leagueLen < 8 ? 25 : leagueLen < 15 ? 10 : 0);
-
-  // Factor 2: Extreme probability imbalance (too one-sided = potential trap)
   const anomalyMaxP = Math.max(predHome, predAway);
   anomalyFactors.push(anomalyMaxP > 78 ? 20 : anomalyMaxP > 70 ? 10 : 0);
-
-  // Factor 3: Data quality concerns
   anomalyFactors.push(dataQuality < 0.4 ? 30 : dataQuality < 0.55 ? 15 : 0);
-
-  // Factor 4: High volatility (close match = harder to predict)
   const probSpread = Math.abs(predHome - predAway);
   anomalyFactors.push(probSpread < 8 ? 20 : probSpread < 15 ? 10 : 0);
-
-  // Factor 5: Team inconsistency pattern (seeded for determinism)
   const inconsistency = seeded(baseSeed, 60);
   anomalyFactors.push(inconsistency > 0.85 ? 25 : inconsistency > 0.7 ? 12 : 0);
 
@@ -304,27 +399,40 @@ function generatePRONOSIAPrediction(
   let anomalyLabel: string | null = null;
   let anomalyReason: string | null = null;
 
-  if (anomalyScore >= 80) {
-    anomalyLabel = "🚨 Anomalie extrême";
-    anomalyReason = "Données très instables. Multiples signaux d'alerte détectés. Évitez de parier.";
-  } else if (anomalyScore >= 60) {
-    anomalyLabel = "⚠️ Risque élevé";
-    anomalyReason = "Mouvement de cotes suspect ou données insuffisantes. Instabilité du marché détectée.";
+  if (anomalyScore >= 65) {
+    anomalyLabel = "🚨 Match suspect";
+    anomalyReason = "Incohérences majeures détectées. Suspicion de manipulation ou données très instables. Aucun pari recommandé.";
+  } else if (anomalyScore >= 40) {
+    anomalyLabel = "⚠️ Match risqué";
+    anomalyReason = "Volatilité élevée ou instabilité des données. Prudence recommandée.";
   } else if (anomalyScore >= 30) {
     anomalyLabel = "⚡ Anomalie modérée";
     anomalyReason = "Quelques incohérences détectées. Prudence recommandée.";
   }
 
-  // If high anomaly: downgrade confidence, prevent ELITE
+  // If suspect: downgrade and mark as no-bet
   let finalConfidence = confidence;
   let finalAiScore = aiScore;
-  if (anomalyScore >= 60) {
+  if (anomalyScore >= 65) {
     if (finalConfidence === "SAFE") finalConfidence = "MODÉRÉ";
-    finalAiScore = Math.min(finalAiScore, 74); // Prevent ELITE
+    finalAiScore = Math.min(finalAiScore, 74);
   }
 
+  // STREAK MODE: restrict to Double Chance / Over-Under only
+  if (streak.isStreakMode && confidence === "RISQUÉ") {
+    console.log(`[PRONOSIA v2] STREAK MODE excluded RISQUÉ: ${match.home_team} vs ${match.away_team}`);
+    return null;
+  }
+
+  // Generate analysis
+  const pred = generatePRONOSIAAnalysis(
+    match, predHome, predDraw, predAway, predScoreHome, predScoreAway,
+    profile.overLine, overProb, bttsProb, finalConfidence, finalAiScore, fid, valueBet,
+    isSafeMode, valueLabel, streak.isStreakMode
+  );
+
   return {
-    ...generatePRONOSIAAnalysis(match, predHome, predDraw, predAway, predScoreHome, predScoreAway, profile.overLine, overProb, bttsProb, finalConfidence, finalAiScore, fid, valueBet),
+    ...pred,
     anomaly_score: anomalyScore,
     anomaly_label: anomalyLabel,
     anomaly_reason: anomalyReason,
@@ -336,21 +444,19 @@ function generatePRONOSIAAnalysis(
   predHome: number, predDraw: number, predAway: number,
   scoreHome: number, scoreAway: number,
   overLine: number, overProb: number, bttsProb: number,
-  confidence: string, aiScore: number, fid: number, valueBet = false
+  confidence: string, aiScore: number, fid: number, valueBet = false,
+  isSafeMode = false, valueLabel: string | null = null, isStreakMode = false
 ): AIPrediction {
   const fav = predHome >= predAway ? match.home_team : match.away_team;
-  const underdog = predHome >= predAway ? match.away_team : match.home_team;
   const maxProb = Math.max(predHome, predAway);
   const sport = match.sport.toLowerCase();
   const isSafe = confidence === "SAFE";
 
-  // For SAFE: determine protected market based on sport
   const noDrawSports = ["tennis", "basketball", "nba", "baseball", "mlb", "nfl", "mma"];
   const isNoDrawSport = noDrawSports.includes(sport);
-  const favTeam = predHome >= predAway ? match.home_team : match.away_team;
 
   const doubleChanceLabel = isNoDrawSport
-    ? `${favTeam} vainqueur (Pari protégé)`
+    ? `${fav} vainqueur (Pari protégé)`
     : predHome >= predAway
       ? `${match.home_team} ou Nul (1X)`
       : `Nul ou ${match.away_team} (X2)`;
@@ -360,57 +466,49 @@ function generatePRONOSIAAnalysis(
       ? predHome + predDraw
       : predAway + predDraw;
 
-  // Generate expert-level French analysis based on sport
   const analyses: string[] = [];
   const seed = hash(match.home_team + match.away_team) + fid;
-  const riskNote = confidence === "RISQUÉ" ? " Gestion du risque : mise réduite recommandée." : confidence === "SAFE" ? " Confiance élevée mais jamais absolue — discipline de bankroll essentielle." : "";
+  const riskNote = confidence === "RISQUÉ" 
+    ? " Gestion du risque : mise réduite recommandée." 
+    : confidence === "SAFE" 
+      ? " Confiance élevée — discipline de bankroll essentielle." 
+      : "";
 
-  // Market line for SAFE predictions
   const marketLine = isSafe
-    ? `📌 Marché recommandé : ${doubleChanceLabel} (${doubleChanceProb}% de probabilité combinée). Protection double chance appliquée.`
+    ? `📌 Marché recommandé : ${doubleChanceLabel} (${doubleChanceProb}% de probabilité combinée). Protection appliquée.`
     : "";
 
+  const calibrationNote = " 📊 Probabilité calibrée — ajustée pour biais du modèle.";
+  const valueNote = valueLabel ? ` ${valueLabel} détecté.` : "";
+  const streakNote = isStreakMode ? " 📉 Mode Streak actif — sélection ultra-stricte." : "";
+  const safeModeNote = isSafeMode ? " ⚠️ SAFE MODE — risque réduit, marché protégé uniquement." : "";
+
   if (sport === "football" || sport === "soccer") {
-    const formFactors = [
-      `Analyse PRONOSIA structurée : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs clés (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns de score, fiabilité des données).`,
-      `La dynamique des 5 derniers matchs et le différentiel de xG orientent ce pronostic vers ${fav}.`,
-      `Facteur terrain significatif : performance domicile/extérieur et solidité défensive évaluées. PPDA et pressing haut analysés.`,
-      `Anti-trap check : aucun signal de faux favori détecté. Odds et form alignés.`,
-    ];
-    analyses.push(formFactors[0]);
-    analyses.push(formFactors[Math.floor(seeded(seed, 50) * 3) + 1]);
-    if (isSafe) {
-      analyses.push(marketLine);
-    } else {
-      analyses.push(valueBet ? `Value Bet détecté (edge >4%) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — le football reste un sport à variance élevée.`);
-    }
-    analyses.push(riskNote);
+    analyses.push(
+      `Analyse PRONOSIA v2.0 : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns, données).`,
+      isSafe ? marketLine : (valueBet ? `Value Bet détecté (edge significatif) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — variance élevée du football.`),
+      `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
+      riskNote
+    );
   } else if (sport === "tennis") {
     analyses.push(
-      `Analyse surface-ELO : ${fav} montre un avantage technique quantifié sur ce type de court.`,
-      `Ratio aces/DF, % 1er service et performance sous pression évalués sur les 11 dimensions.`,
-      isSafe ? marketLine : (confidence === "SAFE" ? `Forte convergence des indicateurs.` : `Incertitudes liées à la forme récente — prudence.`),
+      `Analyse surface-ELO : ${fav} montre un avantage technique quantifié.`,
+      isSafe ? marketLine : `Probabilité calibrée à ${maxProb}%.`,
+      `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
   } else if (sport === "basketball" || sport === "nba") {
     analyses.push(
       `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
-      `Régression 3PT% appliquée. Rotations et minutes des titulaires analysées sur 11 facteurs.`,
       isSafe ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
-      riskNote
-    );
-  } else if (sport === "baseball" || sport === "mlb") {
-    analyses.push(
-      `Analyse pitcher-centric : ERA, WHIP et splits G/D évalués pour les deux rotations.`,
-      `Fatigue du bullpen et park factors intégrés au modèle PRONOSIA. ${fav} favori à ${maxProb}%.`,
-      isSafe ? marketLine : (valueBet ? `Value Bet identifié sur la ligne.` : `Variance élevée en baseball — discipline de mise cruciale.`),
+      `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
   } else {
     analyses.push(
-      `Modèle PRONOSIA multi-factoriel : avantage quantifié pour ${fav} (${maxProb}%).`,
-      `Analyse intégrant 11 dimensions : forme, contexte, effectif, données historiques, volatilité et biais public.`,
-      isSafe ? marketLine : (confidence === "RISQUÉ" ? `Incertitude élevée — prudence et mise réduite recommandées.` : `Signal cohérent sur la majorité des dimensions analysées.`),
+      `Modèle PRONOSIA v2.0 : avantage quantifié pour ${fav} (${maxProb}%).`,
+      isSafe ? marketLine : `Signal cohérent sur la majorité des dimensions analysées.`,
+      `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
   }
@@ -429,29 +527,40 @@ function generatePRONOSIAAnalysis(
     pred_value_bet: valueBet,
     pred_analysis: `🤖 ${analyses.join(" ")}`,
     ai_score: aiScore,
+    anomaly_score: 0,
+    anomaly_label: null,
+    anomaly_reason: null,
   };
 }
 
 // ═══════════════════════════════════════════════════════════════
-// AI GATEWAY CALL (when credits available)
+// AI GATEWAY CALL
 // ═══════════════════════════════════════════════════════════════
 async function callAI(
   apiKey: string,
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
-  learningContext: string = ""
+  learningContext: string = "",
+  streak: StreakState
 ): Promise<AIPrediction[]> {
   const matchList = matches
     .map((m, i) => `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} | ${m.kickoff}`)
     .join("\n");
 
-  const userPrompt = `Analyze these ${matches.length} matches using the FULL PRONOSIA 11-factor protocol.
+  const streakInfo = streak.isStreakMode
+    ? `\n\n📉 STREAK MODE ACTIVE: Rolling winrate ${streak.rollingWinrate}%. Only output TOP ${streak.maxPicks} picks. Min confidence ${streak.minConfidence}%. Min AI Score ${streak.minAiScore}. Only Double Chance or Over/Under bets allowed.`
+    : "";
 
-CRITICAL REMINDERS:
-- For SAFE predictions: ALWAYS use double chance market (e.g. "Team A ou Nul 1X") in the analysis. NEVER just "Team A wins".
-- Anti-trap: check for fake favorites, public bias, high volatility before classifying.
-- Value detection: only flag value_bet when edge >4%.
-- AI Score must reflect data quality — low data = lower score.
-- Analysis in French, 3-5 sentences, mention market type for SAFE picks.
+  const userPrompt = `Analyze these ${matches.length} matches using the FULL PRONOSIA v2.0 protocol.
+
+CRITICAL v2.0 REMINDERS:
+- Apply confidence calibration: raw >80% → subtract 8%, raw >90% → subtract 12%. Never show >88%.
+- Compute value score for each pick. EXCLUDE picks with value < 0.05.
+- For SAFE predictions: ALWAYS use double chance market.
+- Hard exclusion: discard friendlies, minor leagues, low-data matches.
+- Anti-trap: check for fake favorites, public bias.
+- AI Score must reflect data quality.
+- Analysis in French, 3-5 sentences, include calibration note.
+${streakInfo}
 ${learningContext}
 MATCHES:
 ${matchList}
@@ -489,9 +598,9 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
                     type: "object",
                     properties: {
                       fixture_id: { type: "number" },
-                      pred_home_win: { type: "number", description: "Home win probability 0-100" },
+                      pred_home_win: { type: "number", description: "Home win probability 0-100 (calibrated)" },
                       pred_draw: { type: "number", description: "Draw probability 0-100 (0 for tennis/basketball)" },
-                      pred_away_win: { type: "number", description: "Away win probability 0-100" },
+                      pred_away_win: { type: "number", description: "Away win probability 0-100 (calibrated)" },
                       pred_score_home: { type: "number" },
                       pred_score_away: { type: "number" },
                       pred_over_under: { type: "number" },
@@ -499,8 +608,8 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
                       pred_btts_prob: { type: "number" },
                       pred_confidence: { type: "string", enum: ["SAFE", "MODÉRÉ", "RISQUÉ"] },
                       pred_value_bet: { type: "boolean" },
-                      pred_analysis: { type: "string", description: "3-5 sentences in French" },
-                      ai_score: { type: "number", description: "0-100 (80+=ELITE, 65-79=STRONG)" },
+                      pred_analysis: { type: "string", description: "3-5 sentences in French with calibration note and value label" },
+                      ai_score: { type: "number", description: "0-100 (80+=ELITE, 65-79=STRONG, <70=EXCLUDED)" },
                     },
                     required: ["fixture_id", "pred_home_win", "pred_draw", "pred_away_win", "pred_score_home", "pred_score_away", "pred_over_under", "pred_over_prob", "pred_btts_prob", "pred_confidence", "pred_value_bet", "pred_analysis", "ai_score"],
                   },
@@ -518,7 +627,7 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
     if (!response.ok) {
       const errText = await response.text();
       console.error(`[AI] Gateway error ${response.status}: ${errText}`);
-      return []; // Will fallback to deterministic
+      return [];
     }
 
     const result = await response.json();
@@ -538,30 +647,48 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
         p.pred_draw = Math.round((p.pred_draw / total) * 100);
         p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
       }
+
+      // v2.0: Apply calibration
+      p.pred_home_win = capDisplayConfidence(calibrateConfidence(p.pred_home_win));
+      p.pred_away_win = capDisplayConfidence(calibrateConfidence(p.pred_away_win));
+      // Re-normalize after calibration
+      const newTotal = p.pred_home_win + p.pred_draw + p.pred_away_win;
+      if (Math.abs(newTotal - 100) > 1) {
+        const scale = 100 / newTotal;
+        p.pred_home_win = Math.round(p.pred_home_win * scale);
+        p.pred_draw = Math.round(p.pred_draw * scale);
+        p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+      }
+
       p.ai_score = clamp(Math.round(p.ai_score || 50), 0, 100);
 
-      // Cap max probability at 85%
-      const absMax = Math.max(p.pred_home_win, p.pred_away_win);
-      if (absMax > 85) {
-        const excess = absMax - 85;
-        if (p.pred_home_win > p.pred_away_win) {
-          p.pred_home_win -= excess;
-          p.pred_draw += Math.round(excess * 0.4);
-          p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
-        } else {
-          p.pred_away_win -= excess;
-          p.pred_draw += Math.round(excess * 0.4);
-          p.pred_home_win = 100 - p.pred_away_win - p.pred_draw;
-        }
+      // v2.0: Hard exclusions on AI results
+      const mainProb = Math.max(p.pred_home_win, p.pred_away_win);
+      if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) {
+        p.ai_score = 0; // Mark for exclusion
+        continue;
+      }
+
+      // Value check
+      const odds = estimateOdds(mainProb);
+      const vs = computeValueScore(mainProb, odds);
+      if (vs < 0.05) {
+        p.ai_score = 0; // Mark for exclusion
+        continue;
       }
 
       if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
         const maxProb = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
         if (maxProb >= 38) {
-          const scale = 37 / maxProb;
-          p.pred_home_win = Math.round(p.pred_home_win * scale);
-          p.pred_draw = Math.round(p.pred_draw * scale);
+          const scale2 = 37 / maxProb;
+          p.pred_home_win = Math.round(p.pred_home_win * scale2);
+          p.pred_draw = Math.round(p.pred_draw * scale2);
           p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+        }
+        // Streak mode: exclude RISQUÉ
+        if (streak.isStreakMode) {
+          p.ai_score = 0;
+          continue;
         }
       }
 
@@ -575,7 +702,6 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
         if (p.pred_score_home === p.pred_score_away) p.pred_score_away += 1;
       }
 
-      // Add default anomaly fields for AI gateway predictions (computed server-side)
       if (!p.anomaly_score) {
         p.anomaly_score = 0;
         p.anomaly_label = null;
@@ -583,7 +709,9 @@ For EACH match, call "predict_matches" with ALL fields including ai_score.`;
       }
     }
 
-    return predictions;
+    // Filter out excluded (ai_score = 0) and limit by streak max
+    const valid = predictions.filter(p => p.ai_score > 0);
+    return valid.slice(0, streak.maxPicks);
   } catch (e) {
     clearTimeout(timeout);
     console.error("[AI] Error:", e);
@@ -610,9 +738,13 @@ Deno.serve(async (req) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
     const forceAll = url.searchParams.get("force") === "true";
 
-    // ═══════════════════════════════════════════════════════════
-    // SELF-LEARNING: Load historical performance stats
-    // ═══════════════════════════════════════════════════════════
+    // v2.0: Check streak mode
+    const streak = await checkStreakMode(supabase);
+    if (streak.isStreakMode) {
+      console.log(`[AI-PREDICT v2] 📉 STREAK MODE: winrate=${streak.rollingWinrate}%, maxPicks=${streak.maxPicks}, minConf=${streak.minConfidence}%, minAI=${streak.minAiScore}`);
+    }
+
+    // Self-learning context
     let learningContext = "";
     try {
       const { data: learningStats } = await supabase
@@ -624,12 +756,12 @@ Deno.serve(async (req) => {
 
       if (learningStats && learningStats.length > 0) {
         const lines = learningStats.map((s: any) =>
-          `• ${s.sport.toUpperCase()} / ${s.confidence_level}: ${s.winrate}% winrate (${s.total_predictions} picks), avg predicted ${s.avg_predicted_prob}%, calibration error ${s.calibration_error}%${s.common_loss_pattern ? `, common loss: ${s.common_loss_pattern}` : ""}`
+          `• ${s.sport.toUpperCase()} / ${s.confidence_level}: ${s.winrate}% winrate (${s.total_predictions} picks), calibration error ${s.calibration_error}%${s.common_loss_pattern ? `, loss pattern: ${s.common_loss_pattern}` : ""}`
         );
-        learningContext = `\n\n🧠 SELF-LEARNING DATA (from past results — use to calibrate your predictions):\n${lines.join("\n")}\n\nADJUSTMENTS REQUIRED:\n- If calibration_error > 10: your confidence is off — reduce predicted probability for that sport/confidence.\n- If winrate < 50% for SAFE: be MORE selective, raise threshold.\n- If common_loss = "upset_favorite": avoid overvaluing favorites in that sport.\n- Use this data to improve, NOT to inflate confidence.\n`;
+        learningContext = `\n\n🧠 SELF-LEARNING DATA:\n${lines.join("\n")}\n\nADJUSTMENTS: If calibration_error > 10 → reduce predicted probability. If winrate < 50% for SAFE → be MORE selective.\n`;
       }
     } catch (e) {
-      console.log("[AI-PREDICT] Learning stats not available yet, proceeding without");
+      console.log("[AI-PREDICT] Learning stats not available");
     }
 
     // Fetch matches needing AI
@@ -646,29 +778,34 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     if (!matches || matches.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "No matches to process", processed: 0 }), {
+      return new Response(JSON.stringify({ 
+        success: true, message: "No matches to process", processed: 0,
+        streak_mode: streak.isStreakMode, rolling_winrate: streak.rollingWinrate
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[AI-PREDICT] Processing ${matches.length} matches (offset=${offset}, force=${forceAll}, learning=${learningContext ? "YES" : "NO"})`);
+    // v2.0: Pre-filter excluded leagues
+    const eligibleMatches = matches.filter(m => !isExcludedLeague(m.league_name));
+    console.log(`[AI-PREDICT v2] ${matches.length} total → ${eligibleMatches.length} eligible (${matches.length - eligibleMatches.length} excluded leagues)`);
 
-    // Try AI gateway first, fallback to deterministic PRONOSIA engine
     let predictions: AIPrediction[] = [];
-    let source = "pronosia-deterministic";
+    let source = "pronosia-v2-deterministic";
 
-    if (apiKey) {
-      predictions = await callAI(apiKey, matches, learningContext);
+    if (apiKey && eligibleMatches.length > 0) {
+      predictions = await callAI(apiKey, eligibleMatches, learningContext, streak);
       if (predictions.length > 0) {
-        source = "pronosia-ai";
+        source = "pronosia-v2-ai";
       }
     }
 
-    // Fallback: use deterministic PRONOSIA engine (no credits needed)
-    if (predictions.length === 0) {
-      console.log(`[AI-PREDICT] AI unavailable, using PRONOSIA deterministic engine for ${matches.length} matches`);
-      predictions = matches.map(m => generatePRONOSIAPrediction(m));
-      source = "pronosia-deterministic";
+    if (predictions.length === 0 && eligibleMatches.length > 0) {
+      console.log(`[AI-PREDICT v2] Using deterministic engine for ${eligibleMatches.length} matches`);
+      const raw = eligibleMatches.map(m => generatePRONOSIAPrediction(m, streak)).filter(Boolean) as AIPrediction[];
+      // Apply streak max picks limit
+      predictions = raw.slice(0, streak.maxPicks);
+      source = "pronosia-v2-deterministic";
     }
 
     const predMap = new Map<number, AIPrediction>();
@@ -677,10 +814,9 @@ Deno.serve(async (req) => {
     let updated = 0;
     for (let i = 0; i < matches.length; i++) {
       const m = matches[i];
-      const pred = predMap.get(m.fixture_id) || predictions[i];
+      const pred = predMap.get(m.fixture_id);
       if (!pred) continue;
 
-      // LOCK: Never overwrite an existing prediction once it exists
       if (!forceAll && m.pred_home_win != null && m.pred_away_win != null && m.pred_analysis) {
         continue;
       }
@@ -707,33 +843,36 @@ Deno.serve(async (req) => {
         .eq("fixture_id", m.fixture_id);
 
       if (updateError) {
-        console.error(`[AI-PREDICT] Update error for fixture ${m.fixture_id}:`, JSON.stringify(updateError));
+        console.error(`[AI-PREDICT v2] Update error for fixture ${m.fixture_id}:`, JSON.stringify(updateError));
       } else {
         updated++;
-        if (i === 0) console.log(`[AI-PREDICT] Sample: ${m.home_team} vs ${m.away_team}: ${pred.pred_confidence} | AI:${pred.ai_score} | ${source}`);
+        if (i === 0) console.log(`[AI-PREDICT v2] Sample: ${m.home_team} vs ${m.away_team}: ${pred.pred_confidence} | AI:${pred.ai_score} | ${source}`);
       }
     }
 
-    // Count remaining
     const { count } = await supabase
       .from("cached_matches")
       .select("fixture_id", { count: "exact", head: true })
       .or("pred_analysis.is.null,ai_score.eq.0,pred_analysis.not.like.🤖%");
 
-    console.log(`[AI-PREDICT] ✅ Updated ${updated} matches via ${source}. ${count || 0} remaining.`);
+    console.log(`[AI-PREDICT v2] ✅ Updated ${updated} matches via ${source}. ${count || 0} remaining. Streak=${streak.isStreakMode}`);
 
     return new Response(JSON.stringify({
       success: true,
       source,
+      version: "2.0",
       batch_size: matches.length,
+      eligible: eligibleMatches.length,
       predictions_generated: predictions.length,
       updated,
       remaining_without_ai: count || 0,
+      streak_mode: streak.isStreakMode,
+      rolling_winrate: streak.rollingWinrate,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[AI-PREDICT] Error:", error);
+    console.error("[AI-PREDICT v2] Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
