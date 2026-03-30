@@ -195,6 +195,10 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
   const noDrawSports = ["tennis", "basketball", "nba", "baseball", "nfl", "mma"];
   const isNoDraw = noDrawSports.includes(sportKey);
 
+  // P4.2: League tier badge
+  const leagueTier = (match as any).league_tier as number | undefined;
+  const tierBadge = leagueTier === 1 ? "👑" : leagueTier === 3 ? "⚠️" : null;
+
   return (
     <>
       <PremiumModal open={showPremiumModal} onOpenChange={setShowPremiumModal} />
@@ -222,6 +226,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                   {sportInfo.label}
                 </span>
                 <span className="text-[9px] text-muted-foreground truncate">{match.league_name}</span>
+                {tierBadge && <span className="text-[9px] shrink-0">{tierBadge}</span>}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {isLive ? (
