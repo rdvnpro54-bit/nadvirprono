@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GROQ_API = "https://api.groq.com/openai/v1/chat/completions";
+const CEREBRAS_API = "https://api.cerebras.ai/v1/chat/completions";
 const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
 
 // ═══════════════════════════════════════════════════════════════
@@ -1002,41 +1002,43 @@ function parseToolCallResponse(result: any): AIPrediction[] {
   }
 }
 
-async function callGroqAI(
-  groqKey: string, userPrompt: string
+async function callCerebrasAI(
+  cerebrasKey: string, userPrompt: string
 ): Promise<AIPrediction[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
   try {
-    // Groq with Llama works better with JSON mode instead of tool_choice
-    const response = await fetch(GROQ_API, {
+    const response = await fetch(CEREBRAS_API, {
       method: "POST",
       signal: controller.signal,
-      headers: { Authorization: `Bearer ${groqKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.3-70b",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have: fixture_id, pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence (SAFE/MODÉRÉ/RISQUÉ), pred_value_bet, pred_analysis, ai_score, anomaly_score, data_completeness_score, consensus_passed, context_penalties_total." },
           { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}" },
         ],
         temperature: 0.3,
         max_tokens: 8000,
-        response_format: { type: "json_object" },
       }),
     });
     clearTimeout(timeout);
     if (!response.ok) { 
       const errText = await response.text();
-      console.error(`[GROQ] API error ${response.status}: ${errText}`); 
+      console.error(`[CEREBRAS] API error ${response.status}: ${errText}`); 
       return []; 
     }
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content;
     if (!content) return [];
     try {
-      const parsed = JSON.parse(content);
+      // Try to extract JSON from response (may contain markdown code blocks)
+      let jsonStr = content;
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) jsonStr = jsonMatch[1].trim();
+      const parsed = JSON.parse(jsonStr);
       const preds = (parsed.predictions || []) as AIPrediction[];
-      // Groq/Llama sometimes returns 0-1 scale instead of 0-100 — normalize
+      // Normalize 0-1 scale to 0-100
       for (const p of preds) {
         if (p.pred_home_win <= 1 && p.pred_away_win <= 1) {
           p.pred_home_win = Math.round(p.pred_home_win * 100);
@@ -1050,12 +1052,12 @@ async function callGroqAI(
       }
       return preds;
     } catch {
-      console.error("[GROQ] Failed to parse JSON response");
+      console.error("[CEREBRAS] Failed to parse JSON response:", content.substring(0, 200));
       return [];
     }
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[GROQ] Error:", e);
+    console.error("[CEREBRAS] Error:", e);
     return [];
   }
 }
@@ -1101,7 +1103,7 @@ async function callMistralAI(
 // MULTI-MODEL CONSENSUS ENGINE (A1)
 // ═══════════════════════════════════════════════════════════════
 function mergeConsensus(
-  groqPreds: AIPrediction[], mistralPreds: AIPrediction[],
+  cerebrasPreds: AIPrediction[], mistralPreds: AIPrediction[],
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string }[],
   streak: StreakState
 ): AIPrediction[] {
@@ -1110,14 +1112,14 @@ function mergeConsensus(
 
   const merged: AIPrediction[] = [];
 
-  for (const g of groqPreds) {
+  for (const g of cerebrasPreds) {
     const m = mistralMap.get(g.fixture_id);
     const matchInfo = matches.find(x => x.fixture_id === g.fixture_id);
 
     if (!m) {
       console.log(`[CONSENSUS] ${matchInfo?.home_team || g.fixture_id}: Mistral skipped — single-pass only`);
       g.consensus_passed = false;
-      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Groq uniquement)";
+      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Cerebras uniquement)";
       merged.push(g);
       continue;
     }
@@ -1126,8 +1128,7 @@ function mergeConsensus(
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → EXCLUDED (v3.2: no disagreements allowed)`);
-      // v3.2: Disagreement = skip entirely. Don't risk it.
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Cerebras=${gWinner}, Mistral=${mWinner} → EXCLUDED (v3.2: no disagreements allowed)`);
       continue;
     }
 
@@ -1136,7 +1137,7 @@ function mergeConsensus(
     const confGap = Math.abs(gConf - mConf);
 
     if (confGap > 7) {
-      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Groq=${gConf}%, Mistral=${mConf}%`);
+      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Cerebras=${gConf}%, Mistral=${mConf}%`);
       g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
       g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
       g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
@@ -1144,13 +1145,12 @@ function mergeConsensus(
       g.consensus_passed = false;
       g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
     } else {
-      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Groq=${gConf}%, Mistral=${mConf}%)`);
+      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Cerebras=${gConf}%, Mistral=${mConf}%)`);
       g.consensus_passed = true;
       g.ai_score = Math.min(g.ai_score + 3, 100);
-      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Groq + Mistral)";
+      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Cerebras + Mistral)";
     }
 
-    // Take higher suspect score (more cautious)
     g.anomaly_score = Math.max(g.anomaly_score, m.anomaly_score || 0);
     g.suspect_score = g.anomaly_score;
     g.data_completeness_score = Math.min(g.data_completeness_score || 100, m.data_completeness_score || 100);
@@ -1244,7 +1244,7 @@ function postProcessPredictions(
   return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
 }
 
-// Combined multi-model AI call: Groq (primary) + Mistral (fallback 1)
+// Combined multi-model AI call: Cerebras (primary) + Mistral (fallback 1)
 async function callAI(
   _apiKey: string,
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
@@ -1255,11 +1255,11 @@ async function callAI(
   const { eligible, userPrompt } = buildAIPrompt(matches, learningContext, streak, blacklistedLeagues);
   if (eligible.length === 0) return [];
 
-  const groqKey = Deno.env.get("GROQ_API_KEY");
+  const cerebrasKey = Deno.env.get("CEREBRAS_API_KEY");
   const mistralKey = Deno.env.get("MISTRAL_API_KEY");
 
-  if (!groqKey) {
-    console.error("[AI v3.1] GROQ_API_KEY not configured — falling back to Mistral only");
+  if (!cerebrasKey) {
+    console.error("[AI v3.2] CEREBRAS_API_KEY not configured — falling back to Mistral only");
     if (mistralKey) {
       const mistralPreds = await callMistralAI(mistralKey, userPrompt);
       if (mistralPreds.length > 0) {
@@ -1269,28 +1269,26 @@ async function callAI(
     return [];
   }
 
-  // Launch Groq (primary) + Mistral (consensus) in parallel
-  console.log(`[AI v3.1] Launching ${mistralKey ? "DUAL-MODEL (Groq + Mistral)" : "SINGLE-MODEL (Groq)"} consensus...`);
+  // Launch Cerebras (primary) + Mistral (consensus) in parallel
+  console.log(`[AI v3.2] Launching ${mistralKey ? "DUAL-MODEL (Cerebras + Mistral)" : "SINGLE-MODEL (Cerebras)"} consensus...`);
 
-  const [groqPreds, mistralPreds] = await Promise.all([
-    callGroqAI(groqKey, userPrompt),
+  const [cerebrasPreds, mistralPreds] = await Promise.all([
+    callCerebrasAI(cerebrasKey, userPrompt),
     mistralKey ? callMistralAI(mistralKey, userPrompt) : Promise.resolve([] as AIPrediction[]),
   ]);
 
-  console.log(`[AI v3.1] Groq: ${groqPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
+  console.log(`[AI v3.2] Cerebras: ${cerebrasPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
 
   let merged: AIPrediction[];
-  if (mistralPreds.length > 0 && groqPreds.length > 0) {
-    merged = mergeConsensus(groqPreds, mistralPreds, eligible, streak);
-    console.log(`[AI v3.1] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
-  } else if (groqPreds.length > 0) {
-    merged = groqPreds.map(p => ({ ...p, consensus_passed: false }));
+  if (mistralPreds.length > 0 && cerebrasPreds.length > 0) {
+    merged = mergeConsensus(cerebrasPreds, mistralPreds, eligible, streak);
+    console.log(`[AI v3.2] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
+  } else if (cerebrasPreds.length > 0) {
+    merged = cerebrasPreds.map(p => ({ ...p, consensus_passed: false }));
   } else if (mistralPreds.length > 0) {
-    // Groq failed → Mistral as fallback 1
-    console.log("[AI v3.1] Groq failed — using Mistral as fallback");
+    console.log("[AI v3.2] Cerebras failed — using Mistral as fallback");
     merged = mistralPreds.map(p => ({ ...p, consensus_passed: false }));
   } else {
-    // Both failed → deterministic fallback 2 will kick in
     return [];
   }
 
