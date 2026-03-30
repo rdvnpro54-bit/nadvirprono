@@ -1017,6 +1017,43 @@ async function fetchAllSportsStandings(tournamentId: number, seasonId: number): 
   } catch (e) { console.error("[AllSports] standings error:", e); return new Map(); }
 }
 
+// ─── NBA FREE DATA API — ENRICHMENT: team logos, metadata ───────────
+const NBA_FREE_BASE = "https://nba-api-free-data.p.rapidapi.com";
+
+function getNBAFreeHeaders(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "nba-api-free-data.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+async function fetchNBATeams(): Promise<Map<string, { id: string; name: string; abbrev: string; logo: string; logoDark: string }>> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return new Map();
+  const divisions = ["atlantic", "central", "southeast", "northwest", "pacific", "southwest"];
+  const map = new Map<string, any>();
+  try {
+    const results = await Promise.all(
+      divisions.map(div =>
+        fetch(`${NBA_FREE_BASE}/nba-${div}-team-list`, { headers: getNBAFreeHeaders() })
+          .then(r => r.ok ? r.json() : { response: { teamList: [] } })
+          .catch(() => ({ response: { teamList: [] } }))
+      )
+    );
+    for (const json of results) {
+      for (const t of (json.response?.teamList || [])) {
+        const key = (t.name || "").toLowerCase().trim();
+        if (key) {
+          map.set(key, { id: t.id, name: t.name, abbrev: t.abbrev, logo: t.logo, logoDark: t.logoDark });
+          // Also map short name for fuzzy matching
+          const shortKey = (t.shortName || "").toLowerCase().trim();
+          if (shortKey) map.set(shortKey, map.get(key));
+        }
+      }
+    }
+    console.log(`[NBA-Free] Loaded ${map.size} NBA teams across ${divisions.length} divisions`);
+  } catch (e) { console.error("[NBA-Free] error:", e); }
+  return map;
+}
+
 // ─── NHL API5 — ENRICHMENT: rosters and player stats ────────────────
 const NHL_API5_BASE = "https://nhl-api5.p.rapidapi.com";
 
@@ -1100,7 +1137,7 @@ async function enrichMatchesWithAPIs(
     allSportsStandingsPromises.push(fetchAllSportsStandings(cfg.tournamentId, cfg.seasonId));
   }
 
-  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData, ...allSportsResults] = await Promise.all([
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData, nbaTeams, ...allSportsResults] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
     fetchSofaScoreRapidEvents(dateISO, "football"),
@@ -1108,6 +1145,7 @@ async function enrichMatchesWithAPIs(
     fetchSofaScoreRapidEvents(dateISO, "tennis"),
     fetchTank01MLBScores(dateCompact),
     fetchNHLSchedule(dateISO),
+    fetchNBATeams(),
     ...allSportsStandingsPromises,
   ]);
 
@@ -1253,6 +1291,33 @@ async function enrichMatchesWithAPIs(
       }
     }
 
+    // F-bis) NBA Free Data API (basketball only — team logos, metadata)
+    if (row.sport === "basketball") {
+      const homeKey = row.home_team.toLowerCase().trim();
+      const awayKey = row.away_team.toLowerCase().trim();
+      // Try full name first, then last word (e.g. "celtics")
+      const findTeam = (name: string) => {
+        const full = nbaTeams.get(name);
+        if (full) return full;
+        const short = name.split(" ").pop() || "";
+        return nbaTeams.get(short) || null;
+      };
+      const homeNBA = findTeam(homeKey);
+      const awayNBA = findTeam(awayKey);
+      if (homeNBA || awayNBA) {
+        if (homeNBA && !row.home_logo) row.home_logo = homeNBA.logo;
+        if (awayNBA && !row.away_logo) row.away_logo = awayNBA.logo;
+        row.match_stats = {
+          ...(row.match_stats || {}),
+          nba_teams: {
+            home: homeNBA ? { name: homeNBA.name, abbrev: homeNBA.abbrev } : null,
+            away: awayNBA ? { name: awayNBA.name, abbrev: awayNBA.abbrev } : null,
+          },
+        };
+        if (!sources.includes("nba-free")) sources.push("nba-free");
+      }
+    }
+
     // F) Tennis API (tennis only — player profiles: nationality, age)
     if (row.sport === "tennis") {
       const homePlayer = row.home_team;
@@ -1323,7 +1388,7 @@ async function enrichMatchesWithAPIs(
     }
   }
 
-  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}, AllSports: ${allSportsStandings.size}`);
+  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}, NBA-Free: ${nbaTeams.size}, AllSports: ${allSportsStandings.size}`);
 }
 
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
