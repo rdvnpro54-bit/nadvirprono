@@ -899,18 +899,14 @@ function generatePRONOSIAAnalysis(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// AI GATEWAY CALL (v3.1 with structured reasoning chain)
+// AI GATEWAY CALL — GEMINI (Pass 1)
 // ═══════════════════════════════════════════════════════════════
-async function callAI(
-  apiKey: string,
-  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
-  learningContext: string = "",
-  streak: StreakState,
-  blacklistedLeagues: Set<string>
-): Promise<AIPrediction[]> {
-  const eligible = matches.filter(m => !blacklistedLeagues.has(m.league_name));
-  if (eligible.length === 0) return [];
 
+function buildAIPrompt(
+  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
+  learningContext: string, streak: StreakState, blacklistedLeagues: Set<string>
+): { eligible: typeof matches; userPrompt: string } {
+  const eligible = matches.filter(m => !blacklistedLeagues.has(m.league_name));
   const matchList = eligible
     .map((m, i) => {
       const tier = getLeagueTier(m.league_name);
@@ -944,192 +940,333 @@ ${matchList}
 
 For EACH match, call "predict_matches" with ALL fields.`;
 
+  return { eligible, userPrompt };
+}
+
+const AI_TOOLS = [{
+  type: "function" as const,
+  function: {
+    name: "predict_matches",
+    description: "Submit AI predictions for all analyzed matches",
+    parameters: {
+      type: "object",
+      properties: {
+        predictions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              fixture_id: { type: "number" },
+              pred_home_win: { type: "number", description: "Home win probability 0-100 (calibrated)" },
+              pred_draw: { type: "number", description: "Draw probability 0-100 (0 for tennis/basketball)" },
+              pred_away_win: { type: "number", description: "Away win probability 0-100 (calibrated)" },
+              pred_score_home: { type: "number" },
+              pred_score_away: { type: "number" },
+              pred_over_under: { type: "number" },
+              pred_over_prob: { type: "number" },
+              pred_btts_prob: { type: "number" },
+              pred_confidence: { type: "string", enum: ["SAFE", "MODÉRÉ", "RISQUÉ"] },
+              pred_value_bet: { type: "boolean" },
+              pred_analysis: { type: "string", description: "French analysis with ✅ Pourquoi and ⚠️ Risques" },
+              ai_score: { type: "number", description: "0-100 quality score" },
+              anomaly_score: { type: "number", description: "0-100 suspect score" },
+              data_completeness_score: { type: "number", description: "0-100 data quality" },
+              consensus_passed: { type: "boolean", description: "Did both reasoning passes agree?" },
+              context_penalties_total: { type: "number", description: "Total context penalties applied" },
+            },
+            required: ["fixture_id", "pred_home_win", "pred_draw", "pred_away_win", "pred_score_home", "pred_score_away", "pred_over_under", "pred_over_prob", "pred_btts_prob", "pred_confidence", "pred_value_bet", "pred_analysis", "ai_score", "anomaly_score"],
+          },
+        },
+      },
+      required: ["predictions"],
+    },
+  },
+}];
+
+function parseToolCallResponse(result: any): AIPrediction[] {
+  const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) return [];
+  try {
+    const parsed = JSON.parse(toolCall.function.arguments);
+    return (parsed.predictions || []) as AIPrediction[];
+  } catch {
+    return [];
+  }
+}
+
+async function callGeminiAI(
+  apiKey: string, userPrompt: string
+): Promise<AIPrediction[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
-
   try {
     const response = await fetch(AI_GATEWAY, {
       method: "POST",
       signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
         ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "predict_matches",
-            description: "Submit AI predictions for all analyzed matches",
-            parameters: {
-              type: "object",
-              properties: {
-                predictions: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      fixture_id: { type: "number" },
-                      pred_home_win: { type: "number", description: "Home win probability 0-100 (calibrated)" },
-                      pred_draw: { type: "number", description: "Draw probability 0-100 (0 for tennis/basketball)" },
-                      pred_away_win: { type: "number", description: "Away win probability 0-100 (calibrated)" },
-                      pred_score_home: { type: "number" },
-                      pred_score_away: { type: "number" },
-                      pred_over_under: { type: "number" },
-                      pred_over_prob: { type: "number" },
-                      pred_btts_prob: { type: "number" },
-                      pred_confidence: { type: "string", enum: ["SAFE", "MODÉRÉ", "RISQUÉ"] },
-                      pred_value_bet: { type: "boolean" },
-                      pred_analysis: { type: "string", description: "French analysis with ✅ Pourquoi and ⚠️ Risques" },
-                      ai_score: { type: "number", description: "0-100 quality score" },
-                      anomaly_score: { type: "number", description: "0-100 suspect score" },
-                      data_completeness_score: { type: "number", description: "0-100 data quality" },
-                      consensus_passed: { type: "boolean", description: "Did both reasoning passes agree?" },
-                      context_penalties_total: { type: "number", description: "Total context penalties applied" },
-                    },
-                    required: ["fixture_id", "pred_home_win", "pred_draw", "pred_away_win", "pred_score_home", "pred_score_away", "pred_over_under", "pred_over_prob", "pred_btts_prob", "pred_confidence", "pred_value_bet", "pred_analysis", "ai_score", "anomaly_score"],
-                  },
-                },
-              },
-              required: ["predictions"],
-            },
-          },
-        }],
+        tools: AI_TOOLS,
         tool_choice: { type: "function", function: { name: "predict_matches" } },
       }),
     });
     clearTimeout(timeout);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[AI v3.1] Gateway error ${response.status}: ${errText}`);
-      return [];
-    }
-
-    const result = await response.json();
-    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      console.error("[AI v3.1] No tool call in response");
-      return [];
-    }
-
-    const parsed = JSON.parse(toolCall.function.arguments);
-    const predictions = parsed.predictions as AIPrediction[];
-
-    for (const p of predictions) {
-      // Normalize probabilities
-      const total = p.pred_home_win + p.pred_draw + p.pred_away_win;
-      if (Math.abs(total - 100) > 2) {
-        p.pred_home_win = Math.round((p.pred_home_win / total) * 100);
-        p.pred_draw = Math.round((p.pred_draw / total) * 100);
-        p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
-      }
-
-      p.pred_home_win = capDisplayConfidence(calibrateConfidence(p.pred_home_win));
-      p.pred_away_win = capDisplayConfidence(calibrateConfidence(p.pred_away_win));
-      const newTotal = p.pred_home_win + p.pred_draw + p.pred_away_win;
-      if (Math.abs(newTotal - 100) > 1) {
-        const scale = 100 / newTotal;
-        p.pred_home_win = Math.round(p.pred_home_win * scale);
-        p.pred_draw = Math.round(p.pred_draw * scale);
-        p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
-      }
-
-      p.ai_score = clamp(Math.round(p.ai_score || 50), 0, 100);
-      p.anomaly_score = clamp(Math.round(p.anomaly_score || 0), 0, 100);
-      p.suspect_score = p.anomaly_score;
-      p.data_completeness_score = clamp(Math.round(p.data_completeness_score || 70), 0, 100);
-      p.consensus_passed = p.consensus_passed ?? true;
-      p.context_penalties_total = clamp(Math.round(p.context_penalties_total || 0), 0, 100);
-
-      // Assign league tier
-      const matchData = matches.find(m => m.fixture_id === p.fixture_id);
-      p.league_tier = matchData ? getLeagueTier(matchData.league_name) : 2;
-
-      // Suspect labels
-      if (p.anomaly_score >= 51) {
-        const { label, reason } = getSuspectLabel(p.anomaly_score);
-        p.anomaly_label = label;
-        p.anomaly_reason = reason;
-      }
-
-      const mainProb = Math.max(p.pred_home_win, p.pred_away_win);
-      const odds = estimateOdds(mainProb);
-
-      // v3.1 validation
-      if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) {
-        p.ai_score = 0; continue;
-      }
-
-      const vs = computeValueScore(mainProb, odds);
-      if (vs < 0.08) { p.ai_score = 0; continue; }
-
-      if (odds < 1.35) { p.ai_score = 0; continue; }
-
-      // P4.1: Tier enforcement
-      if (p.league_tier === 4) { p.ai_score = 0; continue; }
-      if (p.league_tier === 3 && mainProb < 72) { p.ai_score = 0; continue; }
-
-      // P1.2: Data completeness enforcement
-      if (p.data_completeness_score < 40) { p.ai_score = 0; continue; }
-      if (p.data_completeness_score < 60 && mainProb > 75) {
-        // Cap confidence when data is weak
-        p.pred_home_win = Math.min(p.pred_home_win, 75);
-        p.pred_away_win = Math.min(p.pred_away_win, 75);
-      }
-
-      // Context penalties too high
-      if (p.context_penalties_total >= 25) { p.ai_score = 0; continue; }
-
-      // RISQUÉ handling
-      if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
-        if (streak.isStreakMode) { p.ai_score = 0; continue; }
-        const mp = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
-        if (mp >= 38) {
-          const scale2 = 37 / mp;
-          p.pred_home_win = Math.round(p.pred_home_win * scale2);
-          p.pred_draw = Math.round(p.pred_draw * scale2);
-          p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
-        }
-      }
-
-      // Emergency mode: only tier 1
-      if (streak.level === "emergency" && p.league_tier !== 1) { p.ai_score = 0; continue; }
-
-      // Suspect downgrade
-      if (p.anomaly_score >= 51 && p.pred_confidence === "SAFE") {
-        p.pred_confidence = "MODÉRÉ";
-      }
-
-      // Score consistency
-      const homeWins = p.pred_home_win > p.pred_away_win;
-      if (homeWins && p.pred_score_home <= p.pred_score_away) {
-        [p.pred_score_home, p.pred_score_away] = [p.pred_score_away, p.pred_score_home];
-        if (p.pred_score_home === p.pred_score_away) p.pred_score_home += 1;
-      } else if (!homeWins && p.pred_away_win > p.pred_home_win && p.pred_score_away <= p.pred_score_home) {
-        [p.pred_score_home, p.pred_score_away] = [p.pred_score_away, p.pred_score_home];
-        if (p.pred_score_home === p.pred_score_away) p.pred_score_away += 1;
-      }
-
-      // P5.1 Validation score
-      p.validation_score = computeValidationScore(
-        p.data_completeness_score, mainProb, vs, p.anomaly_score,
-        p.league_tier, false, odds, p.consensus_passed, p.context_penalties_total, 7, streak
-      ).score;
-    }
-
-    const valid = predictions.filter(p => p.ai_score > 0);
-    return valid.slice(0, streak.maxPicks);
+    if (!response.ok) { console.error(`[GEMINI] Gateway error ${response.status}`); return []; }
+    return parseToolCallResponse(await response.json());
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[AI v3.1] Error:", e);
+    console.error("[GEMINI] Error:", e);
     return [];
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MISTRAL AI CALL (Pass 2 — Consensus)
+// ═══════════════════════════════════════════════════════════════
+async function callMistralAI(
+  mistralKey: string, userPrompt: string
+): Promise<AIPrediction[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000);
+  try {
+    const response = await fetch(MISTRAL_API, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${mistralKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "mistral-large-latest",
+        messages: [
+          { role: "system", content: AI_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        tools: AI_TOOLS,
+        tool_choice: { type: "function", function: { name: "predict_matches" } },
+      }),
+    });
+    clearTimeout(timeout);
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[MISTRAL] API error ${response.status}: ${errText}`);
+      return [];
+    }
+    return parseToolCallResponse(await response.json());
+  } catch (e) {
+    clearTimeout(timeout);
+    console.error("[MISTRAL] Error:", e);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MULTI-MODEL CONSENSUS ENGINE (A1)
+// ═══════════════════════════════════════════════════════════════
+function mergeConsensus(
+  geminiPreds: AIPrediction[], mistralPreds: AIPrediction[],
+  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string }[],
+  streak: StreakState
+): AIPrediction[] {
+  const mistralMap = new Map<number, AIPrediction>();
+  for (const p of mistralPreds) mistralMap.set(p.fixture_id, p);
+
+  const merged: AIPrediction[] = [];
+
+  for (const g of geminiPreds) {
+    const m = mistralMap.get(g.fixture_id);
+    const matchInfo = matches.find(x => x.fixture_id === g.fixture_id);
+
+    if (!m) {
+      // Mistral didn't predict this match — still use Gemini but flag no consensus
+      console.log(`[CONSENSUS] ${matchInfo?.home_team || g.fixture_id}: Mistral skipped — single-pass only`);
+      g.consensus_passed = false;
+      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Gemini uniquement)";
+      merged.push(g);
+      continue;
+    }
+
+    // Check consensus: same predicted winner
+    const gWinner = g.pred_home_win >= g.pred_away_win ? "home" : "away";
+    const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
+
+    if (gWinner !== mWinner) {
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Gemini=${gWinner}, Mistral=${mWinner} → UNCERTAIN, downgraded`);
+      // Models disagree — downgrade to SAFE or discard
+      const gMax = Math.max(g.pred_home_win, g.pred_away_win);
+      if (gMax < 60 || streak.isStreakMode) {
+        // Discard in streak mode or low confidence
+        continue;
+      }
+      // Downgrade to SAFE
+      g.pred_confidence = "SAFE";
+      g.consensus_passed = false;
+      g.ai_score = Math.min(g.ai_score, 72);
+      g.pred_analysis = g.pred_analysis + "\n⚠️ Désaccord IA (Gemini vs Mistral) — pick dégradé en SAFE";
+      merged.push(g);
+      continue;
+    }
+
+    // Same winner — check confidence gap
+    const gConf = Math.max(g.pred_home_win, g.pred_away_win);
+    const mConf = Math.max(m.pred_home_win, m.pred_away_win);
+    const confGap = Math.abs(gConf - mConf);
+
+    if (confGap > 7) {
+      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Gemini=${gConf}%, Mistral=${mConf}%`);
+      // Average the probabilities when gap is significant
+      g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
+      g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
+      g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
+      g.ai_score = Math.round((g.ai_score + (m.ai_score || g.ai_score)) / 2);
+      g.consensus_passed = false;
+      g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
+    } else {
+      // Full consensus ✅
+      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Gemini=${gConf}%, Mistral=${mConf}%)`);
+      g.consensus_passed = true;
+      // Boost AI score slightly for double-validated picks
+      g.ai_score = Math.min(g.ai_score + 3, 100);
+      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Gemini + Mistral)";
+    }
+
+    // Take higher suspect score (more cautious)
+    g.anomaly_score = Math.max(g.anomaly_score, m.anomaly_score || 0);
+    g.suspect_score = g.anomaly_score;
+    g.data_completeness_score = Math.min(g.data_completeness_score || 100, m.data_completeness_score || 100);
+
+    merged.push(g);
+  }
+
+  return merged;
+}
+
+// Post-process predictions (normalize, validate, filter)
+function postProcessPredictions(
+  predictions: AIPrediction[],
+  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
+  streak: StreakState
+): AIPrediction[] {
+  for (const p of predictions) {
+    // Normalize probabilities
+    const total = p.pred_home_win + p.pred_draw + p.pred_away_win;
+    if (Math.abs(total - 100) > 2) {
+      p.pred_home_win = Math.round((p.pred_home_win / total) * 100);
+      p.pred_draw = Math.round((p.pred_draw / total) * 100);
+      p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+    }
+
+    p.pred_home_win = capDisplayConfidence(calibrateConfidence(p.pred_home_win));
+    p.pred_away_win = capDisplayConfidence(calibrateConfidence(p.pred_away_win));
+    const newTotal = p.pred_home_win + p.pred_draw + p.pred_away_win;
+    if (Math.abs(newTotal - 100) > 1) {
+      const scale = 100 / newTotal;
+      p.pred_home_win = Math.round(p.pred_home_win * scale);
+      p.pred_draw = Math.round(p.pred_draw * scale);
+      p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+    }
+
+    p.ai_score = clamp(Math.round(p.ai_score || 50), 0, 100);
+    p.anomaly_score = clamp(Math.round(p.anomaly_score || 0), 0, 100);
+    p.suspect_score = p.anomaly_score;
+    p.data_completeness_score = clamp(Math.round(p.data_completeness_score || 70), 0, 100);
+    p.consensus_passed = p.consensus_passed ?? false;
+    p.context_penalties_total = clamp(Math.round(p.context_penalties_total || 0), 0, 100);
+
+    const matchData = matches.find(m => m.fixture_id === p.fixture_id);
+    p.league_tier = matchData ? getLeagueTier(matchData.league_name) : 2;
+
+    if (p.anomaly_score >= 51) {
+      const { label, reason } = getSuspectLabel(p.anomaly_score);
+      p.anomaly_label = label;
+      p.anomaly_reason = reason;
+    }
+
+    const mainProb = Math.max(p.pred_home_win, p.pred_away_win);
+    const odds = estimateOdds(mainProb);
+
+    if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) { p.ai_score = 0; continue; }
+    const vs = computeValueScore(mainProb, odds);
+    if (vs < 0.08) { p.ai_score = 0; continue; }
+    if (odds < 1.35) { p.ai_score = 0; continue; }
+    if (p.league_tier === 4) { p.ai_score = 0; continue; }
+    if (p.league_tier === 3 && mainProb < 72) { p.ai_score = 0; continue; }
+    if (p.data_completeness_score < 40) { p.ai_score = 0; continue; }
+    if (p.data_completeness_score < 60 && mainProb > 75) {
+      p.pred_home_win = Math.min(p.pred_home_win, 75);
+      p.pred_away_win = Math.min(p.pred_away_win, 75);
+    }
+    if (p.context_penalties_total >= 25) { p.ai_score = 0; continue; }
+
+    if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
+      if (streak.isStreakMode) { p.ai_score = 0; continue; }
+      const mp = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
+      if (mp >= 38) {
+        const scale2 = 37 / mp;
+        p.pred_home_win = Math.round(p.pred_home_win * scale2);
+        p.pred_draw = Math.round(p.pred_draw * scale2);
+        p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
+      }
+    }
+
+    if (streak.level === "emergency" && p.league_tier !== 1) { p.ai_score = 0; continue; }
+    if (p.anomaly_score >= 51 && p.pred_confidence === "SAFE") p.pred_confidence = "MODÉRÉ";
+
+    const homeWins = p.pred_home_win > p.pred_away_win;
+    if (homeWins && p.pred_score_home <= p.pred_score_away) {
+      [p.pred_score_home, p.pred_score_away] = [p.pred_score_away, p.pred_score_home];
+      if (p.pred_score_home === p.pred_score_away) p.pred_score_home += 1;
+    } else if (!homeWins && p.pred_away_win > p.pred_home_win && p.pred_score_away <= p.pred_score_home) {
+      [p.pred_score_home, p.pred_score_away] = [p.pred_score_away, p.pred_score_home];
+      if (p.pred_score_home === p.pred_score_away) p.pred_score_away += 1;
+    }
+
+    p.validation_score = computeValidationScore(
+      p.data_completeness_score, mainProb, vs, p.anomaly_score,
+      p.league_tier, false, odds, p.consensus_passed, p.context_penalties_total, 7, streak
+    ).score;
+  }
+
+  return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
+}
+
+// Combined multi-model AI call
+async function callAI(
+  apiKey: string,
+  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
+  learningContext: string,
+  streak: StreakState,
+  blacklistedLeagues: Set<string>
+): Promise<AIPrediction[]> {
+  const { eligible, userPrompt } = buildAIPrompt(matches, learningContext, streak, blacklistedLeagues);
+  if (eligible.length === 0) return [];
+
+  const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+
+  // Launch both models in parallel
+  console.log(`[AI v3.1] Launching ${mistralKey ? "DUAL-MODEL (Gemini + Mistral)" : "SINGLE-MODEL (Gemini)"} consensus...`);
+
+  const [geminiPreds, mistralPreds] = await Promise.all([
+    callGeminiAI(apiKey, userPrompt),
+    mistralKey ? callMistralAI(mistralKey, userPrompt) : Promise.resolve([] as AIPrediction[]),
+  ]);
+
+  console.log(`[AI v3.1] Gemini: ${geminiPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
+
+  let merged: AIPrediction[];
+  if (mistralPreds.length > 0 && geminiPreds.length > 0) {
+    merged = mergeConsensus(geminiPreds, mistralPreds, eligible, streak);
+    console.log(`[AI v3.1] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
+  } else if (geminiPreds.length > 0) {
+    merged = geminiPreds.map(p => ({ ...p, consensus_passed: false }));
+  } else if (mistralPreds.length > 0) {
+    merged = mistralPreds.map(p => ({ ...p, consensus_passed: false }));
+  } else {
+    return [];
+  }
+
+  return postProcessPredictions(merged, matches, streak);
 }
 
 // ═══════════════════════════════════════════════════════════════
