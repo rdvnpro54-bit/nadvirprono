@@ -306,7 +306,112 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   };
 
-  const filteredUsers = users.filter((u) => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+  const fetchV2Stats = useCallback(async () => {
+    setV2Loading(true);
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s) return;
+      // Fetch recent results for streak
+      const { data: recentResults } = await supabase
+        .from("match_results")
+        .select("result")
+        .not("result", "is", null)
+        .order("resolved_at", { ascending: false })
+        .limit(5);
+      
+      const wins = (recentResults || []).filter((r: any) => r.result === "win").length;
+      const total = (recentResults || []).length;
+      const rollingWinrate = total >= 3 ? Math.round((wins / total) * 100) : 100;
+      const streakMode = total >= 3 && rollingWinrate < 50;
+
+      // Fetch match counts
+      const { count: totalMatches } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true });
+      
+      const { count: withPreds } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true })
+        .not("pred_analysis", "is", null)
+        .gt("ai_score", 0);
+
+      const { count: lowScore } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true })
+        .lt("ai_score", 70)
+        .gt("ai_score", 0);
+
+      setV2Stats({
+        streakMode,
+        rollingWinrate,
+        totalMatches: totalMatches || 0,
+        eligibleMatches: withPreds || 0,
+        excludedCount: lowScore || 0,
+        predictionsGenerated: withPreds || 0,
+        source: "—",
+        lastRecalc: null,
+      });
+    } catch (err) {
+      console.error("v2 stats error:", err);
+    } finally {
+      setV2Loading(false);
+    }
+  }, []);
+
+  const handleForceRecalculate = async () => {
+    setV2Recalculating(true);
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s) throw new Error("No session");
+      
+      const { data, error } = await supabase.functions.invoke("ai-predict", {
+        body: {},
+        headers: { 
+          Authorization: `Bearer ${s.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      // Call with force=true via URL params
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-predict?force=true&batch=50`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${s.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      const result = await res.json();
+      
+      if (result.success) {
+        toast.success(`🤖 IA v2.0 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
+        setV2Stats(prev => prev ? {
+          ...prev,
+          source: result.source || "pronosia-v2",
+          predictionsGenerated: result.predictions_generated || 0,
+          excludedCount: (result.batch_size || 0) - (result.eligible || 0),
+          streakMode: result.streak_mode ?? prev.streakMode,
+          rollingWinrate: result.rolling_winrate ?? prev.rollingWinrate,
+          lastRecalc: new Date().toISOString(),
+        } : null);
+        queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
+      } else {
+        toast.error("Erreur recalcul: " + (result.error || "Inconnu"));
+      }
+    } catch (err: any) {
+      toast.error("Erreur recalcul IA: " + (err.message || "Inconnu"));
+    } finally {
+      setV2Recalculating(false);
+    }
+  };
+
+  useEffect(() => { fetchV2Stats(); }, [fetchV2Stats]);
+
 
   return (
     <div className={embedded ? "mt-3" : ""}>
