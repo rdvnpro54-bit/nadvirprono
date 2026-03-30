@@ -109,10 +109,10 @@ export function useHighConfidencePrecision() {
       const wins = highConf.filter(r => r.result === "win").length;
       const total = highConf.length;
 
-      // Seed: 16 wins out of 19 high-conf from calibration
-      const totalWins = 16 + wins;
-      const totalMatches = 19 + total;
-      const precision = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 84;
+      // Seed: 4 wins out of 5 high-conf from calibration (80%)
+      const totalWins = 4 + wins;
+      const totalMatches = 5 + total;
+      const precision = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 80;
 
       return { wins: totalWins, total: totalMatches, precision };
     },
