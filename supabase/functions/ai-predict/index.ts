@@ -1126,16 +1126,8 @@ function mergeConsensus(
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → UNCERTAIN, downgraded`);
-      const gMax = Math.max(g.pred_home_win, g.pred_away_win);
-      if (gMax < 60 || streak.isStreakMode) {
-        continue;
-      }
-      g.pred_confidence = "SAFE";
-      g.consensus_passed = false;
-      g.ai_score = Math.min(g.ai_score, 72);
-      g.pred_analysis = g.pred_analysis + "\n⚠️ Désaccord IA (Groq vs Mistral) — pick dégradé en SAFE";
-      merged.push(g);
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → EXCLUDED (v3.2: no disagreements allowed)`);
+      // v3.2: Disagreement = skip entirely. Don't risk it.
       continue;
     }
 
