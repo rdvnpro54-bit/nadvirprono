@@ -141,6 +141,11 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     predictionsGenerated: number;
     source: string;
     lastRecalc: string | null;
+    consensusRate: number;
+    fallbackRate: number;
+    consensusPassed: number;
+    consensusFailed: number;
+    streakLevel: string;
   } | null>(null);
   const [v2Loading, setV2Loading] = useState(false);
   const [v2Recalculating, setV2Recalculating] = useState(false);
@@ -386,6 +391,33 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const withPreds = v2Err ? 0 : v2Data?.eligibleMatches || 0;
       const lowScore = v2Err ? 0 : v2Data?.excludedCount || 0;
 
+      // Fetch consensus stats from cached_matches
+      let consensusPassed = 0;
+      let consensusFailed = 0;
+      try {
+        const { count: passedCount } = await supabase
+          .from("cached_matches")
+          .select("fixture_id", { count: "exact", head: true })
+          .eq("consensus_passed", true)
+          .gt("ai_score", 0);
+        const { count: failedCount } = await supabase
+          .from("cached_matches")
+          .select("fixture_id", { count: "exact", head: true })
+          .eq("consensus_passed", false)
+          .gt("ai_score", 0);
+        consensusPassed = passedCount || 0;
+        consensusFailed = failedCount || 0;
+      } catch {}
+
+      const totalWithPreds = consensusPassed + consensusFailed;
+      const consensusRate = totalWithPreds > 0 ? Math.round((consensusPassed / totalWithPreds) * 100) : 0;
+
+      // Determine streak level
+      let streakLevel = "normal";
+      if (rollingWinrate < 35) streakLevel = "emergency";
+      else if (rollingWinrate < 45) streakLevel = "streak";
+      else if (rollingWinrate <= 50) streakLevel = "caution";
+
       setV2Stats({
         streakMode,
         rollingWinrate,
@@ -395,6 +427,11 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         predictionsGenerated: withPreds || 0,
         source: "—",
         lastRecalc: null,
+        consensusRate,
+        fallbackRate: 0,
+        consensusPassed,
+        consensusFailed,
+        streakLevel,
       });
     } catch (err) {
       console.error("v2 stats error:", err);
@@ -425,14 +462,15 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const result = await res.json();
       
       if (result.success) {
-        toast.success(`🤖 IA v3.0 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
+        toast.success(`🤖 IA v3.1 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
         setV2Stats(prev => prev ? {
           ...prev,
-          source: result.source || "pronosia-v3",
+          source: result.source || "pronosia-v3.1",
           predictionsGenerated: result.predictions_generated || 0,
           excludedCount: result.excluded || 0,
           streakMode: result.streak_mode ?? prev.streakMode,
           rollingWinrate: result.rolling_winrate ?? prev.rollingWinrate,
+          streakLevel: result.streak_level ?? prev.streakLevel,
           lastRecalc: new Date().toISOString(),
         } : null);
         queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
@@ -517,7 +555,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         <div className="mb-2 flex items-center gap-3">
           <Shield className="h-6 w-6 text-primary" />
           <h2 className="font-display text-2xl font-bold">Panneau Admin</h2>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">v3.0</span>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">v3.1</span>
         </div>
         <p className="text-sm text-muted-foreground">Gestion en temps réel • {user?.email}</p>
       </motion.div>
@@ -661,10 +699,35 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               />
             </div>
 
+            {/* Consensus Stats */}
+            <Card className="p-4">
+              <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
+                <Brain className="h-4 w-4 text-primary" /> Consensus Gemini + Mistral
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-primary">{v2Stats?.consensusRate ?? 0}%</p>
+                  <p className="text-[10px] text-muted-foreground">Taux de consensus</p>
+                </div>
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-success">{v2Stats?.consensusPassed ?? 0}</p>
+                  <p className="text-[10px] text-muted-foreground">✅ Double validés</p>
+                </div>
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-warning">{v2Stats?.consensusFailed ?? 0}</p>
+                  <p className="text-[10px] text-muted-foreground">🔍 Simple validation</p>
+                </div>
+                <div className="rounded-lg bg-muted/30 p-3 text-center">
+                  <p className="text-lg font-bold text-secondary">{v2Stats?.streakLevel ?? "normal"}</p>
+                  <p className="text-[10px] text-muted-foreground">Mode streak actuel</p>
+                </div>
+              </div>
+            </Card>
+
             {/* Filter Rules */}
             <Card className="p-4">
               <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
-                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v3.0
+                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v3.1
               </h3>
               <div className="grid gap-2 sm:grid-cols-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -677,7 +740,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <Ban className="h-3 w-3 text-destructive" />
-                  <span>Value Score &lt; 0.05 → Exclu</span>
+                  <span>Value Score &lt; 0.08 → Exclu (v3.1)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Ban className="h-3 w-3 text-destructive" />
@@ -689,7 +752,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Profils sport granulaires (A2)</span>
+                  <span>Consensus Gemini + Mistral (A1)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
@@ -697,7 +760,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Consensus validation IA (A1)</span>
+                  <span>Odds minimum: 1.35, sweet spot: 1.65-2.40</span>
                 </div>
               </div>
             </Card>
@@ -749,7 +812,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               </Button>
               <Button size="sm" onClick={handleForceRecalculate} disabled={v2Recalculating} className="gap-1 bg-primary">
                 {v2Recalculating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
-                🤖 Forcer recalcul IA v3.0
+                🤖 Forcer recalcul IA v3.1
               </Button>
               <Button variant="outline" size="sm" onClick={handleForceAudit} disabled={auditRunning} className="gap-1">
                 {auditRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calendar className="h-3 w-3" />}
@@ -770,9 +833,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 >
                   <Brain className="h-6 w-6 text-primary" />
                 </motion.div>
-                <p className="text-sm font-semibold">Recalcul IA v3.0 en cours...</p>
+                <p className="text-sm font-semibold">Recalcul IA v3.1 en cours...</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Profils sport granulaires, seuils dynamiques, détection suspects améliorée, blacklist active
+                  Consensus Gemini + Mistral, seuils relevés, détection suspects, blacklist active
                 </p>
               </motion.div>
             )}
