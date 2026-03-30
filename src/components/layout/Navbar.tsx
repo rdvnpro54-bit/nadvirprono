@@ -27,8 +27,9 @@ export function Navbar() {
 
   return (
     <>
+      {/* Desktop top navbar */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-2xl pt-[env(safe-area-inset-top)]"
+        className="fixed top-0 left-0 right-0 z-50 glass-navbar pt-[env(safe-area-inset-top)]"
         initial={{ y: -60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -43,7 +44,7 @@ export function Navbar() {
             >
               <img src="/pronosia-p-logo.png" alt="Pronosia logo" className="h-full w-full object-cover" />
             </motion.div>
-            <span className="font-display text-lg font-bold tracking-tight">
+            <span className="font-display text-lg font-bold tracking-tight gradient-text-animated">
               Pronosia
             </span>
           </Link>
@@ -64,15 +65,16 @@ export function Navbar() {
                       "relative rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200",
                       isActive
                         ? "text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/20"
                     )}
                   >
                     {item.label}
                     {isActive && (
                       <motion.div
-                        className="absolute -bottom-[1px] left-2 right-2 h-0.5 bg-primary rounded-full"
+                        className="absolute -bottom-[1px] left-2 right-2 h-0.5 rounded-full"
                         layoutId="navbar-indicator"
                         transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                        style={{ background: "linear-gradient(90deg, hsl(45 100% 50%), hsl(38 80% 45%))" }}
                       />
                     )}
                   </Link>
@@ -87,19 +89,19 @@ export function Navbar() {
                 {isAdmin ? (
                   <Link to="/admin" reloadDocument>
                     <motion.span
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-bold text-primary cursor-pointer"
+                      className="inline-flex items-center gap-1 rounded-full badge-elite px-2.5 py-0.5 text-[10px] font-bold cursor-pointer"
                       whileHover={{ scale: 1.1 }}
                     >
                       <Shield className="h-3 w-3" /> ADMIN
                     </motion.span>
                   </Link>
                 ) : isPremium ? (
-                  <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-bold text-primary">
+                  <span className="rounded-full badge-elite px-2.5 py-0.5 text-[10px] font-bold">
                     PREMIUM
                   </span>
                 ) : null}
                 <Link to="/compte">
-                  <Button variant="ghost" size="sm" className="text-xs gap-1.5 hover:bg-muted/30">
+                  <Button variant="ghost" size="sm" className="text-xs gap-1.5 hover:bg-muted/20">
                     <User className="h-3.5 w-3.5" /> Compte
                   </Button>
                 </Link>
@@ -107,11 +109,11 @@ export function Navbar() {
             ) : (
               <>
                 <Link to="/login">
-                  <Button variant="ghost" size="sm" className="text-xs hover:bg-muted/30">Connexion</Button>
+                  <Button variant="ghost" size="sm" className="text-xs hover:bg-muted/20">Connexion</Button>
                 </Link>
                 <Link to="/pricing">
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button size="sm" className="gap-1.5 text-xs btn-shimmer">
+                    <Button size="sm" className="gap-1.5 text-xs btn-shimmer btn-glow">
                       <Zap className="h-3.5 w-3.5" /> Premium
                     </Button>
                   </motion.div>
@@ -124,7 +126,8 @@ export function Navbar() {
 
       {/* Mobile bottom navbar */}
       <motion.div
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/30 bg-background/90 backdrop-blur-2xl md:hidden safe-area-bottom"
+        className="fixed bottom-0 left-0 right-0 z-50 glass-navbar md:hidden"
+        style={{ borderTop: "1px solid rgba(255, 215, 0, 0.08)", borderBottom: "none" }}
         initial={{ y: 60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3, delay: 0.15 }}
@@ -143,17 +146,21 @@ export function Navbar() {
               >
                 <motion.div
                   whileTap={{ scale: 0.85 }}
-                  animate={isActive ? { y: -1 } : { y: 0 }}
+                  animate={isActive ? { y: -2 } : { y: 0 }}
                   transition={{ type: "spring", stiffness: 400, damping: 20 }}
                 >
-                  <item.icon className={cn("h-5 w-5 transition-colors", isActive && "text-primary")} />
+                  <item.icon className={cn("h-5 w-5 transition-colors", isActive && "text-primary drop-shadow-[0_0_6px_rgba(255,215,0,0.5)]")} />
                 </motion.div>
                 <span>{item.label}</span>
                 {isActive && (
                   <motion.div
-                    className="absolute -top-0.5 left-1/2 h-0.5 w-5 bg-primary rounded-full"
+                    className="absolute -top-0.5 left-1/2 h-0.5 w-5 rounded-full"
                     layoutId="mobile-indicator"
-                    style={{ x: "-50%" }}
+                    style={{
+                      x: "-50%",
+                      background: "linear-gradient(90deg, hsl(45 100% 50%), hsl(38 80% 45%))",
+                      boxShadow: "0 0 8px rgba(255,215,0,0.4)",
+                    }}
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
