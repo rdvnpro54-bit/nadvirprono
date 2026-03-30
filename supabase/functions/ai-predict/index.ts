@@ -994,32 +994,38 @@ function parseToolCallResponse(result: any): AIPrediction[] {
   }
 }
 
-async function callGeminiAI(
-  apiKey: string, userPrompt: string
+async function callGroqAI(
+  groqKey: string, userPrompt: string
 ): Promise<AIPrediction[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
   try {
-    const response = await fetch(AI_GATEWAY, {
+    const response = await fetch(GROQ_API, {
       method: "POST",
       signal: controller.signal,
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${groqKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
         ],
         tools: AI_TOOLS,
         tool_choice: { type: "function", function: { name: "predict_matches" } },
+        temperature: 0.3,
+        max_tokens: 8000,
       }),
     });
     clearTimeout(timeout);
-    if (!response.ok) { console.error(`[GEMINI] Gateway error ${response.status}`); return []; }
+    if (!response.ok) { 
+      const errText = await response.text();
+      console.error(`[GROQ] API error ${response.status}: ${errText}`); 
+      return []; 
+    }
     return parseToolCallResponse(await response.json());
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[GEMINI] Error:", e);
+    console.error("[GROQ] Error:", e);
     return [];
   }
 }
