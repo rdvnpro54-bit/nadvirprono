@@ -731,25 +731,66 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
   } catch { return null; }
 }
 
-// ─── SPORTMONKS — ENRICHMENT: pre-match stats, lineups, odds ────────
+// ─── SPORTMONKS — ENRICHMENT: leagues-first approach ────────────────
+async function fetchSportMonksAvailableLeagueIds(): Promise<number[]> {
+  const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
+  if (!apiKey) return [];
+  try {
+    const res = await fetch(`${SPORTMONKS_BASE}/leagues?api_token=${apiKey}&per_page=50`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const ids = (json.data || []).map((l: any) => l.id);
+    console.log(`[SportMonks] Available leagues: ${ids.length} — IDs: ${ids.join(",")}`);
+    return ids;
+  } catch { return []; }
+}
+
 async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
   const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
   if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
-  // SportMonks accepts token as query param (api_token) — most reliable method
-  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics&per_page=50`;
-  console.log(`[SportMonks] Fetching: ${url.replace(apiKey, "***")}`);
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error(`[SportMonks] error ${res.status}: ${errBody.slice(0, 300)}`);
-      return [];
-    }
-    const json = await res.json();
-    if (json.message) { console.error(`[SportMonks] API message: ${json.message}`); }
-    console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures, pagination: ${json.pagination?.total || 'n/a'}`);
-    return json.data || [];
-  } catch (e) { console.error("[SportMonks] error:", e); return []; }
+
+  // Step 1: Get available league IDs
+  const leagueIds = await fetchSportMonksAvailableLeagueIds();
+  if (leagueIds.length === 0) {
+    console.log("[SportMonks] No accessible leagues, skipping");
+    return [];
+  }
+
+  // Step 2: Try fetching fixtures for each accessible league
+  const allFixtures: any[] = [];
+  for (const leagueId of leagueIds) {
+    try {
+      const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;lineups;statistics&filters=fixtureLeagues:${leagueId}&per_page=50`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const fixtures = json.data || [];
+      if (fixtures.length > 0) {
+        console.log(`[SportMonks] League ${leagueId}: ${fixtures.length} fixtures`);
+        allFixtures.push(...fixtures);
+      }
+    } catch { /* skip league */ }
+  }
+
+  // Step 3: If league-based fetch returned nothing, try the season standings for team stats
+  if (allFixtures.length === 0) {
+    // Fallback: try date-based (may work on some plans)
+    try {
+      const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;lineups;statistics&per_page=50`;
+      console.log(`[SportMonks] Fallback date-based fetch for ${dateISO}`);
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.message) console.error(`[SportMonks] API message: ${json.message}`);
+        const fixtures = json.data || [];
+        console.log(`[SportMonks] Found ${fixtures.length} fixtures (date-based)`);
+        allFixtures.push(...fixtures);
+      }
+    } catch { /* skip */ }
+  }
+
+  console.log(`[SportMonks] Total fixtures: ${allFixtures.length}`);
+  return allFixtures;
 }
 
 function parseSportMonksEnrichment(fixture: any): {
@@ -862,10 +903,28 @@ async function fetchSofaScoreRapidOdds(eventId: number): Promise<any | null> {
     const json = await res.json();
     const markets = json.markets || [];
     if (markets.length === 0) return null;
-    return markets.slice(0, 8).map((m: any) => ({
+    return markets.slice(0, 10).map((m: any) => ({
       market: m.marketName || m.sourceId, choices: (m.choices || []).map((c: any) => ({
         name: c.name, odds: c.fractionalValue || c.sourceId, change: c.change,
       })),
+    }));
+  } catch { return null; }
+}
+
+async function fetchSofaScoreRapidH2H(eventId: number): Promise<any[] | null> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${SOFASCORE_RAPID_BASE}/event/${eventId}/h2h/events`, {
+      headers: getSofaScoreRapidHeaders(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const events = json.events || [];
+    return events.slice(0, 5).map((e: any) => ({
+      date: e.startTimestamp ? new Date(e.startTimestamp * 1000).toISOString() : null,
+      home: e.homeTeam?.name, away: e.awayTeam?.name,
+      homeGoals: e.homeScore?.current, awayGoals: e.awayScore?.current,
     }));
   } catch { return null; }
 }
@@ -915,13 +974,13 @@ async function enrichMatchesWithAPIs(
   let apiFootballCalls = 0;
   let sofaRapidCalls = 0;
   const MAX_APIFOOTBALL_ENRICHMENTS = 20;
-  const MAX_SOFA_RAPID_ENRICHMENTS = 30;
+  const MAX_SOFA_RAPID_ENRICHMENTS = 50; // increased for better coverage
 
   for (const row of rows) {
     const key = `${row.home_team.toLowerCase().trim()}_${row.away_team.toLowerCase().trim()}`;
     const sources: string[] = [...(row.data_sources || [])];
 
-    // A) SportMonks (football only, included data)
+    // A) SportMonks (football only, included data from accessible leagues)
     if (row.sport === "football") {
       const smFixture = sportMonksMap.get(key);
       if (smFixture) {
@@ -953,24 +1012,27 @@ async function enrichMatchesWithAPIs(
       }
     }
 
-    // C) SofaScore RapidAPI (ALL sports — lineups, stats, odds)
+    // C) SofaScore RapidAPI (ALL sports — lineups, stats, odds, H2H)
     const sofaEvt = sofaRapidMap.get(key);
     if (sofaEvt && sofaRapidCalls < MAX_SOFA_RAPID_ENRICHMENTS) {
       const evtId = sofaEvt.id;
       const needLineups = !row.home_lineup;
       const needStats = !row.match_stats;
       const needOdds = !row.odds;
+      const needH2H = !row.h2h_data;
 
-      const [lineups, stats, odds] = await Promise.all([
+      const [lineups, stats, odds, h2h] = await Promise.all([
         needLineups ? fetchSofaScoreRapidLineups(evtId) : Promise.resolve(null),
         needStats ? fetchSofaScoreRapidStats(evtId) : Promise.resolve(null),
         needOdds ? fetchSofaScoreRapidOdds(evtId) : Promise.resolve(null),
+        needH2H ? fetchSofaScoreRapidH2H(evtId) : Promise.resolve(null),
       ]);
-      sofaRapidCalls += (needLineups ? 1 : 0) + (needStats ? 1 : 0) + (needOdds ? 1 : 0);
+      sofaRapidCalls += (needLineups ? 1 : 0) + (needStats ? 1 : 0) + (needOdds ? 1 : 0) + (needH2H ? 1 : 0);
 
       if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
       if (stats && !row.match_stats) row.match_stats = stats;
       if (odds && !row.odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
+      if (h2h && !row.h2h_data) row.h2h_data = h2h;
       if (!sources.includes("sofascore-rapid")) sources.push("sofascore-rapid");
     }
 
