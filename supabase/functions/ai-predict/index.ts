@@ -1151,38 +1151,57 @@ async function callCerebrasAI(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MISTRAL AI CALL (Pass 2 — Consensus)
+// CEREBRAS GPT-OSS 120B CALL (Pass 2 — Consensus)
 // ═══════════════════════════════════════════════════════════════
-async function callMistralAI(
-  mistralKey: string, userPrompt: string
+async function callCerebrasSecondary(
+  cerebrasKey: string, userPrompt: string
 ): Promise<AIPrediction[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), 55000);
   try {
-    const response = await fetch(MISTRAL_API, {
+    const response = await fetch(CEREBRAS_API, {
       method: "POST",
       signal: controller.signal,
-      headers: { Authorization: `Bearer ${mistralKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "mistral-large-latest",
+        model: "gpt-oss-120b",
         messages: [
-          { role: "system", content: AI_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
+          { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have all required fields." },
+          { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}\nDo NOT include any thinking, explanation, or markdown formatting. Output raw JSON only." },
         ],
-        tools: AI_TOOLS,
-        tool_choice: { type: "function", function: { name: "predict_matches" } },
+        temperature: 0.3,
+        max_tokens: 8000,
       }),
     });
     clearTimeout(timeout);
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`[MISTRAL] API error ${response.status}: ${errText}`);
+      console.error(`[CEREBRAS-GPT-OSS] API error ${response.status}: ${errText}`);
       return [];
     }
-    return parseToolCallResponse(await response.json());
+    const result = await response.json();
+    
+    const content = result.choices?.[0]?.message?.content;
+    if (!content) {
+      console.warn("[CEREBRAS-GPT-OSS] Empty content");
+      return [];
+    }
+    console.log(`[CEREBRAS-GPT-OSS] Raw response (${content.length} chars): ${content.substring(0, 500)}`);
+    
+    // Same multi-strategy parsing as primary
+    try { return normalizeCerebrasPreds(JSON.parse(content).predictions || []); } catch {}
+    const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlock) try { return normalizeCerebrasPreds(JSON.parse(codeBlock[1].trim()).predictions || []); } catch {}
+    const braceMatch = content.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
+    if (braceMatch) try { return normalizeCerebrasPreds(JSON.parse(braceMatch[0]).predictions || []); } catch {}
+    const arrayMatch = content.match(/\[\s*\{[\s\S]*"fixture_id"[\s\S]*\}\s*\]/);
+    if (arrayMatch) try { return normalizeCerebrasPreds(JSON.parse(arrayMatch[0])); } catch {}
+    
+    console.error("[CEREBRAS-GPT-OSS] ❌ All parse strategies failed");
+    return [];
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[MISTRAL] Error:", e);
+    console.error("[CEREBRAS-GPT-OSS] Error:", e);
     return [];
   }
 }
