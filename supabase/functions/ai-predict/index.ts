@@ -1103,7 +1103,7 @@ async function callMistralAI(
 // MULTI-MODEL CONSENSUS ENGINE (A1)
 // ═══════════════════════════════════════════════════════════════
 function mergeConsensus(
-  groqPreds: AIPrediction[], mistralPreds: AIPrediction[],
+  cerebrasPreds: AIPrediction[], mistralPreds: AIPrediction[],
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string }[],
   streak: StreakState
 ): AIPrediction[] {
@@ -1112,14 +1112,14 @@ function mergeConsensus(
 
   const merged: AIPrediction[] = [];
 
-  for (const g of groqPreds) {
+  for (const g of cerebrasPreds) {
     const m = mistralMap.get(g.fixture_id);
     const matchInfo = matches.find(x => x.fixture_id === g.fixture_id);
 
     if (!m) {
       console.log(`[CONSENSUS] ${matchInfo?.home_team || g.fixture_id}: Mistral skipped — single-pass only`);
       g.consensus_passed = false;
-      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Groq uniquement)";
+      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Cerebras uniquement)";
       merged.push(g);
       continue;
     }
@@ -1128,8 +1128,7 @@ function mergeConsensus(
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → EXCLUDED (v3.2: no disagreements allowed)`);
-      // v3.2: Disagreement = skip entirely. Don't risk it.
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Cerebras=${gWinner}, Mistral=${mWinner} → EXCLUDED (v3.2: no disagreements allowed)`);
       continue;
     }
 
@@ -1138,7 +1137,7 @@ function mergeConsensus(
     const confGap = Math.abs(gConf - mConf);
 
     if (confGap > 7) {
-      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Groq=${gConf}%, Mistral=${mConf}%`);
+      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Cerebras=${gConf}%, Mistral=${mConf}%`);
       g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
       g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
       g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
@@ -1146,13 +1145,12 @@ function mergeConsensus(
       g.consensus_passed = false;
       g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
     } else {
-      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Groq=${gConf}%, Mistral=${mConf}%)`);
+      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Cerebras=${gConf}%, Mistral=${mConf}%)`);
       g.consensus_passed = true;
       g.ai_score = Math.min(g.ai_score + 3, 100);
-      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Groq + Mistral)";
+      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Cerebras + Mistral)";
     }
 
-    // Take higher suspect score (more cautious)
     g.anomaly_score = Math.max(g.anomaly_score, m.anomaly_score || 0);
     g.suspect_score = g.anomaly_score;
     g.data_completeness_score = Math.min(g.data_completeness_score || 100, m.data_completeness_score || 100);
