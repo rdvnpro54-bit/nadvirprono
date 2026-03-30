@@ -1291,6 +1291,33 @@ async function enrichMatchesWithAPIs(
       }
     }
 
+    // F-bis) NBA Free Data API (basketball only — team logos, metadata)
+    if (row.sport === "basketball") {
+      const homeKey = row.home_team.toLowerCase().trim();
+      const awayKey = row.away_team.toLowerCase().trim();
+      // Try full name first, then last word (e.g. "celtics")
+      const findTeam = (name: string) => {
+        const full = nbaTeams.get(name);
+        if (full) return full;
+        const short = name.split(" ").pop() || "";
+        return nbaTeams.get(short) || null;
+      };
+      const homeNBA = findTeam(homeKey);
+      const awayNBA = findTeam(awayKey);
+      if (homeNBA || awayNBA) {
+        if (homeNBA && !row.home_logo) row.home_logo = homeNBA.logo;
+        if (awayNBA && !row.away_logo) row.away_logo = awayNBA.logo;
+        row.match_stats = {
+          ...(row.match_stats || {}),
+          nba_teams: {
+            home: homeNBA ? { name: homeNBA.name, abbrev: homeNBA.abbrev } : null,
+            away: awayNBA ? { name: awayNBA.name, abbrev: awayNBA.abbrev } : null,
+          },
+        };
+        if (!sources.includes("nba-free")) sources.push("nba-free");
+      }
+    }
+
     // F) Tennis API (tennis only — player profiles: nationality, age)
     if (row.sport === "tennis") {
       const homePlayer = row.home_team;
