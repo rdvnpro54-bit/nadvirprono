@@ -1151,7 +1151,7 @@ async function callCerebrasAI(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CEREBRAS GPT-OSS 120B CALL (Pass 2 — Consensus)
+// CEREBRAS LLAMA 4 SCOUT CALL (Pass 2 — Consensus)
 // ═══════════════════════════════════════════════════════════════
 async function callCerebrasSecondary(
   cerebrasKey: string, userPrompt: string
