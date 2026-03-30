@@ -197,11 +197,13 @@ function capDisplayConfidence(prob: number): number {
   return Math.min(prob, 88);
 }
 
-function estimateOdds(probability: number): number {
+function estimateOdds(probability: number, seed: number = 0): number {
   if (probability <= 0) return 10;
   const raw = 100 / probability;
-  // Apply bookmaker margin (~8%)
-  return Math.round((raw * 0.92) * 100) / 100;
+  // Simulate market inefficiency: odds can be slightly higher (value) or lower (trap)
+  // Using seed for determinism. Market typically overvalues favorites.
+  const inefficiency = probability > 60 ? 1.08 : probability > 45 ? 1.05 : 1.02;
+  return Math.round((raw * inefficiency) * 100) / 100;
 }
 
 function computeValueScore(probability: number, odds: number): number {
@@ -523,16 +525,30 @@ function generatePRONOSIAAnalysis(
   const noDrawSports = ["tennis", "basketball", "nba", "baseball", "mlb", "nfl", "mma"];
   const isNoDrawSport = noDrawSports.includes(sport);
 
-  const doubleChanceLabel = isNoDrawSport
-    ? `${fav} vainqueur (Pari protégé)`
-    : predHome >= predAway
+  // v2.0: SAFE market logic — BTTS, winner, or draw (Double Chance)
+  // MODÉRÉ market logic — winner only, no draw, no double chance
+  const isModere = confidence === "MODÉRÉ";
+
+  let safeMarketLabel: string;
+  let safeMarketProb: number;
+
+  if (isNoDrawSport) {
+    safeMarketLabel = `${fav} vainqueur (Pari protégé)`;
+    safeMarketProb = Math.max(predHome, predAway);
+  } else if (bttsProb >= 55) {
+    safeMarketLabel = `Les 2 équipes marquent — BTTS Oui (${bttsProb}%)`;
+    safeMarketProb = bttsProb;
+  } else if (predDraw >= 25 && Math.abs(predHome - predAway) < 15) {
+    safeMarketLabel = `Match nul possible — Double Chance ${predHome >= predAway ? `(1X)` : `(X2)`}`;
+    safeMarketProb = predHome >= predAway ? predHome + predDraw : predAway + predDraw;
+  } else {
+    safeMarketLabel = predHome >= predAway
       ? `${match.home_team} ou Nul (1X)`
       : `Nul ou ${match.away_team} (X2)`;
-  const doubleChanceProb = isNoDrawSport
-    ? Math.max(predHome, predAway)
-    : predHome >= predAway
-      ? predHome + predDraw
-      : predAway + predDraw;
+    safeMarketProb = predHome >= predAway ? predHome + predDraw : predAway + predDraw;
+  }
+
+  const modereMarketLabel = `${fav} vainqueur (${maxProb}%)`;
 
   const analyses: string[] = [];
   const seed = hash(match.home_team + match.away_team) + fid;
@@ -543,8 +559,10 @@ function generatePRONOSIAAnalysis(
       : "";
 
   const marketLine = isSafe
-    ? `📌 Marché recommandé : ${doubleChanceLabel} (${doubleChanceProb}% de probabilité combinée). Protection appliquée.`
-    : "";
+    ? `📌 Marché recommandé : ${safeMarketLabel} (${safeMarketProb}% de probabilité). Protection appliquée.`
+    : isModere
+      ? `📌 Marché recommandé : ${modereMarketLabel}. Pas de double chance — confiance suffisante pour le vainqueur.`
+      : "";
 
   const calibrationNote = " 📊 Probabilité calibrée — ajustée pour biais du modèle.";
   const valueNote = valueLabel ? ` ${valueLabel} détecté.` : "";
@@ -557,14 +575,20 @@ function generatePRONOSIAAnalysis(
 
   if (sport === "football" || sport === "soccer") {
     whyPick.push(`Avantage quantifié de ${maxProb}% pour ${fav} sur 11 facteurs`);
-    whyPick.push(isSafe ? `Marché protégé Double Chance sécurisé` : `Signal cohérent forme + données`);
+    if (isSafe) {
+      whyPick.push(bttsProb >= 55 ? `Les 2 équipes marquent probablement (BTTS ${bttsProb}%)` : `Marché protégé Double Chance sécurisé`);
+    } else if (isModere) {
+      whyPick.push(`${fav} vainqueur — confiance suffisante, pas de double chance`);
+    } else {
+      whyPick.push(`Signal cohérent forme + données`);
+    }
     if (valueBet) whyPick.push(`Value Score positif — cote sous-estimée par le marché`);
     risks.push(`Variance naturelle du football — résultat jamais garanti`);
     if (maxProb < 70) risks.push(`Confiance modérée — gestion de mise prudente conseillée`);
 
     analyses.push(
       `Analyse PRONOSIA v2.0 : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns, données).`,
-      isSafe ? marketLine : (valueBet ? `Value Bet détecté (edge significatif) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — variance élevée du football.`),
+      (isSafe || isModere) ? marketLine : (valueBet ? `Value Bet détecté (edge significatif) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — variance élevée du football.`),
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
@@ -575,7 +599,7 @@ function generatePRONOSIAAnalysis(
 
     analyses.push(
       `Analyse surface-ELO : ${fav} montre un avantage technique quantifié.`,
-      isSafe ? marketLine : `Probabilité calibrée à ${maxProb}%.`,
+      (isSafe || isModere) ? marketLine : `Probabilité calibrée à ${maxProb}%.`,
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
@@ -586,7 +610,7 @@ function generatePRONOSIAAnalysis(
 
     analyses.push(
       `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
-      isSafe ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      (isSafe || isModere) ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
@@ -597,7 +621,7 @@ function generatePRONOSIAAnalysis(
 
     analyses.push(
       `Modèle PRONOSIA v2.0 : avantage quantifié pour ${fav} (${maxProb}%).`,
-      isSafe ? marketLine : `Signal cohérent sur la majorité des dimensions analysées.`,
+      (isSafe || isModere) ? marketLine : `Signal cohérent sur la majorité des dimensions analysées.`,
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
@@ -832,8 +856,10 @@ Deno.serve(async (req) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
     const forceAll = url.searchParams.get("force") === "true";
 
-    // v2.0: Check streak mode
-    const streak = await checkStreakMode(supabase);
+    // v2.0: Check streak mode (bypass for forced recalc)
+    const streak = forceAll 
+      ? { isStreakMode: false, rollingWinrate: 100, maxPicks: 999, minConfidence: 35, minAiScore: 40 } as StreakState
+      : await checkStreakMode(supabase);
     if (streak.isStreakMode) {
       console.log(`[AI-PREDICT v2] 📉 STREAK MODE: winrate=${streak.rollingWinrate}%, maxPicks=${streak.maxPicks}, minConf=${streak.minConfidence}%, minAI=${streak.minAiScore}`);
     }
