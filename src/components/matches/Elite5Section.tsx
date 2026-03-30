@@ -78,7 +78,7 @@ export const Elite5Section = memo(function Elite5Section({ matches }: Elite5Sect
             <div className="absolute -top-2 -left-1 z-10 flex h-6 w-6 items-center justify-center rounded-full badge-elite text-[10px] font-bold shadow-lg">
               {i + 1}
             </div>
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.03]">
+            <div className="rounded-2xl border border-[rgba(255,215,0,0.15)] bg-[rgba(255,215,0,0.02)] backdrop-blur-xl">
               <MatchCard match={match} index={i} />
             </div>
           </motion.div>
