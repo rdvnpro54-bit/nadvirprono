@@ -100,7 +100,18 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [promoMessage, setPromoMessage] = useState("Profite de -10% sur tous nos abonnements Premium et Premium+ ! Offre limitée 🔥");
   const [promoDiscount, setPromoDiscount] = useState(10);
   const [promoDuration, setPromoDuration] = useState(5);
-  const [promoSending, setPromoSending] = useState(false);
+  const [v2Stats, setV2Stats] = useState<{
+    streakMode: boolean;
+    rollingWinrate: number;
+    totalMatches: number;
+    eligibleMatches: number;
+    excludedCount: number;
+    predictionsGenerated: number;
+    source: string;
+    lastRecalc: string | null;
+  } | null>(null);
+  const [v2Loading, setV2Loading] = useState(false);
+  const [v2Recalculating, setV2Recalculating] = useState(false);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
