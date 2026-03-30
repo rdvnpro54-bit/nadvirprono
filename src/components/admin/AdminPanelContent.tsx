@@ -833,9 +833,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 >
                   <Brain className="h-6 w-6 text-primary" />
                 </motion.div>
-                <p className="text-sm font-semibold">Recalcul IA v3.0 en cours...</p>
+                <p className="text-sm font-semibold">Recalcul IA v3.1 en cours...</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Profils sport granulaires, seuils dynamiques, détection suspects améliorée, blacklist active
+                  Consensus Gemini + Mistral, seuils relevés, détection suspects, blacklist active
                 </p>
               </motion.div>
             )}
