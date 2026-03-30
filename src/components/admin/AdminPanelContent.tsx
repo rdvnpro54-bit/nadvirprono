@@ -812,7 +812,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               </Button>
               <Button size="sm" onClick={handleForceRecalculate} disabled={v2Recalculating} className="gap-1 bg-primary">
                 {v2Recalculating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
-                🤖 Forcer recalcul IA v3.0
+                🤖 Forcer recalcul IA v3.1
               </Button>
               <Button variant="outline" size="sm" onClick={handleForceAudit} disabled={auditRunning} className="gap-1">
                 {auditRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calendar className="h-3 w-3" />}
