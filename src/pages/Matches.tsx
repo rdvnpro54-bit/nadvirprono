@@ -390,7 +390,7 @@ export default function Matches() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
-                    "rounded-md px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold transition-colors flex items-center gap-1",
+                    "rounded-lg px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold transition-all flex items-center gap-1",
                     isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
