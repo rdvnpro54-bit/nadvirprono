@@ -9,6 +9,7 @@ const desktopNav = [
   { label: "Accueil", path: "/" },
   { label: "Analyse", path: "/matches" },
   { label: "Résultats", path: "/resultats" },
+  { label: "Pronosia AI", path: "/pronosia-ai" },
   { label: "Suivis", path: "/suivis" },
   { label: "Premium", path: "/pricing" },
 ];
