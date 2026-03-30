@@ -351,6 +351,8 @@ Deno.serve(async (req) => {
       const fixtureId = Number(match.fixture_id);
       if (resolvedFixtureIds.has(fixtureId)) return false;
       if (isFinishedMatch(match)) return false;
+      // Hide matches flagged as ai_hidden (unless admin override)
+      if (match.ai_hidden === true) return false;
       return true;
     });
     const freeIds = pickTop2Free(allMatches);

@@ -969,6 +969,54 @@ async function fetchTank01MLBScores(dateCompact: string): Promise<Map<string, an
   } catch (e) { console.error("[Tank01-MLB] error:", e); return new Map(); }
 }
 
+// ─── ALLSPORTSAPI2 — ENRICHMENT: standings, team stats ──────────────
+const ALLSPORTS_BASE = "https://allsportsapi2.p.rapidapi.com/api";
+
+function getAllSportsHeaders(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "allsportsapi2.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+// Tournament IDs for major leagues
+const ALLSPORTS_TOURNAMENTS: Record<string, { tournamentId: number; seasonId: number }> = {
+  "premier league": { tournamentId: 17, seasonId: 76986 },
+  "la liga": { tournamentId: 8, seasonId: 76851 },
+  "bundesliga": { tournamentId: 35, seasonId: 76910 },
+  "serie a": { tournamentId: 23, seasonId: 76834 },
+  "ligue 1": { tournamentId: 34, seasonId: 76900 },
+};
+
+async function fetchAllSportsStandings(tournamentId: number, seasonId: number): Promise<Map<string, any>> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return new Map();
+  try {
+    const res = await fetch(`${ALLSPORTS_BASE}/tournament/${tournamentId}/season/${seasonId}/standings/total`, {
+      headers: getAllSportsHeaders(),
+    });
+    if (!res.ok) { console.error(`[AllSports] standings error: ${res.status}`); return new Map(); }
+    const json = await res.json();
+    const standings = json.standings?.[0]?.rows || [];
+    const map = new Map<string, any>();
+    for (const row of standings) {
+      const teamName = (row.team?.name || "").toLowerCase().trim();
+      if (teamName) {
+        map.set(teamName, {
+          position: row.position,
+          matches: row.matches,
+          wins: row.wins,
+          draws: row.draws,
+          losses: row.losses,
+          goalsFor: row.scoresFor,
+          goalsAgainst: row.scoresAgainst,
+          points: row.points,
+        });
+      }
+    }
+    console.log(`[AllSports] Standings for tournament ${tournamentId}: ${map.size} teams`);
+    return map;
+  } catch (e) { console.error("[AllSports] standings error:", e); return new Map(); }
+}
+
 // ─── NHL API5 — ENRICHMENT: rosters and player stats ────────────────
 const NHL_API5_BASE = "https://nhl-api5.p.rapidapi.com";
 
