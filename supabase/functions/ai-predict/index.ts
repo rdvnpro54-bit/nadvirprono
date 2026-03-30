@@ -1059,7 +1059,7 @@ async function callMistralAI(
   mistralKey: string, userPrompt: string
 ): Promise<AIPrediction[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000);
+  const timeout = setTimeout(() => controller.abort(), 45000);
   try {
     const response = await fetch(MISTRAL_API, {
       method: "POST",
