@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Search, Star, User, Zap, Shield, BarChart3 } from "lucide-react";
+import { Home, Search, Star, User, Zap, Shield, BarChart3, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
