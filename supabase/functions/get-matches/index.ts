@@ -377,6 +377,30 @@ Deno.serve(async (req) => {
 
     console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}, streak=${streakMode}`);
 
+    // ─── ELITE 5: Top 5 highest-confidence matches today (Premium+ only) ───
+    const elite5Ids = new Set<string>();
+    if (isPremiumPlus) {
+      const { startMs, endMs } = getParisDayBounds();
+      const todayWithPreds = allMatches.filter(m => {
+        const k = getKickoffMs(m);
+        return k >= startMs && k < endMs && hasPredictions(m);
+      });
+      // Sort by: confidence rank DESC → prediction strength DESC → ai_score DESC → data_sources count DESC
+      const sorted = [...todayWithPreds].sort((a, b) => {
+        const cr = getConfidenceRank(b.pred_confidence) - getConfidenceRank(a.pred_confidence);
+        if (cr !== 0) return cr;
+        const ps = getPredictionStrength(b) - getPredictionStrength(a);
+        if (ps !== 0) return ps;
+        const ai = (Number(b.ai_score) || 0) - (Number(a.ai_score) || 0);
+        if (ai !== 0) return ai;
+        const srcA = Array.isArray(a.data_sources) ? a.data_sources.length : 0;
+        const srcB = Array.isArray(b.data_sources) ? b.data_sources.length : 0;
+        return srcB - srcA;
+      });
+      sorted.slice(0, 5).forEach(m => elite5Ids.add(String(m.id)));
+      console.log(`[get-matches] elite5=${[...elite5Ids].length}`);
+    }
+
     const meta = { streak_mode: streakMode, rolling_winrate: rollingWinrate };
 
     if (isPremium) {
@@ -387,6 +411,7 @@ Deno.serve(async (req) => {
           ...base,
           is_free: freeIds.has(String(m.id)),
           is_top_pick: topPickId === String(m.id),
+          is_elite5: elite5Ids.has(String(m.id)),
         };
       };
       return new Response(JSON.stringify({ matches: allMatches.map(mapFn), ...meta }), {
