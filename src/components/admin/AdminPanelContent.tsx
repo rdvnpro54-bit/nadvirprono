@@ -25,6 +25,10 @@ import {
   Ban,
   Megaphone,
   Send,
+  Brain,
+  Zap,
+  TrendingDown,
+  Filter,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -96,6 +100,18 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [promoMessage, setPromoMessage] = useState("Profite de -10% sur tous nos abonnements Premium et Premium+ ! Offre limitée 🔥");
   const [promoDiscount, setPromoDiscount] = useState(10);
   const [promoDuration, setPromoDuration] = useState(5);
+  const [v2Stats, setV2Stats] = useState<{
+    streakMode: boolean;
+    rollingWinrate: number;
+    totalMatches: number;
+    eligibleMatches: number;
+    excludedCount: number;
+    predictionsGenerated: number;
+    source: string;
+    lastRecalc: string | null;
+  } | null>(null);
+  const [v2Loading, setV2Loading] = useState(false);
+  const [v2Recalculating, setV2Recalculating] = useState(false);
   const [promoSending, setPromoSending] = useState(false);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
@@ -290,7 +306,114 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   };
 
+  const fetchV2Stats = useCallback(async () => {
+    setV2Loading(true);
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s) return;
+      // Fetch recent results for streak
+      const { data: recentResults } = await supabase
+        .from("match_results")
+        .select("result")
+        .not("result", "is", null)
+        .order("resolved_at", { ascending: false })
+        .limit(5);
+      
+      const wins = (recentResults || []).filter((r: any) => r.result === "win").length;
+      const total = (recentResults || []).length;
+      const rollingWinrate = total >= 3 ? Math.round((wins / total) * 100) : 100;
+      const streakMode = total >= 3 && rollingWinrate < 50;
+
+      // Fetch match counts
+      const { count: totalMatches } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true });
+      
+      const { count: withPreds } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true })
+        .not("pred_analysis", "is", null)
+        .gt("ai_score", 0);
+
+      const { count: lowScore } = await supabase
+        .from("cached_matches")
+        .select("id", { count: "exact", head: true })
+        .lt("ai_score", 70)
+        .gt("ai_score", 0);
+
+      setV2Stats({
+        streakMode,
+        rollingWinrate,
+        totalMatches: totalMatches || 0,
+        eligibleMatches: withPreds || 0,
+        excludedCount: lowScore || 0,
+        predictionsGenerated: withPreds || 0,
+        source: "—",
+        lastRecalc: null,
+      });
+    } catch (err) {
+      console.error("v2 stats error:", err);
+    } finally {
+      setV2Loading(false);
+    }
+  }, []);
+
+  const handleForceRecalculate = async () => {
+    setV2Recalculating(true);
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s) throw new Error("No session");
+      
+      const { data, error } = await supabase.functions.invoke("ai-predict", {
+        body: {},
+        headers: { 
+          Authorization: `Bearer ${s.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      // Call with force=true via URL params
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-predict?force=true&batch=50`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${s.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      const result = await res.json();
+      
+      if (result.success) {
+        toast.success(`🤖 IA v2.0 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
+        setV2Stats(prev => prev ? {
+          ...prev,
+          source: result.source || "pronosia-v2",
+          predictionsGenerated: result.predictions_generated || 0,
+          excludedCount: (result.batch_size || 0) - (result.eligible || 0),
+          streakMode: result.streak_mode ?? prev.streakMode,
+          rollingWinrate: result.rolling_winrate ?? prev.rollingWinrate,
+          lastRecalc: new Date().toISOString(),
+        } : null);
+        queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
+      } else {
+        toast.error("Erreur recalcul: " + (result.error || "Inconnu"));
+      }
+    } catch (err: any) {
+      toast.error("Erreur recalcul IA: " + (err.message || "Inconnu"));
+    } finally {
+      setV2Recalculating(false);
+    }
+  };
+
+  useEffect(() => { fetchV2Stats(); }, [fetchV2Stats]);
+
   const filteredUsers = users.filter((u) => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+
 
   return (
     <div className={embedded ? "mt-3" : ""}>
@@ -303,8 +426,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       </motion.div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full max-w-2xl grid-cols-7">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4 sm:grid-cols-8">
           <TabsTrigger value="dashboard" className="gap-1 text-[10px] sm:text-xs"><BarChart3 className="h-3 w-3" /> Stats</TabsTrigger>
+          <TabsTrigger value="ai-v2" className="gap-1 text-[10px] sm:text-xs"><Brain className="h-3 w-3" /> IA v2</TabsTrigger>
           <TabsTrigger value="live" className="gap-1 text-[10px] sm:text-xs"><Radio className="h-3 w-3" /> Live</TabsTrigger>
           <TabsTrigger value="users" className="gap-1 text-[10px] sm:text-xs"><Users className="h-3 w-3" /> Users</TabsTrigger>
           <TabsTrigger value="results" className="gap-1 text-[10px] sm:text-xs"><FileEdit className="h-3 w-3" /> Résultats</TabsTrigger>
@@ -363,6 +487,146 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
               🔄 Rafraîchir le top 2 du jour
             </Button>
+          </div>
+        </TabsContent>
+
+        {/* ═══ IA v2.0 TAB ═══ */}
+        <TabsContent value="ai-v2">
+          <div className="space-y-4">
+            {/* Streak Mode Banner */}
+            <Card className={`p-4 border ${v2Stats?.streakMode ? "border-destructive/30 bg-destructive/5" : "border-success/30 bg-success/5"}`}>
+              <div className="flex items-center gap-3">
+                <div className={`rounded-lg p-2 ${v2Stats?.streakMode ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
+                  {v2Stats?.streakMode ? <TrendingDown className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
+                </div>
+                <div className="flex-1">
+                  <p className="font-display font-bold text-sm">
+                    {v2Stats?.streakMode ? "📉 Streak Mode ACTIF" : "✅ Mode Normal"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {v2Stats?.streakMode
+                      ? `Winrate récent < 50% → sélection ultra-stricte (max 2 picks, confiance min 72%, AI min 75)`
+                      : `Les filtres v2.0 fonctionnent en mode standard`}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Stats Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                icon={BarChart3}
+                label="Rolling Winrate (5 derniers)"
+                value={v2Loading ? "..." : `${v2Stats?.rollingWinrate ?? "—"}%`}
+                color={v2Stats?.rollingWinrate && v2Stats.rollingWinrate >= 60 ? "text-success" : v2Stats?.rollingWinrate && v2Stats.rollingWinrate >= 40 ? "text-warning" : "text-destructive"}
+              />
+              <StatCard
+                icon={Activity}
+                label="Matchs en cache"
+                value={v2Loading ? "..." : v2Stats?.totalMatches ?? "—"}
+                color="text-primary"
+              />
+              <StatCard
+                icon={Brain}
+                label="Prédictions IA actives"
+                value={v2Loading ? "..." : v2Stats?.eligibleMatches ?? "—"}
+                color="text-secondary"
+              />
+              <StatCard
+                icon={Filter}
+                label="Exclus par filtres v2"
+                value={v2Loading ? "..." : v2Stats?.excludedCount ?? "—"}
+                color="text-muted-foreground"
+              />
+            </div>
+
+            {/* v2.0 Filter Rules */}
+            <Card className="p-4">
+              <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
+                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v2.0
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Ban className="h-3 w-3 text-destructive" />
+                  <span>AI Score &lt; {v2Stats?.streakMode ? "75" : "70"} → Exclu</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Ban className="h-3 w-3 text-destructive" />
+                  <span>Confiance &lt; {v2Stats?.streakMode ? "72" : "65"}% → Exclu</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Ban className="h-3 w-3 text-destructive" />
+                  <span>Value Score &lt; 0.05 → Exclu</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Ban className="h-3 w-3 text-destructive" />
+                  <span>Ligues amicales/mineures → Exclu</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3 text-success" />
+                  <span>Calibration: &gt;80% → -8%, &gt;90% → -12%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3 text-success" />
+                  <span>Max affiché: 88% (jamais plus)</span>
+                </div>
+                {v2Stats?.streakMode && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-3 w-3 text-warning" />
+                      <span>Max picks/jour: 2 (streak mode)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-3 w-3 text-warning" />
+                      <span>RISQUÉ interdit (streak mode)</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+
+            {/* Last recalc info */}
+            {v2Stats?.lastRecalc && (
+              <Card className="p-3">
+                <p className="text-xs text-muted-foreground">
+                  Dernier recalcul : <span className="font-semibold text-foreground">{new Date(v2Stats.lastRecalc).toLocaleString("fr-FR")}</span>
+                  {" "}via <span className="font-semibold text-primary">{v2Stats.source}</span>
+                  {" "}• {v2Stats.predictionsGenerated} prédictions générées
+                </p>
+              </Card>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={fetchV2Stats} disabled={v2Loading} className="gap-1">
+                {v2Loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Actualiser stats
+              </Button>
+              <Button size="sm" onClick={handleForceRecalculate} disabled={v2Recalculating} className="gap-1 bg-primary">
+                {v2Recalculating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
+                🤖 Forcer recalcul IA v2.0
+              </Button>
+            </div>
+
+            {v2Recalculating && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="inline-block mb-2"
+                >
+                  <Brain className="h-6 w-6 text-primary" />
+                </motion.div>
+                <p className="text-sm font-semibold">Recalcul IA v2.0 en cours...</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Application des filtres d'exclusion, calibration et value scoring sur tous les matchs
+                </p>
+              </motion.div>
+            )}
           </div>
         </TabsContent>
 
