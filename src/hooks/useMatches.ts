@@ -74,6 +74,7 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     match_stats: null,
     h2h_data: null,
     data_sources: [],
+    odds_updated_at: null,
     is_top_pick: false,
   },
   {
@@ -121,6 +122,7 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     match_stats: null,
     h2h_data: null,
     data_sources: [],
+    odds_updated_at: null,
     is_top_pick: false,
   },
   {
@@ -168,6 +170,7 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     match_stats: null,
     h2h_data: null,
     data_sources: [],
+    odds_updated_at: null,
     is_top_pick: false,
   },
 ];
