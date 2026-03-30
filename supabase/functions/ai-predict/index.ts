@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const CEREBRAS_API = "https://api.cerebras.ai/v1/chat/completions";
-const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
+// Dual-model Cerebras: Qwen 235B (primary) + GPT-OSS 120B (consensus)
 
 // ═══════════════════════════════════════════════════════════════
 // PRONOSIA v3.1 — EMERGENCY PERFORMANCE PATCH + FULL INTELLIGENCE UPGRADE
