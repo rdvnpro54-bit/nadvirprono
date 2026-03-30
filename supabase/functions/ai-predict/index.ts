@@ -1027,7 +1027,20 @@ async function callGroqAI(
     if (!content) return [];
     try {
       const parsed = JSON.parse(content);
-      return (parsed.predictions || []) as AIPrediction[];
+      const preds = (parsed.predictions || []) as AIPrediction[];
+      // Groq/Llama sometimes returns 0-1 scale instead of 0-100 — normalize
+      for (const p of preds) {
+        if (p.pred_home_win <= 1 && p.pred_away_win <= 1) {
+          p.pred_home_win = Math.round(p.pred_home_win * 100);
+          p.pred_draw = Math.round(p.pred_draw * 100);
+          p.pred_away_win = Math.round(p.pred_away_win * 100);
+          p.pred_over_prob = Math.round((p.pred_over_prob || 0) * 100);
+          p.pred_btts_prob = Math.round((p.pred_btts_prob || 0) * 100);
+        }
+        if (p.ai_score <= 1) p.ai_score = Math.round(p.ai_score * 100);
+        if ((p.anomaly_score || 0) <= 1) p.anomaly_score = Math.round((p.anomaly_score || 0) * 100);
+      }
+      return preds;
     } catch {
       console.error("[GROQ] Failed to parse JSON response");
       return [];
