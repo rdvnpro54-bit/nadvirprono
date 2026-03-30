@@ -622,6 +622,227 @@ async function fetchESPNExtended(sport: string, compact: string, tomorrowCompact
   return allMatches;
 }
 
+// ─── API-FOOTBALL (RapidAPI) — ENRICHMENT: lineups, odds, stats, H2H ─
+interface APIFootballFixture {
+  fixture: { id: number; date: string; status: { short: string } };
+  league: { name: string; country: string };
+  teams: { home: { id: number; name: string; logo: string }; away: { id: number; name: string; logo: string } };
+}
+
+async function fetchAPIFootballFixtures(dateISO: string): Promise<APIFootballFixture[]> {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY");
+  if (!apiKey) { console.log("[API-Football] No API key configured"); return []; }
+  try {
+    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures?date=${dateISO}&status=NS`, {
+      headers: { "x-apisports-key": apiKey },
+    });
+    if (!res.ok) { console.error(`[API-Football] Fixtures error: ${res.status}`); return []; }
+    const json = await res.json();
+    console.log(`[API-Football] Found ${json.response?.length || 0} fixtures for ${dateISO}`);
+    return json.response || [];
+  } catch (e) { console.error("[API-Football] Fixtures error:", e); return []; }
+}
+
+async function fetchAPIFootballLineups(fixtureId: number): Promise<{ home: any[]; away: any[] } | null> {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/lineups?fixture=${fixtureId}`, {
+      headers: { "x-apisports-key": apiKey },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const data = json.response || [];
+    if (data.length < 2) return null;
+    return {
+      home: (data[0].startXI || []).map((p: any) => ({ name: p.player?.name, number: p.player?.number, pos: p.player?.pos })),
+      away: (data[1].startXI || []).map((p: any) => ({ name: p.player?.name, number: p.player?.number, pos: p.player?.pos })),
+    };
+  } catch { return null; }
+}
+
+async function fetchAPIFootballOdds(fixtureId: number): Promise<any | null> {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${APIFOOTBALL_BASE}/odds?fixture=${fixtureId}`, {
+      headers: { "x-apisports-key": apiKey },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const bookmakers = json.response?.[0]?.bookmakers || [];
+    if (bookmakers.length === 0) return null;
+    const bk = bookmakers[0];
+    const result: Record<string, any> = { bookmaker: bk.name };
+    for (const bet of (bk.bets || [])) {
+      const key = bet.name?.toLowerCase().replace(/\s+/g, "_") || "unknown";
+      result[key] = (bet.values || []).map((v: any) => ({ value: v.value, odd: v.odd }));
+    }
+    return result;
+  } catch { return null; }
+}
+
+async function fetchAPIFootballH2H(homeId: number, awayId: number): Promise<any[] | null> {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
+      headers: { "x-apisports-key": apiKey },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.response || []).map((f: any) => ({
+      date: f.fixture?.date, home: f.teams?.home?.name, away: f.teams?.away?.name,
+      homeGoals: f.goals?.home, awayGoals: f.goals?.away,
+    }));
+  } catch { return null; }
+}
+
+async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/statistics?fixture=${fixtureId}`, {
+      headers: { "x-apisports-key": apiKey },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const teams = json.response || [];
+    if (teams.length < 2) return null;
+    const extract = (team: any) => {
+      const stats: Record<string, any> = { team: team.team?.name };
+      for (const s of (team.statistics || [])) { stats[s.type?.toLowerCase().replace(/\s+/g, "_") || ""] = s.value; }
+      return stats;
+    };
+    return { home: extract(teams[0]), away: extract(teams[1]) };
+  } catch { return null; }
+}
+
+// ─── SPORTMONKS — ENRICHMENT: pre-match stats, lineups, odds ────────
+async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
+  const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
+  if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
+  try {
+    const res = await fetch(
+      `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics`,
+    );
+    if (!res.ok) { console.error(`[SportMonks] error: ${res.status}`); return []; }
+    const json = await res.json();
+    console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures for ${dateISO}`);
+    return json.data || [];
+  } catch (e) { console.error("[SportMonks] error:", e); return []; }
+}
+
+function parseSportMonksEnrichment(fixture: any): {
+  lineups: { home: any[]; away: any[] } | null;
+  odds: any | null;
+  stats: any | null;
+} {
+  const lineups = fixture.lineups && fixture.lineups.length > 0
+    ? {
+        home: fixture.lineups.filter((l: any) => l.team_id === fixture.participants?.[0]?.id)
+          .map((l: any) => ({ name: l.player_name || l.common_name, number: l.jersey_number, pos: l.position_name })),
+        away: fixture.lineups.filter((l: any) => l.team_id === fixture.participants?.[1]?.id)
+          .map((l: any) => ({ name: l.player_name || l.common_name, number: l.jersey_number, pos: l.position_name })),
+      }
+    : null;
+
+  const odds = fixture.odds && fixture.odds.length > 0
+    ? fixture.odds.slice(0, 5).map((o: any) => ({
+        market: o.market_description || o.name,
+        label: o.label, value: o.value, probability: o.probability,
+      }))
+    : null;
+
+  const stats = fixture.statistics && fixture.statistics.length > 0
+    ? fixture.statistics.reduce((acc: any, s: any) => {
+        const key = (s.type?.name || s.type_id || "unknown").toString().toLowerCase().replace(/\s+/g, "_");
+        if (!acc[key]) acc[key] = {};
+        const side = s.participant_id === fixture.participants?.[0]?.id ? "home" : "away";
+        acc[key][side] = s.data?.value ?? s.value ?? null;
+        return acc;
+      }, {})
+    : null;
+
+  return { lineups, odds, stats };
+}
+
+// ─── ENRICHMENT ORCHESTRATOR ─────────────────────────────────────────
+async function enrichMatchesWithAPIs(
+  rows: any[], dateISO: string
+): Promise<void> {
+  console.log(`[ENRICH] Starting enrichment for ${rows.length} matches...`);
+
+  // 1. Fetch API-Football fixtures to map team names → fixture IDs
+  const [apiFootballFixtures, sportMonksFixtures] = await Promise.all([
+    fetchAPIFootballFixtures(dateISO),
+    fetchSportMonksFixtures(dateISO),
+  ]);
+
+  // Build lookup maps
+  const apiFootballMap = new Map<string, APIFootballFixture>();
+  for (const f of apiFootballFixtures) {
+    const key = `${f.teams.home.name.toLowerCase().trim()}_${f.teams.away.name.toLowerCase().trim()}`;
+    apiFootballMap.set(key, f);
+  }
+
+  const sportMonksMap = new Map<string, any>();
+  for (const f of sportMonksFixtures) {
+    const parts = f.participants || [];
+    if (parts.length >= 2) {
+      const key = `${(parts[0].name || "").toLowerCase().trim()}_${(parts[1].name || "").toLowerCase().trim()}`;
+      sportMonksMap.set(key, f);
+    }
+  }
+
+  // 2. Enrich football matches (limit API-Football calls to save quota)
+  let apiFootballCalls = 0;
+  const MAX_APIFOOTBALL_ENRICHMENTS = 20;
+
+  for (const row of rows) {
+    if (row.sport !== "football") continue;
+    const key = `${row.home_team.toLowerCase().trim()}_${row.away_team.toLowerCase().trim()}`;
+    const sources: string[] = [...(row.data_sources || [])];
+
+    // Try SportMonks first (included data, no extra API calls)
+    const smFixture = sportMonksMap.get(key);
+    if (smFixture) {
+      const { lineups, odds, stats } = parseSportMonksEnrichment(smFixture);
+      if (lineups) row.home_lineup = lineups.home;
+      if (lineups) row.away_lineup = lineups.away;
+      if (odds) row.odds = odds;
+      if (stats) row.match_stats = stats;
+      if (!sources.includes("sportmonks")) sources.push("sportmonks");
+    }
+
+    // Then try API-Football for lineups/odds/H2H (if not already enriched)
+    const afFixture = apiFootballMap.get(key);
+    if (afFixture && apiFootballCalls < MAX_APIFOOTBALL_ENRICHMENTS) {
+      const afId = afFixture.fixture.id;
+
+      // Only fetch what we don't already have
+      const needLineups = !row.home_lineup;
+      const needOdds = !row.odds;
+
+      const [lineups, odds, h2h] = await Promise.all([
+        needLineups ? fetchAPIFootballLineups(afId) : Promise.resolve(null),
+        needOdds ? fetchAPIFootballOdds(afId) : Promise.resolve(null),
+        fetchAPIFootballH2H(afFixture.teams.home.id, afFixture.teams.away.id),
+      ]);
+      apiFootballCalls += (needLineups ? 1 : 0) + (needOdds ? 1 : 0) + 1;
+
+      if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
+      if (odds && !row.odds) row.odds = odds;
+      if (h2h) row.h2h_data = h2h;
+      if (!sources.includes("api-football")) sources.push("api-football");
+    }
+
+    row.data_sources = sources;
+  }
+
+  console.log(`[ENRICH] Done. API-Football calls: ${apiFootballCalls}, SportMonks matches: ${sportMonksMap.size}`);
+}
+
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
 function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction) {
   const fixtureId = hash(m.id);
@@ -641,6 +862,9 @@ function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction)
     ...prediction,
     pred_analysis: normalizedAnalysis,
     ai_score: computePredictionAiScore(prediction),
+    home_lineup: null, away_lineup: null,
+    odds: null, match_stats: null, h2h_data: null,
+    data_sources: [m.source],
   };
 }
 
