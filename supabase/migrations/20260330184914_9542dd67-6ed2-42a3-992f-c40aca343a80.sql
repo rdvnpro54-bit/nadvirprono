@@ -1,0 +1,8 @@
+
+ALTER TABLE public.cached_matches 
+  ADD COLUMN IF NOT EXISTS home_lineup jsonb DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS away_lineup jsonb DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS odds jsonb DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS match_stats jsonb DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS h2h_data jsonb DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS data_sources text[] DEFAULT '{}';
