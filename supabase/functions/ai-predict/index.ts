@@ -1164,7 +1164,7 @@ async function callCerebrasSecondary(
       signal: controller.signal,
       headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gpt-oss-120b",
+        model: "llama-4-scout-17b-16e-instruct",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have all required fields." },
           { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}\nDo NOT include any thinking, explanation, or markdown formatting. Output raw JSON only." },
