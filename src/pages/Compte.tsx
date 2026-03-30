@@ -22,7 +22,7 @@ const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.
 const staggerItem = { hidden: { opacity: 0, y: 20, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35 } } };
 
 export default function Compte() {
-  const { user, isPremium, isAdmin, subscription, signOut, checkSubscription, loading: authLoading } = useAuth();
+  const { user, isPremium, isPremiumPlus, isAdmin, subscription, signOut, checkSubscription, loading: authLoading } = useAuth();
   const [portalLoading, setPortalLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const [adminStats, setAdminStats] = useState<DashboardStats | null>(null);
