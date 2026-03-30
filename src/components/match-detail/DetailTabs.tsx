@@ -1,8 +1,9 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
-import { Brain, TrendingUp, Activity, BarChart3, CheckCircle, Target, Swords, Users } from "lucide-react";
+import { Brain, TrendingUp, Activity, BarChart3, CheckCircle, Target, Swords, Users, DollarSign } from "lucide-react";
 import { motion } from "framer-motion";
 import type { CachedMatch } from "@/hooks/useMatches";
+import { OddsTab } from "./OddsTab";
 
 interface DetailTabsProps {
   match: CachedMatch;
@@ -10,6 +11,7 @@ interface DetailTabsProps {
   confidence: number;
   keyFactors: string[];
   userCount: number;
+  isLive?: boolean;
 }
 
 function StatRow({ label, children }: { label: string; children: React.ReactNode }) {
