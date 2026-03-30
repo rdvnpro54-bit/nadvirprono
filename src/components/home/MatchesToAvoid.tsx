@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, forwardRef } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, Lock, ShieldAlert, Ban } from "lucide-react";
 import { Link } from "react-router-dom";
