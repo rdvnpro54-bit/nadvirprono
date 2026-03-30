@@ -16,7 +16,7 @@ interface MatchesToAvoidProps {
 const SUSPECT_THRESHOLD = 65;
 const RISKY_THRESHOLD = 40;
 
-function MatchRow({ m, i }: { m: MatchWithFlags; i: number }) {
+const MatchRow = forwardRef<HTMLDivElement, { m: MatchWithFlags; i: number }>(function MatchRow({ m, i }, ref) {
   const isSuspect = (m.anomaly_score || 0) >= SUSPECT_THRESHOLD;
   return (
     <motion.div
