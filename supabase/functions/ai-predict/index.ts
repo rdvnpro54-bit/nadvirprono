@@ -523,16 +523,30 @@ function generatePRONOSIAAnalysis(
   const noDrawSports = ["tennis", "basketball", "nba", "baseball", "mlb", "nfl", "mma"];
   const isNoDrawSport = noDrawSports.includes(sport);
 
-  const doubleChanceLabel = isNoDrawSport
-    ? `${fav} vainqueur (Pari protégé)`
-    : predHome >= predAway
+  // v2.0: SAFE market logic — BTTS, winner, or draw (Double Chance)
+  // MODÉRÉ market logic — winner only, no draw, no double chance
+  const isModere = confidence === "MODÉRÉ";
+
+  let safeMarketLabel: string;
+  let safeMarketProb: number;
+
+  if (isNoDrawSport) {
+    safeMarketLabel = `${fav} vainqueur (Pari protégé)`;
+    safeMarketProb = Math.max(predHome, predAway);
+  } else if (bttsProb >= 55) {
+    safeMarketLabel = `Les 2 équipes marquent — BTTS Oui (${bttsProb}%)`;
+    safeMarketProb = bttsProb;
+  } else if (predDraw >= 25 && Math.abs(predHome - predAway) < 15) {
+    safeMarketLabel = `Match nul possible — Double Chance ${predHome >= predAway ? `(1X)` : `(X2)`}`;
+    safeMarketProb = predHome >= predAway ? predHome + predDraw : predAway + predDraw;
+  } else {
+    safeMarketLabel = predHome >= predAway
       ? `${match.home_team} ou Nul (1X)`
       : `Nul ou ${match.away_team} (X2)`;
-  const doubleChanceProb = isNoDrawSport
-    ? Math.max(predHome, predAway)
-    : predHome >= predAway
-      ? predHome + predDraw
-      : predAway + predDraw;
+    safeMarketProb = predHome >= predAway ? predHome + predDraw : predAway + predDraw;
+  }
+
+  const modereMarketLabel = `${fav} vainqueur (${maxProb}%)`;
 
   const analyses: string[] = [];
   const seed = hash(match.home_team + match.away_team) + fid;
@@ -543,8 +557,10 @@ function generatePRONOSIAAnalysis(
       : "";
 
   const marketLine = isSafe
-    ? `📌 Marché recommandé : ${doubleChanceLabel} (${doubleChanceProb}% de probabilité combinée). Protection appliquée.`
-    : "";
+    ? `📌 Marché recommandé : ${safeMarketLabel} (${safeMarketProb}% de probabilité). Protection appliquée.`
+    : isModere
+      ? `📌 Marché recommandé : ${modereMarketLabel}. Pas de double chance — confiance suffisante pour le vainqueur.`
+      : "";
 
   const calibrationNote = " 📊 Probabilité calibrée — ajustée pour biais du modèle.";
   const valueNote = valueLabel ? ` ${valueLabel} détecté.` : "";
