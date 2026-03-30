@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
 
 // ═══════════════════════════════════════════════════════════════
 // PRONOSIA v3.1 — EMERGENCY PERFORMANCE PATCH + FULL INTELLIGENCE UPGRADE
