@@ -244,7 +244,7 @@ export default function PronosiaAI() {
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary via-primary/80 to-secondary flex items-center justify-center shadow-lg shadow-primary/20">
                 <Sparkles className="h-5 w-5 text-primary-foreground" />
               </div>
-              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
+              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-primary border-2 border-background" />
             </div>
             <div>
               <h1 className="text-sm font-bold leading-tight tracking-tight">Pronosia AI</h1>
