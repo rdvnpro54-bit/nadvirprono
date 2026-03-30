@@ -1237,9 +1237,9 @@ function postProcessPredictions(
   return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
 }
 
-// Combined multi-model AI call
+// Combined multi-model AI call: Groq (primary) + Mistral (fallback 1)
 async function callAI(
-  apiKey: string,
+  _apiKey: string,
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
   learningContext: string,
   streak: StreakState,
@@ -1248,27 +1248,42 @@ async function callAI(
   const { eligible, userPrompt } = buildAIPrompt(matches, learningContext, streak, blacklistedLeagues);
   if (eligible.length === 0) return [];
 
+  const groqKey = Deno.env.get("GROQ_API_KEY");
   const mistralKey = Deno.env.get("MISTRAL_API_KEY");
 
-  // Launch both models in parallel
-  console.log(`[AI v3.1] Launching ${mistralKey ? "DUAL-MODEL (Gemini + Mistral)" : "SINGLE-MODEL (Gemini)"} consensus...`);
+  if (!groqKey) {
+    console.error("[AI v3.1] GROQ_API_KEY not configured — falling back to Mistral only");
+    if (mistralKey) {
+      const mistralPreds = await callMistralAI(mistralKey, userPrompt);
+      if (mistralPreds.length > 0) {
+        return postProcessPredictions(mistralPreds.map(p => ({ ...p, consensus_passed: false })), matches, streak);
+      }
+    }
+    return [];
+  }
 
-  const [geminiPreds, mistralPreds] = await Promise.all([
-    callGeminiAI(apiKey, userPrompt),
+  // Launch Groq (primary) + Mistral (consensus) in parallel
+  console.log(`[AI v3.1] Launching ${mistralKey ? "DUAL-MODEL (Groq + Mistral)" : "SINGLE-MODEL (Groq)"} consensus...`);
+
+  const [groqPreds, mistralPreds] = await Promise.all([
+    callGroqAI(groqKey, userPrompt),
     mistralKey ? callMistralAI(mistralKey, userPrompt) : Promise.resolve([] as AIPrediction[]),
   ]);
 
-  console.log(`[AI v3.1] Gemini: ${geminiPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
+  console.log(`[AI v3.1] Groq: ${groqPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
 
   let merged: AIPrediction[];
-  if (mistralPreds.length > 0 && geminiPreds.length > 0) {
-    merged = mergeConsensus(geminiPreds, mistralPreds, eligible, streak);
+  if (mistralPreds.length > 0 && groqPreds.length > 0) {
+    merged = mergeConsensus(groqPreds, mistralPreds, eligible, streak);
     console.log(`[AI v3.1] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
-  } else if (geminiPreds.length > 0) {
-    merged = geminiPreds.map(p => ({ ...p, consensus_passed: false }));
+  } else if (groqPreds.length > 0) {
+    merged = groqPreds.map(p => ({ ...p, consensus_passed: false }));
   } else if (mistralPreds.length > 0) {
+    // Groq failed → Mistral as fallback 1
+    console.log("[AI v3.1] Groq failed — using Mistral as fallback");
     merged = mistralPreds.map(p => ({ ...p, consensus_passed: false }));
   } else {
+    // Both failed → deterministic fallback 2 will kick in
     return [];
   }
 
