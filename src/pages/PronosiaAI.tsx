@@ -248,7 +248,7 @@ export default function PronosiaAI() {
             </div>
             <div>
               <h1 className="text-sm font-bold leading-tight tracking-tight">Pronosia AI</h1>
-              <p className="text-[10px] text-emerald-400 font-medium">En ligne • Prêt à analyser</p>
+              <p className="text-[10px] text-primary font-medium">● En ligne • Prêt à analyser</p>
             </div>
           </div>
           <div className="flex gap-1">
