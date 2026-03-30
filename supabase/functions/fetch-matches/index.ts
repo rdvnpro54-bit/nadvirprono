@@ -670,7 +670,7 @@ async function fetchAPIFootballLineups(fixtureId: number): Promise<{ home: any[]
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/lineups?fixture=${fixtureId}`, {
+    const res = await fetch(`${getAPIFootballBase()}/fixtures/lineups?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -688,7 +688,7 @@ async function fetchAPIFootballOdds(fixtureId: number): Promise<any | null> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/odds?fixture=${fixtureId}`, {
+    const res = await fetch(`${getAPIFootballBase()}/odds?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -709,7 +709,7 @@ async function fetchAPIFootballH2H(homeId: number, awayId: number): Promise<any[
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
+    const res = await fetch(`${getAPIFootballBase()}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -725,7 +725,7 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/statistics?fixture=${fixtureId}`, {
+    const res = await fetch(`${getAPIFootballBase()}/fixtures/statistics?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
