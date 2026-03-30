@@ -79,6 +79,8 @@ const App = () => {
         <Sonner />
         <div className="relative min-h-screen isolation-isolate">
           {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+          <NebulaBackground />
+          <GoldenParticles />
           <VideoBackground />
           <div className="relative z-10 min-h-screen">
             <BrowserRouter>
