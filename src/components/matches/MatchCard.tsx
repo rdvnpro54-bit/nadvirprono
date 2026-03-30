@@ -345,7 +345,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
 
             {/* === Prediction block (unlocked) === */}
             {!locked && (
-              <div className="rounded-lg border border-primary/15 bg-primary/5 p-2 space-y-1.5">
+              <div className="rounded-xl border border-primary/10 bg-primary/[0.04] p-2 space-y-1.5 backdrop-blur-sm">
                 {/* Prediction text */}
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1 min-w-0">
