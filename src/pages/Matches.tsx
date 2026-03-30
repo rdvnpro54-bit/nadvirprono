@@ -368,7 +368,7 @@ export default function Matches() {
             placeholder="Rechercher équipe, compétition..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9 bg-card border-border/50 h-8 sm:h-9 text-xs sm:text-sm"
+            className="pl-9 bg-[rgba(255,255,255,0.03)] border-[rgba(255,215,0,0.1)] h-8 sm:h-9 text-xs sm:text-sm rounded-xl backdrop-blur-lg focus:border-primary/30"
           />
         </motion.div>
 
