@@ -546,7 +546,7 @@ export default function Matches() {
               animate="show"
             >
               {trendingMatches.map((match, i) => {
-                const isLocked = !isPremium && !isAdmin && !match.is_free && !match.is_top_pick;
+                const isLocked = !isPremium && !isAdmin && !match.is_free && !(match as any).is_top_pick;
                 return (
                   <motion.div key={match.id} variants={staggerItem}>
                     <MatchCard match={match} locked={isLocked} index={i} />
