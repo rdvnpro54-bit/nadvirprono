@@ -1192,6 +1192,47 @@ async function enrichMatchesWithAPIs(
       }
     }
 
+    // F) Tennis API (tennis only — player profiles: nationality, age)
+    if (row.sport === "tennis") {
+      const homePlayer = row.home_team;
+      const awayPlayer = row.away_team;
+      const lastName = (name: string) => name.split(" ").pop() || name;
+      try {
+        const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+        if (apiKey && !row.match_stats?.players) {
+          const [homeRes, awayRes] = await Promise.all([
+            fetch(`https://tennis-api-atp-wta-itf.p.rapidapi.com/tennis/v2/search?search=${encodeURIComponent(lastName(homePlayer))}`, {
+              headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": "tennis-api-atp-wta-itf.p.rapidapi.com", "Content-Type": "application/json" },
+            }).catch(() => null),
+            fetch(`https://tennis-api-atp-wta-itf.p.rapidapi.com/tennis/v2/search?search=${encodeURIComponent(lastName(awayPlayer))}`, {
+              headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": "tennis-api-atp-wta-itf.p.rapidapi.com", "Content-Type": "application/json" },
+            }).catch(() => null),
+          ]);
+          const findPlayer = async (res: Response | null, fullName: string) => {
+            if (!res || !res.ok) return null;
+            const json = await res.json();
+            for (const cat of (json.data || [])) {
+              for (const p of (cat.result || [])) {
+                if (fullName.toLowerCase().includes(p.name?.split(" ").pop()?.toLowerCase())) {
+                  const age = p.birthday ? Math.floor((Date.now() - new Date(p.birthday).getTime()) / (365.25 * 24 * 3600 * 1000)) : null;
+                  return { name: p.name, country: p.countryAcr, age, category: cat.category };
+                }
+              }
+            }
+            return null;
+          };
+          const [homeProfile, awayProfile] = await Promise.all([
+            findPlayer(homeRes, homePlayer),
+            findPlayer(awayRes, awayPlayer),
+          ]);
+          if (homeProfile || awayProfile) {
+            row.match_stats = { ...(row.match_stats || {}), players: { home: homeProfile, away: awayProfile } };
+            if (!sources.includes("tennis-api")) sources.push("tennis-api");
+          }
+        }
+      } catch { /* skip */ }
+    }
+
     row.data_sources = sources;
   }
 
