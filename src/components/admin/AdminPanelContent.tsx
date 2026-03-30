@@ -1132,6 +1132,86 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
             </div>
           )}
         </TabsContent>
+
+        {/* ═══ HIDDEN MATCHES TAB ═══ */}
+        <TabsContent value="hidden">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <Input
+                placeholder="Rechercher..."
+                value={hiddenSearch}
+                onChange={(e) => setHiddenSearch(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <Button variant="outline" size="sm" onClick={fetchHiddenMatches} disabled={loadingHidden} className="h-8 shrink-0">
+                {loadingHidden ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              </Button>
+            </div>
+
+            <Card className="p-3">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <EyeOff className="h-3.5 w-3.5 text-destructive shrink-0" />
+                <span><span className="font-bold text-foreground">{hiddenMatches.length}</span> matchs masqués par l'IA (données insuffisantes)</span>
+              </div>
+            </Card>
+
+            {loadingHidden ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-xs"><Loader2 className="h-3 w-3 animate-spin" /> Chargement...</div>
+            ) : hiddenMatches.length === 0 ? (
+              <div className="py-6 text-center text-muted-foreground">
+                <Eye className="mx-auto mb-2 h-6 w-6 opacity-50" />
+                <p className="text-xs">Tous les matchs sont visibles</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {hiddenMatches
+                  .filter((m: any) => {
+                    const q = hiddenSearch.toLowerCase();
+                    return !q || m.home_team?.toLowerCase().includes(q) || m.away_team?.toLowerCase().includes(q) || m.league_name?.toLowerCase().includes(q);
+                  })
+                  .map((m: any, i: number) => (
+                    <motion.div key={m.fixture_id} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                      className="rounded-lg border border-border/30 bg-card/50 p-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1 text-[11px] font-medium">
+                            <span className="truncate">{m.home_team} vs {m.away_team}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-1.5 mt-0.5 text-[9px] text-muted-foreground">
+                            <span className="truncate">{m.league_name}</span>
+                            <span>•</span>
+                            <span>{m.sport}</span>
+                            <span>•</span>
+                            <span>{new Date(m.kickoff).toLocaleDateString("fr-FR")}</span>
+                            <span>•</span>
+                            <span>AI: {m.ai_score}</span>
+                          </div>
+                          {m.ai_hidden_reason && (
+                            <p className="text-[9px] text-destructive/80 mt-0.5">{m.ai_hidden_reason}</p>
+                          )}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(m.data_sources || []).map((s: string) => (
+                              <span key={s} className="rounded bg-muted px-1 py-0.5 text-[8px]">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleVisibility(m.fixture_id, true)}
+                          disabled={actionLoading}
+                          className="gap-1 text-[10px] h-7 shrink-0 px-2"
+                        >
+                          <Eye className="h-2.5 w-2.5" /> Afficher
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
