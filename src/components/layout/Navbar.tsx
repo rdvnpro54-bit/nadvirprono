@@ -18,6 +18,7 @@ const mobileNav = [
   { label: "Accueil", path: "/", icon: Home },
   { label: "Analyse", path: "/matches", icon: Search },
   { label: "Résultats", path: "/resultats", icon: BarChart3 },
+  { label: "AI", path: "/pronosia-ai", icon: Bot },
   { label: "Suivis", path: "/suivis", icon: Star },
   { label: "Compte", path: "/compte", icon: User },
 ];
