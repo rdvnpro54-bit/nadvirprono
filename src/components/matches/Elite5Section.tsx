@@ -27,7 +27,7 @@ export const Elite5Section = memo(function Elite5Section({ matches }: Elite5Sect
           transition={{ delay: 0.1 }}
         >
           <motion.div
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30"
+            className="flex h-8 w-8 items-center justify-center rounded-xl badge-elite"
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
@@ -75,10 +75,10 @@ export const Elite5Section = memo(function Elite5Section({ matches }: Elite5Sect
             className="relative"
           >
             {/* Rank badge */}
-            <div className="absolute -top-2 -left-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-[10px] font-bold text-background shadow-lg">
+            <div className="absolute -top-2 -left-1 z-10 flex h-6 w-6 items-center justify-center rounded-full badge-elite text-[10px] font-bold shadow-lg">
               {i + 1}
             </div>
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.03]">
+            <div className="rounded-2xl border border-[rgba(255,215,0,0.15)] bg-[rgba(255,215,0,0.02)] backdrop-blur-xl">
               <MatchCard match={match} index={i} />
             </div>
           </motion.div>

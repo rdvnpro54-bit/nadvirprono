@@ -191,12 +191,7 @@ export default function Pricing() {
   const offerSecs = remainingSecs % 60;
 
   return (
-    <div className="min-h-screen bg-background pb-28 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-primary/5 blur-[100px]" />
-        <div className="absolute bottom-40 right-10 w-80 h-80 rounded-full bg-secondary/5 blur-[100px]" />
-      </div>
-
+    <div className="min-h-screen pb-28 relative overflow-hidden">
       <Navbar />
 
       <div className="container max-w-5xl pt-20 pb-8 px-3 sm:px-6 relative z-10">
@@ -254,7 +249,7 @@ export default function Pricing() {
           <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-3 px-3 md:grid md:grid-cols-[1fr_1fr_1.15fr] md:overflow-visible md:mx-0 md:px-0 md:gap-5 md:items-start scrollbar-hide">
 
             {/* FREE */}
-            <div className="glass-card p-5 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink opacity-80">
+            <div className="glass-card p-5 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink opacity-70">
               <h2 className="font-display text-lg font-bold">Gratuit</h2>
               <p className="text-[11px] text-muted-foreground mt-1">Découverte limitée</p>
               <div className="mt-4 flex items-baseline gap-1">
@@ -282,7 +277,7 @@ export default function Pricing() {
             </div>
 
             {/* PREMIUM */}
-            <div className="glass-card p-5 pt-4 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink relative border-primary/20">
+            <div className="glass-card-elevated p-5 pt-4 flex flex-col min-w-[260px] snap-center shrink-0 md:min-w-0 md:shrink relative">
               <span className="mb-2 self-start rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2.5 py-[3px] text-[9px] font-bold text-black leading-none shadow-sm shadow-amber-500/20">🔥 Populaire</span>
               <h2 className="font-display text-lg font-bold">Premium</h2>
               <p className="text-[11px] text-muted-foreground mt-1">Accès complet aux pronostics IA</p>
@@ -308,12 +303,11 @@ export default function Pricing() {
 
             {/* PREMIUM+ */}
             <div
-              className="glass-card p-5 md:p-6 flex flex-col min-w-[270px] snap-center shrink-0 md:min-w-0 md:shrink relative overflow-hidden"
-              style={{ border: "1px solid hsl(var(--primary) / 0.4)" }}
+              className="glass-card-elevated holographic animated-border p-5 md:p-6 flex flex-col min-w-[270px] snap-center shrink-0 md:min-w-0 md:shrink relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5 pointer-events-none" />
-              <div className="absolute -top-px left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
-              <span className="absolute top-1.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-2.5 py-[3px] text-[9px] font-bold text-black z-10 leading-none whitespace-nowrap">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-[rgba(138,43,226,0.03)] pointer-events-none" />
+              <div className="absolute -top-px left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent, hsl(45 100% 50%), transparent)", opacity: 0.6 }} />
+              <span className="absolute top-1.5 left-1/2 -translate-x-1/2 rounded-full badge-elite px-2.5 py-[3px] text-[9px] font-bold z-10 leading-none whitespace-nowrap">
                 ⭐ Recommandé
               </span>
 

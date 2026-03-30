@@ -62,10 +62,10 @@ export function VideoBackground() {
         style={{
           willChange: "transform",
           transform: "translateZ(0)",
-          opacity: isLoaded ? (isMobile ? 0.7 : 0.85) : 0,
+          opacity: isLoaded ? (isMobile ? 0.4 : 0.55) : 0,
           filter: isMobile
-            ? "saturate(1.05) brightness(0.7)"
-            : "saturate(1.15) brightness(0.8)",
+            ? "saturate(0.8) brightness(0.4) hue-rotate(10deg)"
+            : "saturate(0.9) brightness(0.5) hue-rotate(10deg)",
         }}
         src="/bg-video.mp4"
       />
@@ -75,16 +75,16 @@ export function VideoBackground() {
         className="absolute inset-0"
         style={{
           background: isMobile
-            ? "hsl(228 25% 4% / 0.55)"
-            : "hsl(228 25% 4% / 0.40)",
+            ? "rgba(8, 8, 16, 0.7)"
+            : "rgba(8, 8, 16, 0.55)",
         }}
       />
       <div
         className="absolute inset-0"
         style={{
           background: isMobile
-            ? "linear-gradient(to bottom, hsl(228 25% 4% / 0.4), transparent 40%, hsl(228 25% 4% / 0.7))"
-            : "linear-gradient(to bottom, hsl(228 25% 4% / 0.2), transparent 30%, hsl(228 25% 4% / 0.5))",
+            ? "linear-gradient(to bottom, rgba(8, 8, 16, 0.5), transparent 40%, rgba(8, 8, 16, 0.8))"
+            : "linear-gradient(to bottom, rgba(8, 8, 16, 0.3), transparent 30%, rgba(8, 8, 16, 0.6))",
         }}
       />
     </div>

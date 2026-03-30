@@ -231,7 +231,7 @@ export default function Matches() {
   }, [matches, isPremiumPlus, isAdmin]);
 
   return (
-    <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
+    <div className="min-h-screen pb-20 overflow-x-hidden">
       <Navbar />
       <div className="container pt-20 pb-16 overflow-x-hidden px-3 sm:px-4">
         <motion.div
@@ -368,7 +368,7 @@ export default function Matches() {
             placeholder="Rechercher équipe, compétition..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9 bg-card border-border/50 h-8 sm:h-9 text-xs sm:text-sm"
+            className="pl-9 bg-[rgba(255,255,255,0.03)] border-[rgba(255,215,0,0.1)] h-8 sm:h-9 text-xs sm:text-sm rounded-xl backdrop-blur-lg focus:border-primary/30"
           />
         </motion.div>
 
@@ -379,7 +379,7 @@ export default function Matches() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <div className="flex gap-0.5 rounded-lg border border-primary/20 bg-primary/5 p-0.5">
+          <div className="flex gap-0.5 rounded-xl border border-primary/15 bg-primary/[0.04] p-0.5 backdrop-blur-lg">
             {aiTierFilters.map(f => {
               const Icon = f.icon;
               const isActive = aiTier === f.value;
@@ -390,7 +390,7 @@ export default function Matches() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
-                    "rounded-md px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold transition-colors flex items-center gap-1",
+                    "rounded-lg px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold transition-all flex items-center gap-1",
                     isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -399,7 +399,7 @@ export default function Matches() {
               );
             })}
           </div>
-          <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5 overflow-x-auto max-w-full">
+          <div className="flex gap-0.5 rounded-xl border border-[rgba(255,215,0,0.08)] bg-[rgba(255,255,255,0.02)] p-0.5 overflow-x-auto max-w-full backdrop-blur-lg">
             {sportFilters.map(f => {
               const count = f.value === "all" ? (matches?.length || 0) : (matches?.filter(m => m.sport === f.value).length || 0);
               const isActive = sport === f.value;
@@ -424,7 +424,7 @@ export default function Matches() {
               );
             })}
           </div>
-          <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5">
+          <div className="flex gap-0.5 rounded-xl border border-[rgba(255,215,0,0.08)] bg-[rgba(255,255,255,0.02)] p-0.5 backdrop-blur-lg">
             {confidenceFilters.map(f => (
               <motion.button
                 key={f.value}

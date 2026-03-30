@@ -213,10 +213,13 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
       >
         <Link to={locked ? "#" : `/match/${match.id}`} onClick={handleLockedClick} className="block">
           <div className={cn(
-            "relative overflow-hidden rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm p-3 sm:p-3.5 transition-all duration-200 active:scale-[0.98]",
-            "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5",
+            "relative overflow-hidden rounded-2xl p-3 sm:p-3.5 transition-all duration-300 active:scale-[0.98]",
+            "bg-[rgba(255,255,255,0.03)] backdrop-blur-xl",
+            "border border-[rgba(255,215,0,0.1)]",
+            "hover:border-[rgba(255,215,0,0.25)] hover:shadow-[0_8px_32px_rgba(255,215,0,0.08)]",
             locked && "opacity-75",
-            getAiScoreGlow(aiScore)
+            aiScore >= 90 && "border-[rgba(255,215,0,0.2)] shadow-[0_0_20px_rgba(255,215,0,0.08)]",
+            aiScore >= 80 && aiScore < 90 && "border-[rgba(16,185,129,0.15)] shadow-[0_0_15px_rgba(16,185,129,0.05)]"
           )}>
             {/* Live accent bar */}
             {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive animate-pulse" />}
@@ -342,7 +345,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
 
             {/* === Prediction block (unlocked) === */}
             {!locked && (
-              <div className="rounded-lg border border-primary/15 bg-primary/5 p-2 space-y-1.5">
+              <div className="rounded-xl border border-primary/10 bg-primary/[0.04] p-2 space-y-1.5 backdrop-blur-sm">
                 {/* Prediction text */}
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1 min-w-0">
@@ -358,8 +361,8 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                 <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
                   <div
                     className={cn(
-                      "h-full rounded-full transition-all duration-700",
-                      confidence >= 75 ? "bg-success" : confidence >= 55 ? "bg-primary" : confidence >= 40 ? "bg-amber-400" : "bg-destructive"
+                      "h-1.5 rounded-full transition-all duration-700 prob-bar-fill",
+                      confidence >= 75 ? "bg-success" : confidence >= 55 ? "bg-primary" : confidence >= 40 ? "bg-warning" : "bg-destructive"
                     )}
                     style={{ width: `${confidence}%` }}
                   />

@@ -11,6 +11,8 @@ import { usePresenceTracker } from "@/hooks/usePresenceTracker";
 import { SplashScreen } from "@/components/SplashScreen";
 import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
 import { VideoBackground } from "@/components/VideoBackground";
+import { GoldenParticles } from "@/components/GoldenParticles";
+import { NebulaBackground } from "@/components/NebulaBackground";
 import { PromoListener } from "@/components/home/PromoListener";
 import { useState, useCallback } from "react";
 
@@ -77,6 +79,8 @@ const App = () => {
         <Sonner />
         <div className="relative min-h-screen isolation-isolate">
           {!splashDone && <SplashScreen onComplete={handleSplashComplete} />}
+          <NebulaBackground />
+          <GoldenParticles />
           <VideoBackground />
           <div className="relative z-10 min-h-screen">
             <BrowserRouter>
