@@ -308,7 +308,8 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                   <span className="flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
                     <Brain className="h-2.5 w-2.5" /> Simple IA
                   </span>
-                  <TooltipProvider>
+                )}
+                {hasAnomaly && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className={cn(
