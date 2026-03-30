@@ -83,6 +83,73 @@ NBA: B2B = -4%. Altitude = -3%. Net rating > W/L. Regress 3pt to mean.
 TENNIS: Surface ELO only. Serve dominance on fast surfaces.
 NHL: Goalie = highest impact. PDO > 1.020 = regression.
 
+═══ PART 10 — CONTEXTUAL INTELLIGENCE ENGINE ═══
+Apply these context factors BEYOND raw stats:
+• Motivation Index: Team already relegated/champion with 5+ games left → motivation LOW → -10% confidence.
+  Team fighting for top 4, Europa, survival → motivation HIGH → boost form weight.
+• Schedule Pressure: UCL/Europa match within 72h → rotation risk flag → -8% confidence.
+• Weather Flag: Heavy rain or wind >40km/h → suppress Over 2.5 picks automatically.
+• Travel Fatigue: Away team traveled >3000km in last 5 days → -5% confidence.
+
+═══ PART 11 — HEAD-TO-HEAD MEMORY WEIGHTING ═══
+Do NOT treat H2H as flat average. Apply recency weighting:
+• H2H last 6 months → weight ×3
+• H2H 6-18 months → weight ×1.5
+• H2H older than 18 months → weight ×0.5
+• If H2H sample < 3 matches → do NOT use H2H, label "Données H2H insuffisantes"
+• If H2H >50% draws → suppress 1X2, promote Draw or Double Chance
+
+═══ PART 12 — ODDS MARKET INTELLIGENCE ═══
+• AI prob vs implied market prob diverge >20% → trigger secondary check before confirming
+• Odds shorten >10% close to kickoff → sharp money → downgrade or discard
+• Odds drift >10% → contrarian value → flag for review, do NOT auto-promote
+• Track line movement 48h/6h/1h before kickoff. Significant late movement = 🚨 Suspect flag
+
+═══ PART 13 — REFEREE & VENUE INTELLIGENCE ═══
+• Referee red card rate >0.4/game → physical match risk → suppress BTTS and Over 2.5
+• Referee <10 matches this season → inexperience risk flag
+• Stadium attendance <30% capacity → reduce home advantage by 15%
+• Poor pitch quality or extreme weather venue → apply volatility flag
+
+═══ PART 14 — DYNAMIC FORM ANALYSIS ═══
+• Only last 6 matches = "current form", older = noise
+• Weight last 3 matches ×2 vs matches 4-6
+• Separate Home form (home team) vs Away form (away team) — never mix
+• New manager in last 30 days → "Incertitude Tactique" → -12% confidence
+• Team scored in last 6 straight → boost BTTS Yes confidence
+• Team clean sheet 4 of last 6 → suppress Over 2.5, boost Under 2.5
+
+═══ PART 15 — PSYCHOLOGICAL & MOMENTUM LAYER ═══
+• Winning streak 4+ → +5% confidence on favorite, flag overperformance regression if low odds
+• Losing streak 3+ → -10% confidence regardless of paper quality
+• Big win 3+ goals last match vs weak opponent → do NOT carry momentum
+• Derby/rivalry → volatility ×1.3, minimum confidence floor 70%
+• Post-European night (Thu UCL/Europa → Sun league) → automatic rotation risk flag
+
+═══ PART 16 — SELF-LEARNING TRACKER ═══
+Track per pick: predicted vs actual, confidence calibration error, bet type performance, league performance.
+Every 20 predictions, silent audit:
+• League winrate <45% → blacklist temporarily
+• Underperforming bet types → reduce frequency
+• BTTS > 1X2 performance → shift weight
+• High-confidence (>75%) winning less → calibration reset
+
+═══ PART 17 — ANTI-NARRATIVE BIAS PROTECTION ═══
+Block these biases EXPLICITLY:
+❌ "Big club bias" — Never boost confidence because team is famous
+❌ "Recency overreaction" — 1 big result ≠ override 6-match trend
+❌ "Public favorite bias" — >70% public bets ≠ validation
+❌ "Round number odds bias" — 2.00 or 1.50 not inherently reliable
+❌ "Home team default" — No inflated home confidence without data
+Each pick MUST pass bias check. If bias is primary reason → discard.
+
+═══ PART 18 — USER TRUST & TRANSPARENCY ═══
+Every pick analysis MUST include:
+• "✅ Pourquoi ce pick" — 2-3 bullet points of real reasoning
+• "⚠️ Risques identifiés" — 1-2 bullet points of honest risk factors
+• "🚫 Matchs filtrés" — brief reason for discarded picks (e.g. "confiance 61%, sous le seuil")
+Never hide losses. Transparency = trust = retention.
+
 ABSOLUTE RULES:
 - Probabilities MUST sum to exactly 100%
 - NEVER give 88%+ confidence on any outcome (after calibration)
@@ -94,7 +161,8 @@ ABSOLUTE RULES:
 - SCORE CONSISTENCY: predicted score MUST match predicted winner
 - Never invent data — reduce confidence when information is limited
 - Once a prediction is made, it is FINAL
-- Include value_score in analysis when relevant`;
+- Include value_score in analysis when relevant
+- MUST include "✅ Pourquoi" and "⚠️ Risques" sections in every analysis`;
 
 interface AIPrediction {
   fixture_id: number;
@@ -483,7 +551,17 @@ function generatePRONOSIAAnalysis(
   const streakNote = isStreakMode ? " 📉 Mode Streak actif — sélection ultra-stricte." : "";
   const safeModeNote = isSafeMode ? " ⚠️ SAFE MODE — risque réduit, marché protégé uniquement." : "";
 
+  // v2.0 Part 18: Transparency sections
+  const whyPick: string[] = [];
+  const risks: string[] = [];
+
   if (sport === "football" || sport === "soccer") {
+    whyPick.push(`Avantage quantifié de ${maxProb}% pour ${fav} sur 11 facteurs`);
+    whyPick.push(isSafe ? `Marché protégé Double Chance sécurisé` : `Signal cohérent forme + données`);
+    if (valueBet) whyPick.push(`Value Score positif — cote sous-estimée par le marché`);
+    risks.push(`Variance naturelle du football — résultat jamais garanti`);
+    if (maxProb < 70) risks.push(`Confiance modérée — gestion de mise prudente conseillée`);
+
     analyses.push(
       `Analyse PRONOSIA v2.0 : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns, données).`,
       isSafe ? marketLine : (valueBet ? `Value Bet détecté (edge significatif) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — variance élevée du football.`),
@@ -491,6 +569,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   } else if (sport === "tennis") {
+    whyPick.push(`Avantage technique ELO surface pour ${fav}`);
+    whyPick.push(`Probabilité calibrée à ${maxProb}%`);
+    risks.push(`Conditions physiques et forme du jour inconnues`);
+
     analyses.push(
       `Analyse surface-ELO : ${fav} montre un avantage technique quantifié.`,
       isSafe ? marketLine : `Probabilité calibrée à ${maxProb}%.`,
@@ -498,6 +580,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   } else if (sport === "basketball" || sport === "nba") {
+    whyPick.push(`Net rating et pace favorisent ${fav}`);
+    whyPick.push(`Impact B2B et altitude évalués`);
+    risks.push(`Variance élevée du basketball — rotation possible`);
+
     analyses.push(
       `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
       isSafe ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
@@ -505,6 +591,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   } else {
+    whyPick.push(`Avantage quantifié pour ${fav} (${maxProb}%)`);
+    whyPick.push(`Signal cohérent sur la majorité des dimensions`);
+    risks.push(`Données limitées — confiance ajustée`);
+
     analyses.push(
       `Modèle PRONOSIA v2.0 : avantage quantifié pour ${fav} (${maxProb}%).`,
       isSafe ? marketLine : `Signal cohérent sur la majorité des dimensions analysées.`,
@@ -512,6 +602,10 @@ function generatePRONOSIAAnalysis(
       riskNote
     );
   }
+
+  // Append transparency sections
+  const whySection = `\n✅ Pourquoi ce pick : ${whyPick.map(w => `• ${w}`).join(" ")}`;
+  const riskSection = `\n⚠️ Risques identifiés : ${risks.map(r => `• ${r}`).join(" ")}`;
 
   return {
     fixture_id: match.fixture_id,
@@ -525,7 +619,7 @@ function generatePRONOSIAAnalysis(
     pred_btts_prob: bttsProb,
     pred_confidence: confidence,
     pred_value_bet: valueBet,
-    pred_analysis: `🤖 ${analyses.join(" ")}`,
+    pred_analysis: `🤖 ${analyses.join(" ")}${whySection}${riskSection}`,
     ai_score: aiScore,
     anomaly_score: 0,
     anomaly_label: null,
