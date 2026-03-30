@@ -141,6 +141,11 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     predictionsGenerated: number;
     source: string;
     lastRecalc: string | null;
+    consensusRate: number;
+    fallbackRate: number;
+    consensusPassed: number;
+    consensusFailed: number;
+    streakLevel: string;
   } | null>(null);
   const [v2Loading, setV2Loading] = useState(false);
   const [v2Recalculating, setV2Recalculating] = useState(false);

@@ -199,6 +199,9 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
   const leagueTier = (match as any).league_tier as number | undefined;
   const tierBadge = leagueTier === 1 ? "👑" : leagueTier === 3 ? "⚠️" : null;
 
+  // Consensus badge
+  const consensusPassed = (match as any).consensus_passed as boolean | undefined;
+
   return (
     <>
       <PremiumModal open={showPremiumModal} onOpenChange={setShowPremiumModal} />
