@@ -201,8 +201,8 @@ export default function PronosiaAI() {
         }
       }
 
-      // Save after response complete
-      debouncedSave(finalMessages, activeConvoId);
+      // Save immediately after response complete
+      await saveConversation(finalMessages, activeConvoId);
       loadConversations();
     } catch (e) {
       console.error(e);
