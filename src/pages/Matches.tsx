@@ -222,22 +222,59 @@ export default function Matches() {
           </div>
         </motion.div>
 
-        {/* v2.0: Streak Mode Banner */}
-        {(window as any).__pronosia_streak?.streakMode && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 flex items-center gap-2"
-          >
-            <span className="text-base">📉</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-destructive">Streak Mode Actif — Sélection Ultra-Stricte</p>
+        {/* v3.1: Streak Severity Banner */}
+        {(() => {
+          const streakData = (window as any).__pronosia_streak;
+          if (!streakData?.streakMode) return null;
+          const level = streakData.level || "streak";
+          const winrate = streakData.rollingWinrate ?? 0;
+          const lastResults = streakData.lastResults || [];
+
+          const config: Record<string, { emoji: string; title: string; desc: string; border: string; bg: string; titleColor: string }> = {
+            caution: {
+              emoji: "🟡", title: "Mode Prudence — Sélection renforcée",
+              desc: `Max 3 picks/jour • Confiance min 70%`,
+              border: "border-yellow-500/30", bg: "bg-yellow-500/10", titleColor: "text-yellow-600",
+            },
+            streak: {
+              emoji: "🔴", title: "Mode Protection — Picks ultra-sélectifs",
+              desc: `Max 2 picks/jour • Double Chance et Under uniquement`,
+              border: "border-destructive/30", bg: "bg-destructive/10", titleColor: "text-destructive",
+            },
+            emergency: {
+              emoji: "⚫", title: "Mode Urgence — 1 seul pick élite",
+              desc: `Ligues Tier 1 uniquement • Double Chance obligatoire`,
+              border: "border-foreground/30", bg: "bg-foreground/10", titleColor: "text-foreground",
+            },
+          };
+          const c = config[level] || config.streak;
+
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`mt-3 rounded-xl border ${c.border} ${c.bg} p-3`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">{c.emoji}</span>
+                <p className={`text-xs font-bold ${c.titleColor}`}>{c.title}</p>
+              </div>
               <p className="text-[10px] text-muted-foreground">
-                Winrate récent : {(window as any).__pronosia_streak?.rollingWinrate ?? 0}% • Seuls les picks les plus sûrs sont affichés
+                Winrate récent : {winrate}% • {c.desc}
               </p>
-            </div>
-          </motion.div>
-        )}
+              {lastResults.length > 0 && (
+                <div className="flex items-center gap-1 mt-1.5">
+                  <span className="text-[9px] text-muted-foreground">Derniers :</span>
+                  {lastResults.map((r: string, i: number) => (
+                    <span key={i} className={`text-[10px] font-bold ${r === "win" ? "text-green-500" : "text-destructive"}`}>
+                      {r === "win" ? "✅" : "❌"}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
 
         {/* Premium banner */}
         {!isPremium && !isLoading && (
