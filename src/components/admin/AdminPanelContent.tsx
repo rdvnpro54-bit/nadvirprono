@@ -555,7 +555,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         <div className="mb-2 flex items-center gap-3">
           <Shield className="h-6 w-6 text-primary" />
           <h2 className="font-display text-2xl font-bold">Panneau Admin</h2>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">v3.0</span>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">v3.1</span>
         </div>
         <p className="text-sm text-muted-foreground">Gestion en temps réel • {user?.email}</p>
       </motion.div>
