@@ -301,9 +301,7 @@ const Index = () => {
       <TopPickSection matches={matches} />
 
       {/* Elite 5 du Jour — visible par tous, détails Premium+ */}
-      <ScrollSection>
-        <Elite5Preview matches={matches} />
-      </ScrollSection>
+      <Elite5Preview matches={matches} />
 
       {/* Missed match conversion banner */}
       <MissedMatchBanner />
