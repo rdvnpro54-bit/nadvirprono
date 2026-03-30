@@ -956,7 +956,7 @@ async function enrichMatchesWithAPIs(
         ]);
         apiFootballCalls += (needLineups ? 1 : 0) + (needOdds ? 1 : 0) + 1;
         if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
-        if (odds && !row.odds) row.odds = odds;
+        if (odds && !row.odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
         if (h2h) row.h2h_data = h2h;
         if (!sources.includes("api-football")) sources.push("api-football");
       }
@@ -979,7 +979,7 @@ async function enrichMatchesWithAPIs(
 
       if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
       if (stats && !row.match_stats) row.match_stats = stats;
-      if (odds && !row.odds) row.odds = odds;
+      if (odds && !row.odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
       if (!sources.includes("sofascore-rapid")) sources.push("sofascore-rapid");
     }
 
