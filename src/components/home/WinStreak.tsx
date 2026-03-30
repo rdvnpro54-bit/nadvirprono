@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
-import { Flame, TrendingDown } from "lucide-react";
+import { Flame } from "lucide-react";
 import { useAllResults } from "@/hooks/useResults";
-import { cn } from "@/lib/utils";
 
 export function WinStreak() {
   const { data: results } = useAllResults();
