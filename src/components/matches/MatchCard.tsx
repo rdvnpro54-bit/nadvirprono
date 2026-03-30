@@ -226,6 +226,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                   {sportInfo.label}
                 </span>
                 <span className="text-[9px] text-muted-foreground truncate">{match.league_name}</span>
+                {tierBadge && <span className="text-[9px] shrink-0">{tierBadge}</span>}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {isLive ? (
