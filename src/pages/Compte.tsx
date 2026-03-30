@@ -85,7 +85,15 @@ export default function Compte() {
   const handleSignOut = async () => { await signOut(); toast.success("Déconnecté"); };
 
   const planLabel = isPremium
-    ? subscription.productId === STRIPE_PLANS.weekly.productId ? "Premium Hebdo" : "Premium Mensuel"
+    ? subscription.productId?.includes("premium_plus") || subscription.productId === STRIPE_PLANS.premiumPlusWeekly.productId || subscription.productId === STRIPE_PLANS.premiumPlusMonthly.productId
+      ? "Premium+"
+      : subscription.productId === STRIPE_PLANS.weekly.productId
+        ? "Premium Hebdo"
+        : subscription.productId === STRIPE_PLANS.monthly.productId
+          ? "Premium Mensuel"
+          : subscription.productId === "admin"
+            ? "Admin Premium"
+            : "Premium"
     : "Gratuit";
 
   return (

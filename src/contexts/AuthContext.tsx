@@ -66,6 +66,8 @@ const PREMIUM_PLUS_PRODUCT_IDS = [
   // Legacy product IDs for existing subscribers
   "prod_UDq3Yi5NV5UBwi",
   "prod_UDq3gv6WVIiSIn",
+  // Manual premium plus (admin-activated)
+  "manual_premium_plus",
 ] as const;
 
 const DEFAULT_SUB: SubscriptionState = { subscribed: false, productId: null, subscriptionEnd: null, isAdmin: false };
@@ -88,6 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.functions.invoke("check-subscription", {
         headers: { Authorization: `Bearer ${sessionToUse.access_token}` },
       });
+
+      console.log("[AUTH] check-subscription response:", { data, error });
 
       if (error) {
         console.error("Check subscription error:", error);
