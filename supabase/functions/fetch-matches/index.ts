@@ -736,7 +736,7 @@ async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
   const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
   if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
   // SportMonks accepts token as query param (api_token) — most reliable method
-  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics`;
+  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics&per_page=50`;
   console.log(`[SportMonks] Fetching: ${url.replace(apiKey, "***")}`);
   try {
     const res = await fetch(url);
