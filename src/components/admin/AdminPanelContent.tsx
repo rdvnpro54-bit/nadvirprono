@@ -8,38 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
-  Shield,
-  Users,
-  Crown,
-  BarChart3,
-  Activity,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  RefreshCw,
-  Search,
-  Radio,
-  FileEdit,
-  Trophy,
-  Ban,
-  Megaphone,
-  Send,
-  Brain,
-  Zap,
-  TrendingDown,
-  Filter,
-  ShieldAlert,
-  Calendar,
-  Globe,
+  Shield, Users, Crown, BarChart3, Activity, AlertCircle, CheckCircle,
+  XCircle, Loader2, RefreshCw, Search, Radio, FileEdit, Trophy, Ban,
+  Megaphone, Send, Brain, Zap, TrendingDown, Filter, ShieldAlert,
+  Calendar, Globe, Download,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
 interface DashboardStats {
@@ -150,12 +126,11 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [v2Loading, setV2Loading] = useState(false);
   const [v2Recalculating, setV2Recalculating] = useState(false);
   const [promoSending, setPromoSending] = useState(false);
-
-  // v3.0: League performance + weekly reports
   const [leaguePerfs, setLeaguePerfs] = useState<LeaguePerf[]>([]);
   const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
   const [leagueSearch, setLeagueSearch] = useState("");
   const [auditRunning, setAuditRunning] = useState(false);
+  const [fetchingMatches, setFetchingMatches] = useState(false);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -262,10 +237,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         fetchDashboard();
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [embedded, fetchUsers, fetchDashboard, session, user]);
 
   useEffect(() => {
@@ -338,6 +310,21 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   };
 
+  const handleForceFetchMatches = async () => {
+    setFetchingMatches(true);
+    try {
+      const data = await adminCall("force-fetch-matches");
+      toast.success(data?.message || "✅ Nouveaux matchs récupérés !");
+      queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["trigger-fetch"] });
+      fetchDashboard();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur fetch matchs");
+    } finally {
+      setFetchingMatches(false);
+    }
+  };
+
   const handleSendPromo = async () => {
     setPromoSending(true);
     try {
@@ -351,13 +338,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       await channel.send({
         type: "broadcast",
         event: "promo-push",
-        payload: {
-          message: promoMessage,
-          discount: promoDiscount,
-          duration_minutes: promoDuration,
-        },
+        payload: { message: promoMessage, discount: promoDiscount, duration_minutes: promoDuration },
       });
-      toast.success(`🎉 Promo -${promoDiscount}% envoyée à tous les utilisateurs en ligne !`);
+      toast.success(`🎉 Promo -${promoDiscount}% envoyée !`);
       setTimeout(() => supabase.removeChannel(channel), 2000);
     } catch (err: any) {
       toast.error(err.message || "Erreur envoi promo");
@@ -377,7 +360,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         .not("result", "is", null)
         .order("resolved_at", { ascending: false })
         .limit(5);
-      
+
       const wins = (recentResults || []).filter((r: any) => r.result === "win").length;
       const total = (recentResults || []).length;
       const rollingWinrate = total >= 3 ? Math.round((wins / total) * 100) : 100;
@@ -387,11 +370,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         body: { action: "v2-stats" },
         headers: { Authorization: `Bearer ${s.access_token}` },
       });
-      const totalMatches = v2Err ? 0 : v2Data?.totalMatches || 0;
-      const withPreds = v2Err ? 0 : v2Data?.eligibleMatches || 0;
-      const lowScore = v2Err ? 0 : v2Data?.excludedCount || 0;
 
-      // Fetch consensus stats from cached_matches
       let consensusPassed = 0;
       let consensusFailed = 0;
       try {
@@ -412,7 +391,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const totalWithPreds = consensusPassed + consensusFailed;
       const consensusRate = totalWithPreds > 0 ? Math.round((consensusPassed / totalWithPreds) * 100) : 0;
 
-      // Determine streak level
       let streakLevel = "normal";
       if (rollingWinrate < 35) streakLevel = "emergency";
       else if (rollingWinrate < 45) streakLevel = "streak";
@@ -421,10 +399,10 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       setV2Stats({
         streakMode,
         rollingWinrate,
-        totalMatches: totalMatches || 0,
-        eligibleMatches: withPreds || 0,
-        excludedCount: lowScore || 0,
-        predictionsGenerated: withPreds || 0,
+        totalMatches: v2Err ? 0 : v2Data?.totalMatches || 0,
+        eligibleMatches: v2Err ? 0 : v2Data?.eligibleMatches || 0,
+        excludedCount: v2Err ? 0 : v2Data?.excludedCount || 0,
+        predictionsGenerated: v2Err ? 0 : v2Data?.eligibleMatches || 0,
         source: "—",
         lastRecalc: null,
         consensusRate,
@@ -445,7 +423,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     try {
       const { data: { session: s } } = await supabase.auth.getSession();
       if (!s) throw new Error("No session");
-      
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-predict?force=true&batch=10`,
         {
@@ -458,11 +435,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
           body: JSON.stringify({}),
         }
       );
-
       const result = await res.json();
-      
       if (result.success) {
-        toast.success(`🤖 IA v3.1 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
+        toast.success(`🤖 IA recalculée ! ${result.updated || 0} matchs via ${result.source || "Cerebras"}`);
         setV2Stats(prev => prev ? {
           ...prev,
           source: result.source || "pronosia-v3.1",
@@ -503,7 +478,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       );
       const result = await res.json();
       if (result.success) {
-        toast.success(`📊 Audit hebdo terminé ! ${result.total_picks} picks analysés, ${result.winrate}% winrate, ROI ${result.roi}%`);
+        toast.success(`📊 Audit terminé ! ${result.total_picks} picks, ${result.winrate}% WR`);
         fetchLeaguePerfs();
         fetchWeeklyReports();
       } else {
@@ -530,11 +505,10 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         })
         .eq("league_name", league.league_name)
         .eq("sport", league.sport);
-
       if (error) throw error;
       toast.success(league.is_blacklisted
         ? `✅ ${league.league_name} retirée de la blacklist`
-        : `🚫 ${league.league_name} ajoutée à la blacklist (14 jours)`);
+        : `🚫 ${league.league_name} blacklistée (14j)`);
       fetchLeaguePerfs();
     } catch (err: any) {
       toast.error(err.message);
@@ -550,242 +524,218 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const blacklistedCount = leaguePerfs.filter(l => l.is_blacklisted).length;
 
   return (
-    <div className={embedded ? "mt-3" : ""}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-        <div className="mb-2 flex items-center gap-3">
-          <Shield className="h-6 w-6 text-primary" />
-          <h2 className="font-display text-2xl font-bold">Panneau Admin</h2>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">v3.1</span>
+    <div className={`${embedded ? "mt-3" : ""} px-1`}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-primary shrink-0" />
+          <h2 className="font-display text-lg font-bold truncate">Admin Panel</h2>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary shrink-0">v3.2</span>
         </div>
-        <p className="text-sm text-muted-foreground">Gestion en temps réel • {user?.email}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{user?.email}</p>
       </motion.div>
 
-      <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full max-w-3xl grid-cols-5 sm:grid-cols-9">
-          <TabsTrigger value="dashboard" className="gap-1 text-[10px] sm:text-xs"><BarChart3 className="h-3 w-3" /> Stats</TabsTrigger>
-          <TabsTrigger value="ai-v2" className="gap-1 text-[10px] sm:text-xs"><Brain className="h-3 w-3" /> IA v3</TabsTrigger>
-          <TabsTrigger value="leagues" className="gap-1 text-[10px] sm:text-xs"><Globe className="h-3 w-3" /> Ligues</TabsTrigger>
-          <TabsTrigger value="live" className="gap-1 text-[10px] sm:text-xs"><Radio className="h-3 w-3" /> Live</TabsTrigger>
-          <TabsTrigger value="users" className="gap-1 text-[10px] sm:text-xs"><Users className="h-3 w-3" /> Users</TabsTrigger>
-          <TabsTrigger value="results" className="gap-1 text-[10px] sm:text-xs"><FileEdit className="h-3 w-3" /> Résultats</TabsTrigger>
-          <TabsTrigger value="premium" className="gap-1 text-[10px] sm:text-xs"><Crown className="h-3 w-3" /> Premium</TabsTrigger>
-          <TabsTrigger value="promo" className="gap-1 text-[10px] sm:text-xs"><Megaphone className="h-3 w-3" /> Promo</TabsTrigger>
-          <TabsTrigger value="logs" className="gap-1 text-[10px] sm:text-xs"><Activity className="h-3 w-3" /> Logs</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="dashboard" className="space-y-3">
+        {/* Mobile-optimized scrollable tabs */}
+        <div className="overflow-x-auto -mx-1 px-1 pb-1">
+          <TabsList className="inline-flex w-max gap-0.5">
+            <TabsTrigger value="dashboard" className="px-2 py-1.5 text-[10px]">
+              <BarChart3 className="h-3 w-3 mr-1" />Stats
+            </TabsTrigger>
+            <TabsTrigger value="ai-v2" className="px-2 py-1.5 text-[10px]">
+              <Brain className="h-3 w-3 mr-1" />IA
+            </TabsTrigger>
+            <TabsTrigger value="leagues" className="px-2 py-1.5 text-[10px]">
+              <Globe className="h-3 w-3 mr-1" />Ligues
+            </TabsTrigger>
+            <TabsTrigger value="live" className="px-2 py-1.5 text-[10px]">
+              <Radio className="h-3 w-3 mr-1" />Live
+            </TabsTrigger>
+            <TabsTrigger value="users" className="px-2 py-1.5 text-[10px]">
+              <Users className="h-3 w-3 mr-1" />Users
+            </TabsTrigger>
+            <TabsTrigger value="results" className="px-2 py-1.5 text-[10px]">
+              <FileEdit className="h-3 w-3 mr-1" />Résultats
+            </TabsTrigger>
+            <TabsTrigger value="premium" className="px-2 py-1.5 text-[10px]">
+              <Crown className="h-3 w-3 mr-1" />Premium
+            </TabsTrigger>
+            <TabsTrigger value="promo" className="px-2 py-1.5 text-[10px]">
+              <Megaphone className="h-3 w-3 mr-1" />Promo
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="px-2 py-1.5 text-[10px]">
+              <Activity className="h-3 w-3 mr-1" />Logs
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ═══ DASHBOARD TAB ═══ */}
         <TabsContent value="dashboard">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2">
             {loadingStats ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i} className="h-24 animate-pulse bg-muted/50 p-4" />
+                <Card key={i} className="h-20 animate-pulse bg-muted/50 p-3" />
               ))
             ) : stats ? (
               <>
                 <StatCard icon={Users} label="Utilisateurs" value={stats.totalUsers} color="text-secondary" />
                 <StatCard icon={Crown} label="Premium" value={stats.premiumCount} color="text-warning" />
                 <StatCard icon={BarChart3} label="Conversion" value={`${stats.conversionRate}%`} color="text-success" />
-                <StatCard icon={Activity} label="Matchs analysés" value={stats.matchCount} color="text-primary" />
+                <StatCard icon={Activity} label="Matchs" value={stats.matchCount} color="text-primary" />
               </>
             ) : null}
           </div>
 
           {stats?.apiStatus && (
-            <Card className="mt-4 p-4">
-              <h3 className="mb-2 flex items-center gap-2 font-display font-semibold">
-                <Activity className="h-4 w-4 text-primary" /> Statut API
+            <Card className="mt-3 p-3">
+              <h3 className="mb-2 flex items-center gap-1.5 font-display text-xs font-semibold">
+                <Activity className="h-3.5 w-3.5 text-primary" /> API
               </h3>
-              <div className="grid gap-2 text-sm sm:grid-cols-3">
-                <div className="flex items-center gap-2">
+              <div className="space-y-1 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-1.5">
                   {stats.apiStatus.lastFetch ? (
-                    <CheckCircle className="h-4 w-4 text-success" />
+                    <CheckCircle className="h-3 w-3 text-success shrink-0" />
                   ) : (
-                    <XCircle className="h-4 w-4 text-destructive" />
+                    <XCircle className="h-3 w-3 text-destructive shrink-0" />
                   )}
-                  <span className="text-xs text-muted-foreground">
-                    Dernier fetch: {stats.apiStatus.lastFetch ? new Date(stats.apiStatus.lastFetch).toLocaleString("fr-FR") : "Jamais"}
+                  <span className="truncate">
+                    {stats.apiStatus.lastFetch ? new Date(stats.apiStatus.lastFetch).toLocaleString("fr-FR") : "Jamais"}
                   </span>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Requêtes: <span className="font-semibold text-foreground">{stats.apiStatus.requestsToday}/960</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Reset: {stats.apiStatus.lastResetDate}
-                </div>
+                <p>Requêtes: <span className="font-semibold text-foreground">{stats.apiStatus.requestsToday}/960</span></p>
               </div>
             </Card>
           )}
 
-          <div className="mt-4 flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => { fetchDashboard(); fetchUsers(); }} className="gap-1">
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => { fetchDashboard(); fetchUsers(); }} className="gap-1 text-[11px] h-8">
               <RefreshCw className="h-3 w-3" /> Rafraîchir
             </Button>
-            <Button size="sm" onClick={handleForceRefresh} disabled={actionLoading} className="gap-1">
+            <Button size="sm" onClick={handleForceRefresh} disabled={actionLoading} className="gap-1 text-[11px] h-8">
               {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              🔄 Rafraîchir le top 2 du jour
+              Top 2
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleForceFetchMatches} disabled={fetchingMatches} className="gap-1 text-[11px] h-8">
+              {fetchingMatches ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+              Forcer fetch matchs
             </Button>
           </div>
+
+          {fetchingMatches && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 rounded-lg border border-secondary/20 bg-secondary/5 p-3 text-center">
+              <Loader2 className="h-5 w-5 text-secondary animate-spin mx-auto mb-1" />
+              <p className="text-[11px] text-muted-foreground">Import de nouveaux matchs en cours (bypass limite quotidienne)...</p>
+            </motion.div>
+          )}
         </TabsContent>
 
-        {/* ═══ IA v3.0 TAB ═══ */}
+        {/* ═══ IA v3 TAB ═══ */}
         <TabsContent value="ai-v2">
-          <div className="space-y-4">
-            {/* Streak Mode Banner */}
-            <Card className={`p-4 border ${v2Stats?.streakMode ? "border-destructive/30 bg-destructive/5" : "border-success/30 bg-success/5"}`}>
-              <div className="flex items-center gap-3">
-                <div className={`rounded-lg p-2 ${v2Stats?.streakMode ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
-                  {v2Stats?.streakMode ? <TrendingDown className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
+          <div className="space-y-3">
+            {/* Streak Banner */}
+            <Card className={`p-3 border ${v2Stats?.streakMode ? "border-destructive/30 bg-destructive/5" : "border-success/30 bg-success/5"}`}>
+              <div className="flex items-center gap-2">
+                <div className={`rounded-lg p-1.5 shrink-0 ${v2Stats?.streakMode ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
+                  {v2Stats?.streakMode ? <TrendingDown className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
                 </div>
-                <div className="flex-1">
-                  <p className="font-display font-bold text-sm">
-                    {v2Stats?.streakMode ? "📉 Streak Mode ACTIF" : "✅ Mode Normal"}
+                <div className="min-w-0">
+                  <p className="font-display font-bold text-xs truncate">
+                    {v2Stats?.streakMode ? "📉 Streak Mode" : "✅ Mode Normal"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {v2Stats?.streakMode
-                      ? `Winrate récent < 50% → max 2 picks, confiance min 72%, AI min 75, RISQUÉ interdit`
-                      : `Filtres v3.0 en mode standard — intelligence adaptative par sport`}
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {v2Stats?.streakMode ? "WR < 50% → filtres renforcés" : "Filtres v3.2 standard"}
                   </p>
                 </div>
               </div>
             </Card>
 
             {/* Stats Grid */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2">
               <StatCard
                 icon={BarChart3}
-                label="Rolling Winrate (5 derniers)"
+                label="WR (5 derniers)"
                 value={v2Loading ? "..." : `${v2Stats?.rollingWinrate ?? "—"}%`}
                 color={v2Stats?.rollingWinrate && v2Stats.rollingWinrate >= 60 ? "text-success" : v2Stats?.rollingWinrate && v2Stats.rollingWinrate >= 40 ? "text-warning" : "text-destructive"}
               />
-              <StatCard
-                icon={Activity}
-                label="Matchs en cache"
-                value={v2Loading ? "..." : v2Stats?.totalMatches ?? "—"}
-                color="text-primary"
-              />
-              <StatCard
-                icon={Brain}
-                label="Prédictions IA actives"
-                value={v2Loading ? "..." : v2Stats?.eligibleMatches ?? "—"}
-                color="text-secondary"
-              />
-              <StatCard
-                icon={Filter}
-                label="Exclus par filtres v3"
-                value={v2Loading ? "..." : v2Stats?.excludedCount ?? "—"}
-                color="text-muted-foreground"
-              />
+              <StatCard icon={Activity} label="Matchs cache" value={v2Loading ? "..." : v2Stats?.totalMatches ?? "—"} color="text-primary" />
+              <StatCard icon={Brain} label="Prédictions IA" value={v2Loading ? "..." : v2Stats?.eligibleMatches ?? "—"} color="text-secondary" />
+              <StatCard icon={Filter} label="Exclus v3" value={v2Loading ? "..." : v2Stats?.excludedCount ?? "—"} color="text-muted-foreground" />
             </div>
 
-            {/* Additional v3.0 stats */}
-            <div className="grid gap-3 sm:grid-cols-3">
-              <StatCard
-                icon={ShieldAlert}
-                label="Ligues blacklistées"
-                value={blacklistedCount}
-                color="text-destructive"
-              />
-              <StatCard
-                icon={Calendar}
-                label="Rapports hebdo"
-                value={weeklyReports.length}
-                color="text-primary"
-              />
-              <StatCard
-                icon={Globe}
-                label="Ligues suivies"
-                value={leaguePerfs.length}
-                color="text-secondary"
-              />
-            </div>
-
-            {/* Consensus Stats */}
-            <Card className="p-4">
-              <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
-                <Brain className="h-4 w-4 text-primary" /> Consensus Cerebras (Qwen 235B + Llama 3.1 8B)
+            {/* Consensus */}
+            <Card className="p-3">
+              <h3 className="flex items-center gap-1.5 font-display font-semibold text-xs mb-2">
+                <Brain className="h-3.5 w-3.5 text-primary" /> Cerebras Dual
               </h3>
-              <div className="grid gap-3 sm:grid-cols-4">
-                <div className="rounded-lg bg-muted/30 p-3 text-center">
-                  <p className="text-lg font-bold text-primary">{v2Stats?.consensusRate ?? 0}%</p>
-                  <p className="text-[10px] text-muted-foreground">Taux de consensus</p>
+              <p className="text-[10px] text-muted-foreground mb-2">Qwen 235B + Llama 3.1 8B</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-muted/30 p-2 text-center">
+                  <p className="text-base font-bold text-primary">{v2Stats?.consensusRate ?? 0}%</p>
+                  <p className="text-[9px] text-muted-foreground">Consensus</p>
                 </div>
-                <div className="rounded-lg bg-muted/30 p-3 text-center">
-                  <p className="text-lg font-bold text-success">{v2Stats?.consensusPassed ?? 0}</p>
-                  <p className="text-[10px] text-muted-foreground">✅ Double validés</p>
+                <div className="rounded-lg bg-muted/30 p-2 text-center">
+                  <p className="text-base font-bold text-success">{v2Stats?.consensusPassed ?? 0}</p>
+                  <p className="text-[9px] text-muted-foreground">✅ Validés</p>
                 </div>
-                <div className="rounded-lg bg-muted/30 p-3 text-center">
-                  <p className="text-lg font-bold text-warning">{v2Stats?.consensusFailed ?? 0}</p>
-                  <p className="text-[10px] text-muted-foreground">🔍 Simple validation</p>
+                <div className="rounded-lg bg-muted/30 p-2 text-center">
+                  <p className="text-base font-bold text-warning">{v2Stats?.consensusFailed ?? 0}</p>
+                  <p className="text-[9px] text-muted-foreground">🔍 Simple</p>
                 </div>
-                <div className="rounded-lg bg-muted/30 p-3 text-center">
-                  <p className="text-lg font-bold text-secondary">{v2Stats?.streakLevel ?? "normal"}</p>
-                  <p className="text-[10px] text-muted-foreground">Mode streak actuel</p>
+                <div className="rounded-lg bg-muted/30 p-2 text-center">
+                  <p className="text-base font-bold text-secondary">{v2Stats?.streakLevel ?? "normal"}</p>
+                  <p className="text-[9px] text-muted-foreground">Streak</p>
                 </div>
               </div>
             </Card>
 
-            {/* Filter Rules */}
-            <Card className="p-4">
-              <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
-                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v3.1
+            {/* Filter Rules - collapsible for mobile */}
+            <Card className="p-3">
+              <h3 className="flex items-center gap-1.5 font-display font-semibold text-xs mb-2">
+                <Filter className="h-3.5 w-3.5 text-primary" /> Filtres v3.2
               </h3>
-              <div className="grid gap-2 sm:grid-cols-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Ban className="h-3 w-3 text-destructive" />
+              <div className="grid grid-cols-1 gap-1 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <Ban className="h-2.5 w-2.5 text-destructive shrink-0" />
                   <span>AI Score &lt; {v2Stats?.streakMode ? "75" : "70"} → Exclu</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Ban className="h-3 w-3 text-destructive" />
-                  <span>Confiance &lt; seuil dynamique (A3) → Exclu</span>
+                <div className="flex items-center gap-1.5">
+                  <Ban className="h-2.5 w-2.5 text-destructive shrink-0" />
+                  <span>Value Score &lt; 0.08 → Exclu</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Ban className="h-3 w-3 text-destructive" />
-                  <span>Value Score &lt; 0.08 → Exclu (v3.1)</span>
+                <div className="flex items-center gap-1.5">
+                  <Ban className="h-2.5 w-2.5 text-destructive shrink-0" />
+                  <span>Suspect ≥ 51 → Non recommandé</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Ban className="h-3 w-3 text-destructive" />
-                  <span>Suspect Score ≥ 51 → Non recommandé</span>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="h-2.5 w-2.5 text-success shrink-0" />
+                  <span>Dual Cerebras consensus</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Ban className="h-3 w-3 text-destructive" />
-                  <span>Ligues blacklistées auto → Exclu</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Consensus Cerebras (Qwen 235B + Llama 3.1 8B) (A1)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Calibration: &gt;80% → -8%, &gt;90% → -12%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Odds minimum: 1.35, sweet spot: 1.65-2.40</span>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="h-2.5 w-2.5 text-success shrink-0" />
+                  <span>Odds: 1.35 – 4.00</span>
                 </div>
               </div>
             </Card>
 
             {/* Weekly Reports */}
             {weeklyReports.length > 0 && (
-              <Card className="p-4">
-                <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
-                  <Calendar className="h-4 w-4 text-primary" /> Derniers rapports hebdomadaires
+              <Card className="p-3">
+                <h3 className="flex items-center gap-1.5 font-display font-semibold text-xs mb-2">
+                  <Calendar className="h-3.5 w-3.5 text-primary" /> Rapports hebdo
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {weeklyReports.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 p-3 text-xs">
-                      <div>
-                        <span className="font-semibold">{r.week_start} → {r.week_end}</span>
-                        <span className="ml-2 text-muted-foreground">{r.total_picks} picks</span>
+                    <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 p-2 text-[10px]">
+                      <div className="min-w-0">
+                        <span className="font-semibold">{r.week_start}</span>
+                        <span className="text-muted-foreground ml-1">{r.total_picks}p</span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 shrink-0">
                         <span className={r.winrate >= 55 ? "text-success font-bold" : r.winrate >= 45 ? "text-warning font-bold" : "text-destructive font-bold"}>
-                          {r.winrate}% WR
+                          {r.winrate}%
                         </span>
                         <span className={r.roi >= 0 ? "text-success" : "text-destructive"}>
-                          {r.roi >= 0 ? "+" : ""}{r.roi}% ROI
+                          {r.roi >= 0 ? "+" : ""}{r.roi}%
                         </span>
-                        {r.best_league && <span className="text-muted-foreground">🏆 {r.best_league}</span>}
                       </div>
                     </div>
                   ))}
@@ -793,124 +743,106 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               </Card>
             )}
 
-            {/* Last recalc info */}
             {v2Stats?.lastRecalc && (
-              <Card className="p-3">
-                <p className="text-xs text-muted-foreground">
-                  Dernier recalcul : <span className="font-semibold text-foreground">{new Date(v2Stats.lastRecalc).toLocaleString("fr-FR")}</span>
-                  {" "}via <span className="font-semibold text-primary">{v2Stats.source}</span>
-                  {" "}• {v2Stats.predictionsGenerated} prédictions générées
+              <Card className="p-2">
+                <p className="text-[10px] text-muted-foreground">
+                  Recalcul : <span className="font-semibold text-foreground">{new Date(v2Stats.lastRecalc).toLocaleString("fr-FR")}</span>
+                  {" • "}{v2Stats.predictionsGenerated} prédictions
                 </p>
               </Card>
             )}
 
             {/* Actions */}
-            <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" size="sm" onClick={fetchV2Stats} disabled={v2Loading} className="gap-1">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={fetchV2Stats} disabled={v2Loading} className="gap-1 text-[11px] h-8">
                 {v2Loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                Actualiser stats
+                Stats
               </Button>
-              <Button size="sm" onClick={handleForceRecalculate} disabled={v2Recalculating} className="gap-1 bg-primary">
+              <Button size="sm" onClick={handleForceRecalculate} disabled={v2Recalculating} className="gap-1 text-[11px] h-8 bg-primary">
                 {v2Recalculating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
-                🤖 Forcer recalcul IA v3.1
+                Recalcul IA
               </Button>
-              <Button variant="outline" size="sm" onClick={handleForceAudit} disabled={auditRunning} className="gap-1">
+              <Button variant="outline" size="sm" onClick={handleForceAudit} disabled={auditRunning} className="gap-1 text-[11px] h-8">
                 {auditRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calendar className="h-3 w-3" />}
-                📊 Forcer audit hebdo
+                Audit
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleForceFetchMatches} disabled={fetchingMatches} className="gap-1 text-[11px] h-8">
+                {fetchingMatches ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                Fetch matchs
               </Button>
             </div>
 
             {v2Recalculating && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center"
-              >
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="inline-block mb-2"
-                >
-                  <Brain className="h-6 w-6 text-primary" />
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-center">
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="inline-block mb-1">
+                  <Brain className="h-5 w-5 text-primary" />
                 </motion.div>
-                <p className="text-sm font-semibold">Recalcul IA v3.1 en cours...</p>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Consensus Cerebras (Qwen 235B + Llama 3.1 8B), seuils relevés, détection suspects, blacklist active
-                </p>
+                <p className="text-xs font-semibold">Recalcul IA v3.2...</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Dual Cerebras en cours</p>
               </motion.div>
             )}
           </div>
         </TabsContent>
 
-        {/* ═══ LEAGUES TAB (NEW v3.0) ═══ */}
+        {/* ═══ LEAGUES TAB ═══ */}
         <TabsContent value="leagues">
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
+              <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <Input
-                placeholder="Rechercher une ligue..."
+                placeholder="Rechercher..."
                 value={leagueSearch}
                 onChange={(e) => setLeagueSearch(e.target.value)}
-                className="max-w-sm"
+                className="h-8 text-xs"
               />
-              <Button variant="outline" size="sm" onClick={fetchLeaguePerfs} className="gap-1">
-                <RefreshCw className="h-3 w-3" /> Rafraîchir
+              <Button variant="outline" size="sm" onClick={fetchLeaguePerfs} className="gap-1 text-[11px] h-8 shrink-0">
+                <RefreshCw className="h-3 w-3" />
               </Button>
             </div>
 
+            <div className="grid grid-cols-3 gap-2">
+              <StatCard icon={ShieldAlert} label="Blacklist" value={blacklistedCount} color="text-destructive" />
+              <StatCard icon={Calendar} label="Rapports" value={weeklyReports.length} color="text-primary" />
+              <StatCard icon={Globe} label="Ligues" value={leaguePerfs.length} color="text-secondary" />
+            </div>
+
             {filteredLeagues.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                <Globe className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                <p className="text-sm">Aucune donnée de ligue — lancez un audit hebdo</p>
+              <div className="py-6 text-center text-muted-foreground">
+                <Globe className="mx-auto mb-2 h-6 w-6 opacity-50" />
+                <p className="text-xs">Aucune ligue trouvée</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {filteredLeagues.map((l, i) => (
-                  <motion.div
-                    key={`${l.sport}-${l.league_name}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.02 }}
-                    className={`flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between ${
-                      l.is_blacklisted ? "border-destructive/30 bg-destructive/5" : "border-border/30 bg-card/50"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        {l.is_blacklisted && <Ban className="h-3.5 w-3.5 text-destructive" />}
-                        <span>{l.league_name}</span>
-                        <span className="text-[10px] text-muted-foreground capitalize">({l.sport})</span>
+                  <motion.div key={`${l.league_name}-${l.sport}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                    className={`rounded-lg border p-2.5 ${l.is_blacklisted ? "border-destructive/30 bg-destructive/5" : "border-border/30 bg-card/50"}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-semibold truncate">{l.league_name}</p>
+                          {l.is_blacklisted && <Ban className="h-3 w-3 text-destructive shrink-0" />}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[10px] text-muted-foreground">
+                          <span>{l.sport}</span>
+                          <span>{l.total_picks}p</span>
+                          <span className={l.winrate >= 55 ? "text-success font-bold" : l.winrate >= 45 ? "text-warning font-bold" : "text-destructive font-bold"}>
+                            {l.winrate}% WR
+                          </span>
+                          <span className={l.roi >= 0 ? "text-success" : "text-destructive"}>
+                            {l.roi >= 0 ? "+" : ""}{l.roi}% ROI
+                          </span>
+                        </div>
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>{l.total_picks} picks</span>
-                        <span>•</span>
-                        <span className={l.winrate >= 55 ? "text-success font-semibold" : l.winrate >= 45 ? "text-warning" : "text-destructive font-semibold"}>
-                          {l.winrate}% WR
-                        </span>
-                        <span>•</span>
-                        <span className={l.roi >= 0 ? "text-success" : "text-destructive"}>
-                          ROI {l.roi >= 0 ? "+" : ""}{l.roi}%
-                        </span>
-                        {l.is_blacklisted && l.blacklist_expires_at && (
-                          <>
-                            <span>•</span>
-                            <span className="text-destructive">Expire: {new Date(l.blacklist_expires_at).toLocaleDateString("fr-FR")}</span>
-                          </>
-                        )}
-                      </div>
+                      <Button
+                        variant={l.is_blacklisted ? "outline" : "destructive"}
+                        size="sm"
+                        onClick={() => handleToggleBlacklist(l)}
+                        className="gap-1 text-[10px] h-7 shrink-0 px-2"
+                      >
+                        {l.is_blacklisted ? <CheckCircle className="h-2.5 w-2.5" /> : <Ban className="h-2.5 w-2.5" />}
+                        {l.is_blacklisted ? "Retirer" : "Ban"}
+                      </Button>
                     </div>
-                    <Button
-                      variant={l.is_blacklisted ? "outline" : "destructive"}
-                      size="sm"
-                      onClick={() => handleToggleBlacklist(l)}
-                      className="gap-1 text-xs"
-                    >
-                      {l.is_blacklisted ? (
-                        <><CheckCircle className="h-3 w-3" /> Unblacklist</>
-                      ) : (
-                        <><Ban className="h-3 w-3" /> Blacklist</>
-                      )}
-                    </Button>
                   </motion.div>
                 ))}
               </div>
@@ -920,43 +852,36 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
 
         {/* ═══ LIVE TAB ═══ */}
         <TabsContent value="live">
-          <Card className="p-4 sm:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 font-display font-semibold">
-                <span className="relative flex h-3 w-3">
+          <Card className="p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="flex items-center gap-1.5 font-display text-xs font-semibold">
+                <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-success" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
                 </span>
-                Utilisateurs en ligne
+                En ligne
               </h3>
-              <span className="rounded-full bg-success/15 px-3 py-1 text-sm font-bold text-success">{onlineUsers.length}</span>
+              <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-bold text-success">{onlineUsers.length}</span>
             </div>
-
             {onlineUsers.length === 0 ? (
-              <div className="py-8 text-center">
-                <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">Aucun utilisateur connecté en temps réel</p>
+              <div className="py-6 text-center">
+                <Users className="mx-auto mb-1 h-6 w-6 text-muted-foreground/40" />
+                <p className="text-[11px] text-muted-foreground">Aucun utilisateur connecté</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {onlineUsers.map((u, i) => (
-                  <motion.div
-                    key={`${u.email}-${i}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex items-center justify-between rounded-lg bg-muted/30 p-3"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-2 w-2">
+                  <motion.div key={`${u.email}-${i}`} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+                    className="flex items-center justify-between rounded-lg bg-muted/30 p-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/40" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
                       </span>
-                      <span className="text-sm font-medium">{u.email}</span>
+                      <span className="text-[11px] font-medium truncate">{u.email}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="rounded bg-muted px-1.5 py-0.5">{u.page}</span>
-                      <span>{new Date(u.joined_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground shrink-0">
+                      <span className="rounded bg-muted px-1 py-0.5">{u.page}</span>
                     </div>
                   </motion.div>
                 ))}
@@ -967,88 +892,80 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
 
         {/* ═══ USERS TAB ═══ */}
         <TabsContent value="users">
-          <div className="mb-4 flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Rechercher un email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="max-w-sm" />
-            <span className="text-xs text-muted-foreground">{filteredUsers.length} utilisateur(s)</span>
+          <div className="mb-3 flex items-center gap-2">
+            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Input placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-8 text-xs" />
+            <span className="text-[10px] text-muted-foreground shrink-0">{filteredUsers.length}</span>
           </div>
-
           {loadingUsers ? (
-            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Loader2 className="h-3 w-3 animate-spin" /> Chargement...</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/50 text-left text-xs text-muted-foreground">
-                    <th className="pb-2 pr-4">Email</th>
-                    <th className="pb-2 pr-4">Statut</th>
-                    <th className="pb-2 pr-4">Plan</th>
-                    <th className="pb-2 pr-4">Expiration</th>
-                    <th className="pb-2">Inscription</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((u, i) => (
-                    <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                      className="border-b border-border/20 transition-colors hover:bg-muted/30">
-                      <td className="py-2.5 pr-4 text-xs font-medium">{u.email}</td>
-                      <td className="py-2.5 pr-4">
-                        {u.is_premium ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
-                            <Crown className="h-3 w-3" /> Premium
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Free</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-4 text-xs text-muted-foreground">{u.plan}</td>
-                      <td className="py-2.5 pr-4 text-xs text-muted-foreground">
-                        {u.expires_at ? new Date(u.expires_at).toLocaleDateString("fr-FR") : "—"}
-                      </td>
-                      <td className="py-2.5 text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString("fr-FR")}</td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-1.5">
+              {filteredUsers.map((u, i) => (
+                <motion.div key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                  className="rounded-lg border border-border/20 bg-card/50 p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium truncate min-w-0">{u.email}</span>
+                    {u.is_premium ? (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[9px] font-semibold text-warning shrink-0">
+                        <Crown className="h-2.5 w-2.5" /> Pro
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground shrink-0">Free</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 text-[9px] text-muted-foreground">
+                    <span>{u.plan}</span>
+                    <span>•</span>
+                    <span>{new Date(u.created_at).toLocaleDateString("fr-FR")}</span>
+                    {u.expires_at && (
+                      <>
+                        <span>•</span>
+                        <span>Exp: {new Date(u.expires_at).toLocaleDateString("fr-FR")}</span>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
             </div>
           )}
         </TabsContent>
 
         {/* ═══ PREMIUM TAB ═══ */}
         <TabsContent value="premium">
-          <Card className="max-w-lg p-6">
-            <h3 className="mb-4 flex items-center gap-2 font-display font-semibold">
-              <Crown className="h-5 w-5 text-warning" /> Gestion Premium
+          <Card className="p-4">
+            <h3 className="mb-3 flex items-center gap-1.5 font-display text-sm font-semibold">
+              <Crown className="h-4 w-4 text-warning" /> Gestion Premium
             </h3>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Email utilisateur</label>
-                <Input type="email" placeholder="user@example.com" value={premiumEmail} onChange={(e) => setPremiumEmail(e.target.value)} />
+                <label className="mb-1 block text-[10px] text-muted-foreground">Email</label>
+                <Input type="email" placeholder="user@example.com" value={premiumEmail} onChange={(e) => setPremiumEmail(e.target.value)} className="h-9 text-xs" />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Type d'abonnement</label>
-                <div className="flex gap-2">
-                  <Button variant={premiumTier === "premium" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium")}>Premium</Button>
-                  <Button variant={premiumTier === "premium_plus" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium_plus")} className="gap-1">
-                    <Crown className="h-3 w-3" /> Premium+
+                <label className="mb-1 block text-[10px] text-muted-foreground">Type</label>
+                <div className="flex gap-1.5">
+                  <Button variant={premiumTier === "premium" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium")} className="text-[11px] h-7">Premium</Button>
+                  <Button variant={premiumTier === "premium_plus" ? "default" : "outline"} size="sm" onClick={() => setPremiumTier("premium_plus")} className="text-[11px] h-7 gap-1">
+                    <Crown className="h-2.5 w-2.5" /> Plus
                   </Button>
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Durée</label>
-                <div className="flex gap-2">
-                  <Button variant={premiumDuration === "weekly" ? "default" : "outline"} size="sm" onClick={() => setPremiumDuration("weekly")}>7 jours</Button>
-                  <Button variant={premiumDuration === "monthly" ? "default" : "outline"} size="sm" onClick={() => setPremiumDuration("monthly")}>30 jours</Button>
+                <label className="mb-1 block text-[10px] text-muted-foreground">Durée</label>
+                <div className="flex gap-1.5">
+                  <Button variant={premiumDuration === "weekly" ? "default" : "outline"} size="sm" onClick={() => setPremiumDuration("weekly")} className="text-[11px] h-7">7j</Button>
+                  <Button variant={premiumDuration === "monthly" ? "default" : "outline"} size="sm" onClick={() => setPremiumDuration("monthly")} className="text-[11px] h-7">30j</Button>
                 </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button onClick={handleActivatePremium} disabled={actionLoading || !premiumEmail.trim()} className="gap-1">
-                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                  Activer Premium
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleActivatePremium} disabled={actionLoading || !premiumEmail.trim()} className="gap-1 text-xs h-8 flex-1">
+                  {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                  Activer
                 </Button>
-                <Button variant="destructive" onClick={handleDeactivatePremium} disabled={actionLoading || !premiumEmail.trim()} className="gap-1">
-                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-                  Retirer Premium
+                <Button variant="destructive" onClick={handleDeactivatePremium} disabled={actionLoading || !premiumEmail.trim()} className="gap-1 text-xs h-8 flex-1">
+                  {actionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                  Retirer
                 </Button>
               </div>
             </div>
@@ -1057,69 +974,59 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
 
         {/* ═══ RESULTS TAB ═══ */}
         <TabsContent value="results">
-          <div className="mb-4 flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Rechercher un match..." value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} className="max-w-sm" />
-            <Button variant="outline" size="sm" onClick={fetchResults} className="gap-1">
-              <RefreshCw className="h-3 w-3" /> Rafraîchir
+          <div className="mb-3 flex items-center gap-2">
+            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Input placeholder="Rechercher..." value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} className="h-8 text-xs" />
+            <Button variant="outline" size="sm" onClick={fetchResults} className="h-8 shrink-0">
+              <RefreshCw className="h-3 w-3" />
             </Button>
           </div>
-
           {loadingResults ? (
-            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Loader2 className="h-3 w-3 animate-spin" /> Chargement...</div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {matchResults
                 .filter((m) => {
                   const q = resultSearch.toLowerCase();
                   return !q || m.home_team.toLowerCase().includes(q) || m.away_team.toLowerCase().includes(q) || m.league_name.toLowerCase().includes(q);
                 })
                 .map((m, i) => (
-                  <motion.div key={m.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
-                    className="flex flex-col gap-2 rounded-lg border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <span>{m.home_team} vs {m.away_team}</span>
-                        {m.result === "win" && <Trophy className="h-3.5 w-3.5 text-success" />}
-                        {m.result === "loss" && <Ban className="h-3.5 w-3.5 text-destructive" />}
+                  <motion.div key={m.id} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                    className="rounded-lg border border-border/30 bg-card/50 p-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1 text-[11px] font-medium">
+                          <span className="truncate">{m.home_team} vs {m.away_team}</span>
+                          {m.result === "win" && <Trophy className="h-3 w-3 text-success shrink-0" />}
+                          {m.result === "loss" && <Ban className="h-3 w-3 text-destructive shrink-0" />}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-1.5 mt-0.5 text-[9px] text-muted-foreground">
+                          <span className="truncate">{m.league_name}</span>
+                          <span>•</span>
+                          <span>{new Date(m.kickoff).toLocaleDateString("fr-FR")}</span>
+                          {m.actual_home_score !== null && (
+                            <>
+                              <span>•</span>
+                              <span>{m.actual_home_score}-{m.actual_away_score}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>{m.league_name}</span>
-                        <span>•</span>
-                        <span>{new Date(m.kickoff).toLocaleDateString("fr-FR")}</span>
-                        <span>•</span>
-                        <span>Prédit: {m.predicted_winner}</span>
-                        {m.actual_home_score !== null && (
-                          <>
-                            <span>•</span>
-                            <span>Score: {m.actual_home_score}-{m.actual_away_score}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                        m.result === "win" ? "bg-success/15 text-success" :
-                        m.result === "loss" ? "bg-destructive/15 text-destructive" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
-                        {m.result || "pending"}
-                      </span>
                       <Select defaultValue={m.result || "pending"} onValueChange={(val) => handleUpdateResult(m.id, val)} disabled={actionLoading}>
-                        <SelectTrigger className="h-7 w-24 text-[11px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-6 w-20 text-[10px] shrink-0"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="win">✅ Win</SelectItem>
                           <SelectItem value="loss">❌ Loss</SelectItem>
-                          <SelectItem value="pending">⏳ Pending</SelectItem>
+                          <SelectItem value="pending">⏳</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </motion.div>
                 ))}
               {matchResults.length === 0 && (
-                <div className="py-8 text-center text-muted-foreground">
-                  <FileEdit className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                  <p className="text-sm">Aucun résultat trouvé</p>
+                <div className="py-6 text-center text-muted-foreground">
+                  <FileEdit className="mx-auto mb-1 h-6 w-6 opacity-50" />
+                  <p className="text-xs">Aucun résultat</p>
                 </div>
               )}
             </div>
@@ -1128,35 +1035,31 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
 
         {/* ═══ PROMO TAB ═══ */}
         <TabsContent value="promo">
-          <Card className="max-w-lg p-6">
-            <h3 className="mb-4 flex items-center gap-2 font-display font-semibold">
-              <Megaphone className="h-5 w-5 text-primary" /> Notification Promo Push
+          <Card className="p-4">
+            <h3 className="mb-3 flex items-center gap-1.5 font-display text-sm font-semibold">
+              <Megaphone className="h-4 w-4 text-primary" /> Promo Push
             </h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Envoie une notification promo en temps réel à <span className="font-bold text-foreground">tous les utilisateurs actuellement connectés</span>.
-            </p>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Message</label>
-                <Input value={promoMessage} onChange={(e) => setPromoMessage(e.target.value)} placeholder="Message promo..." />
+                <label className="mb-1 block text-[10px] text-muted-foreground">Message</label>
+                <Input value={promoMessage} onChange={(e) => setPromoMessage(e.target.value)} className="h-9 text-xs" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">Réduction (%)</label>
-                  <Input type="number" min={1} max={50} value={promoDiscount} onChange={(e) => setPromoDiscount(Number(e.target.value))} />
+                  <label className="mb-1 block text-[10px] text-muted-foreground">Réduction (%)</label>
+                  <Input type="number" min={1} max={50} value={promoDiscount} onChange={(e) => setPromoDiscount(Number(e.target.value))} className="h-8 text-xs" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">Durée (min)</label>
-                  <Input type="number" min={1} max={60} value={promoDuration} onChange={(e) => setPromoDuration(Number(e.target.value))} />
+                  <label className="mb-1 block text-[10px] text-muted-foreground">Durée (min)</label>
+                  <Input type="number" min={1} max={60} value={promoDuration} onChange={(e) => setPromoDuration(Number(e.target.value))} className="h-8 text-xs" />
                 </div>
               </div>
-              <div className="rounded-lg bg-muted/30 p-3 text-[11px] text-muted-foreground">
-                <p>📢 Aperçu : <span className="font-semibold text-foreground">-{promoDiscount}%</span> pendant <span className="font-semibold text-foreground">{promoDuration} min</span></p>
-                <p className="mt-1 italic">"{promoMessage}"</p>
+              <div className="rounded-lg bg-muted/30 p-2 text-[10px] text-muted-foreground">
+                <p>📢 <span className="font-semibold text-foreground">-{promoDiscount}%</span> pendant <span className="font-semibold text-foreground">{promoDuration}min</span></p>
               </div>
-              <Button onClick={handleSendPromo} disabled={promoSending || !promoMessage.trim()} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
-                {promoSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Envoyer à tous les utilisateurs
+              <Button onClick={handleSendPromo} disabled={promoSending || !promoMessage.trim()} className="w-full gap-1.5 text-xs h-9 bg-emerald-600 hover:bg-emerald-700">
+                {promoSending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                Envoyer
               </Button>
             </div>
           </Card>
@@ -1165,29 +1068,31 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         {/* ═══ LOGS TAB ═══ */}
         <TabsContent value="logs">
           {loadingStats ? (
-            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs"><Loader2 className="h-3 w-3 animate-spin" /> Chargement...</div>
           ) : stats?.logs && stats.logs.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {stats.logs.map((log: any, i: number) => (
-                <motion.div key={log.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
-                  className="glass-card flex items-start gap-3 p-3">
-                  <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
-                    log.action.includes("activate") ? "bg-success" : log.action.includes("deactivate") ? "bg-destructive" : log.action.includes("audit") ? "bg-primary" : "bg-secondary"
-                  }`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-semibold">{log.action}</span>
-                      <span className="text-[10px] text-muted-foreground">{new Date(log.created_at).toLocaleString("fr-FR")}</span>
+                <motion.div key={log.id} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                  className="rounded-lg border border-border/20 bg-card/50 p-2.5">
+                  <div className="flex items-start gap-2">
+                    <div className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                      log.action.includes("activate") ? "bg-success" : log.action.includes("deactivate") ? "bg-destructive" : log.action.includes("audit") ? "bg-primary" : "bg-secondary"
+                    }`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-semibold">{log.action}</span>
+                        <span className="text-[9px] text-muted-foreground">{new Date(log.created_at).toLocaleString("fr-FR")}</span>
+                      </div>
+                      <p className="text-[9px] text-muted-foreground mt-0.5 break-all">{log.admin_email}</p>
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{log.admin_email} • {JSON.stringify(log.details)}</p>
                   </div>
                 </motion.div>
               ))}
             </div>
           ) : (
-            <div className="py-8 text-center text-muted-foreground">
-              <AlertCircle className="mx-auto mb-2 h-8 w-8 opacity-50" />
-              <p className="text-sm">Aucun log pour le moment</p>
+            <div className="py-6 text-center text-muted-foreground">
+              <AlertCircle className="mx-auto mb-1 h-6 w-6 opacity-50" />
+              <p className="text-xs">Aucun log</p>
             </div>
           )}
         </TabsContent>
@@ -1198,15 +1103,15 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-      <Card className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={`rounded-lg bg-muted p-2 ${color}`}>
-            <Icon className="h-5 w-5" />
+    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+      <Card className="p-2.5">
+        <div className="flex items-center gap-2">
+          <div className={`rounded-lg bg-muted p-1.5 shrink-0 ${color}`}>
+            <Icon className="h-3.5 w-3.5" />
           </div>
-          <div>
-            <p className="font-display text-2xl font-bold">{value}</p>
-            <p className="text-xs text-muted-foreground">{label}</p>
+          <div className="min-w-0">
+            <p className="font-display text-lg font-bold leading-tight">{value}</p>
+            <p className="text-[9px] text-muted-foreground leading-tight truncate">{label}</p>
           </div>
         </div>
       </Card>

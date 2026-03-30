@@ -364,6 +364,50 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── FORCE FETCH MATCHES (bypass daily limit) ─────────────
+    if (action === "force-fetch-matches") {
+      console.log("[ADMIN] Force fetch matches triggered by", user.email);
+
+      // Reset daily counter to allow fetching
+      await supabase
+        .from("cache_metadata")
+        .upsert({
+          id: "api_football",
+          request_count_today: 0,
+          last_reset_date: new Date().toISOString().split("T")[0],
+        }, { onConflict: "id" });
+
+      // Invoke fetch-matches edge function
+      const fetchRes = await fetch(
+        `${supabaseUrl}/functions/v1/fetch-matches`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ force: true }),
+        }
+      );
+
+      const fetchResult = await fetchRes.json();
+
+      await supabase.from("admin_logs").insert({
+        action: "force_fetch_matches",
+        details: { result: fetchResult },
+        admin_email: user.email!,
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: "Fetch de matchs forcé avec succès",
+        fetchResult,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
