@@ -210,32 +210,38 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     let isPremium = false;
     let isPremiumPlus = false;
 
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ")) {
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
-      });
       const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+      const authClient = createClient(supabaseUrl, serviceKey, {
+        auth: { persistSession: false },
+      });
+      const { data: userData, error: userError } = await authClient.auth.getUser(token);
 
-      if (!claimsError && claimsData?.claims) {
-        const userId = claimsData.claims.sub as string;
-        const userEmail = claimsData.claims.email as string | undefined;
+      if (!userError && userData.user) {
+        const userId = userData.user.id;
+        const userEmail = userData.user.email;
         const adminClient = createClient(supabaseUrl, serviceKey);
 
         const { data: sub } = await adminClient
           .from("subscriptions")
-          .select("is_premium, expires_at")
+          .select("is_premium, expires_at, plan")
           .eq("user_id", userId)
           .maybeSingle();
 
-        if (sub?.is_premium && (!sub.expires_at || new Date(sub.expires_at) > new Date())) {
+        const hasActiveManualSubscription = Boolean(
+          sub?.is_premium && (!sub.expires_at || new Date(sub.expires_at) > new Date())
+        );
+
+        if (hasActiveManualSubscription) {
           isPremium = true;
+          if (String(sub?.plan ?? "").toLowerCase().includes("premium_plus")) {
+            isPremiumPlus = true;
+          }
         }
 
         const { data: roleData } = await adminClient
