@@ -633,17 +633,33 @@ interface APIFootballFixture {
 
 function getAPIFootballHeaders(): Record<string, string> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY") || "";
-  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" };
+  // Support both RapidAPI keys and direct API-Sports keys
+  if (apiKey.includes("msh") || apiKey.length > 40) {
+    // Looks like a RapidAPI key
+    return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" };
+  }
+  // Direct API-Sports key
+  return { "x-apisports-key": apiKey };
+}
+
+function getAPIFootballBase(): string {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY") || "";
+  return (apiKey.includes("msh") || apiKey.length > 40) ? APIFOOTBALL_RAPID : APIFOOTBALL_DIRECT;
 }
 
 async function fetchAPIFootballFixtures(dateISO: string): Promise<APIFootballFixture[]> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) { console.log("[API-Football] No API key configured"); return []; }
+  const base = getAPIFootballBase();
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures?date=${dateISO}&status=NS`, {
+    const res = await fetch(`${base}/fixtures?date=${dateISO}&status=NS`, {
       headers: getAPIFootballHeaders(),
     });
-    if (!res.ok) { console.error(`[API-Football] Fixtures error: ${res.status}`); return []; }
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[API-Football] Fixtures error ${res.status}: ${body.slice(0, 200)}`);
+      return [];
+    }
     const json = await res.json();
     console.log(`[API-Football] Found ${json.response?.length || 0} fixtures for ${dateISO}`);
     return json.response || [];
