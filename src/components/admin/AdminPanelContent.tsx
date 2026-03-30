@@ -412,6 +412,8 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
 
   useEffect(() => { fetchV2Stats(); }, [fetchV2Stats]);
 
+  const filteredUsers = users.filter((u) => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
+
 
   return (
     <div className={embedded ? "mt-3" : ""}>
