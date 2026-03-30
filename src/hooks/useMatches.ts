@@ -162,6 +162,12 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     consensus_passed: false,
     league_tier: 2,
     context_penalties_total: 0,
+    home_lineup: null,
+    away_lineup: null,
+    odds: null,
+    match_stats: null,
+    h2h_data: null,
+    data_sources: [],
     is_top_pick: false,
   },
 ];
