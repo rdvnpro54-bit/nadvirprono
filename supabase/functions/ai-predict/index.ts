@@ -324,9 +324,9 @@ async function getDynamicThreshold(
     const totalPicks = data.reduce((s: number, r: any) => s + (r.total_predictions || 0), 0);
     if (totalPicks < 5) return defaultThreshold;
     const avgWinrate = data.reduce((s: number, r: any) => s + (r.winrate || 0) * (r.total_predictions || 0), 0) / totalPicks;
-    if (avgWinrate < 45) return { minConfidence: 75, source: `league-low-${Math.round(avgWinrate)}%` };
-    if (avgWinrate <= 55) return { minConfidence: 68, source: `league-mid-${Math.round(avgWinrate)}%` };
-    return { minConfidence: 62, source: `league-high-${Math.round(avgWinrate)}%` };
+    if (avgWinrate < 45) return { minConfidence: 78, source: `league-low-${Math.round(avgWinrate)}%` };
+    if (avgWinrate <= 55) return { minConfidence: 72, source: `league-mid-${Math.round(avgWinrate)}%` };
+    return { minConfidence: 65, source: `league-high-${Math.round(avgWinrate)}%` };
   } catch {
     return defaultThreshold;
   }
