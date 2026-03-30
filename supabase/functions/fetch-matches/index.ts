@@ -974,13 +974,13 @@ async function enrichMatchesWithAPIs(
   let apiFootballCalls = 0;
   let sofaRapidCalls = 0;
   const MAX_APIFOOTBALL_ENRICHMENTS = 20;
-  const MAX_SOFA_RAPID_ENRICHMENTS = 30;
+  const MAX_SOFA_RAPID_ENRICHMENTS = 50; // increased for better coverage
 
   for (const row of rows) {
     const key = `${row.home_team.toLowerCase().trim()}_${row.away_team.toLowerCase().trim()}`;
     const sources: string[] = [...(row.data_sources || [])];
 
-    // A) SportMonks (football only, included data)
+    // A) SportMonks (football only, included data from accessible leagues)
     if (row.sport === "football") {
       const smFixture = sportMonksMap.get(key);
       if (smFixture) {
@@ -1012,24 +1012,27 @@ async function enrichMatchesWithAPIs(
       }
     }
 
-    // C) SofaScore RapidAPI (ALL sports — lineups, stats, odds)
+    // C) SofaScore RapidAPI (ALL sports — lineups, stats, odds, H2H)
     const sofaEvt = sofaRapidMap.get(key);
     if (sofaEvt && sofaRapidCalls < MAX_SOFA_RAPID_ENRICHMENTS) {
       const evtId = sofaEvt.id;
       const needLineups = !row.home_lineup;
       const needStats = !row.match_stats;
       const needOdds = !row.odds;
+      const needH2H = !row.h2h_data;
 
-      const [lineups, stats, odds] = await Promise.all([
+      const [lineups, stats, odds, h2h] = await Promise.all([
         needLineups ? fetchSofaScoreRapidLineups(evtId) : Promise.resolve(null),
         needStats ? fetchSofaScoreRapidStats(evtId) : Promise.resolve(null),
         needOdds ? fetchSofaScoreRapidOdds(evtId) : Promise.resolve(null),
+        needH2H ? fetchSofaScoreRapidH2H(evtId) : Promise.resolve(null),
       ]);
-      sofaRapidCalls += (needLineups ? 1 : 0) + (needStats ? 1 : 0) + (needOdds ? 1 : 0);
+      sofaRapidCalls += (needLineups ? 1 : 0) + (needStats ? 1 : 0) + (needOdds ? 1 : 0) + (needH2H ? 1 : 0);
 
       if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
       if (stats && !row.match_stats) row.match_stats = stats;
       if (odds && !row.odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
+      if (h2h && !row.h2h_data) row.h2h_data = h2h;
       if (!sources.includes("sofascore-rapid")) sources.push("sofascore-rapid");
     }
 
