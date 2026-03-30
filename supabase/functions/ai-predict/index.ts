@@ -608,7 +608,7 @@ function generatePRONOSIAAnalysis(
 
     analyses.push(
       `Net rating et pace de jeu favorisent ${fav}. Impact B2B et altitude évalués.`,
-      isSafe ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
+      (isSafe || isModere) ? marketLine : `Probabilité calibrée à ${maxProb}% — variance du basketball prise en compte.`,
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
