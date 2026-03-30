@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type CachedMatch = Tables<"cached_matches">;
-export type MatchWithFlags = CachedMatch & { is_top_pick?: boolean };
+export type MatchWithFlags = CachedMatch & { is_top_pick?: boolean; is_elite5?: boolean };
 
 const CACHE_KEY = "pronosia_matches_cache_v4";
 const CACHE_TS_KEY = "pronosia_matches_ts_v4";

@@ -5,6 +5,7 @@ import { MatchCard } from "@/components/matches/MatchCard";
 import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
 import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain, Flame } from "lucide-react";
 import { FilteredMatchesSection } from "@/components/matches/FilteredMatchesSection";
+import { Elite5Section } from "@/components/matches/Elite5Section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -90,7 +91,7 @@ const staggerItem = {
 export default function Matches() {
   const { data: matches, isLoading, error, refetch, dataUpdatedAt } = useMatches();
   const { data: triggerData } = useTriggerFetch();
-  const { isPremium, user } = useAuth();
+  const { isPremium, isPremiumPlus, isAdmin, user } = useAuth();
 
   const [sport, setSport] = useState("all");
   const [confidence, setConfidence] = useState<Confidence | "all">("all");
@@ -219,6 +220,16 @@ export default function Matches() {
   const hasMore = filtered.length > visibleCount;
   const freeMatches = filtered.filter(m => m.is_free).sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
 
+  // Elite 5: top 5 highest-confidence matches tagged by server (Premium+ only)
+  const elite5Matches = useMemo(() => {
+    if (!isPremiumPlus && !isAdmin) return [];
+    if (!matches) return [];
+    return matches
+      .filter(m => m.is_elite5 === true)
+      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0))
+      .slice(0, 5);
+  }, [matches, isPremiumPlus, isAdmin]);
+
   return (
     <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Navbar />
@@ -339,6 +350,11 @@ export default function Matches() {
         >
           <LiveUpdateBanner lastUpdate={dataUpdatedAt} matchCount={matches?.length || 0} />
         </motion.div>
+
+        {/* Elite 5 — Premium+ & Admin only */}
+        {!isLoading && !error && elite5Matches.length > 0 && (
+          <Elite5Section matches={elite5Matches} />
+        )}
 
         {/* Search */}
         <motion.div
