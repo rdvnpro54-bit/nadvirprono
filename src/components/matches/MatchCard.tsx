@@ -310,6 +310,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                   </span>
                 )}
                 {hasAnomaly && (
+                  <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className={cn(
