@@ -424,7 +424,7 @@ export default function Matches() {
               );
             })}
           </div>
-          <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5">
+          <div className="flex gap-0.5 rounded-xl border border-[rgba(255,215,0,0.08)] bg-[rgba(255,255,255,0.02)] p-0.5 backdrop-blur-lg">
             {confidenceFilters.map(f => (
               <motion.button
                 key={f.value}
