@@ -127,6 +127,8 @@ export type Database = {
       }
       cached_matches: {
         Row: {
+          ai_hidden: boolean
+          ai_hidden_reason: string | null
           ai_score: number
           anomaly_label: string | null
           anomaly_reason: string | null
@@ -174,6 +176,8 @@ export type Database = {
           validation_score: number | null
         }
         Insert: {
+          ai_hidden?: boolean
+          ai_hidden_reason?: string | null
           ai_score?: number
           anomaly_label?: string | null
           anomaly_reason?: string | null
@@ -221,6 +225,8 @@ export type Database = {
           validation_score?: number | null
         }
         Update: {
+          ai_hidden?: boolean
+          ai_hidden_reason?: string | null
           ai_score?: number
           anomaly_label?: string | null
           anomaly_reason?: string | null

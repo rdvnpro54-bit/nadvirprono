@@ -969,6 +969,54 @@ async function fetchTank01MLBScores(dateCompact: string): Promise<Map<string, an
   } catch (e) { console.error("[Tank01-MLB] error:", e); return new Map(); }
 }
 
+// ─── ALLSPORTSAPI2 — ENRICHMENT: standings, team stats ──────────────
+const ALLSPORTS_BASE = "https://allsportsapi2.p.rapidapi.com/api";
+
+function getAllSportsHeaders(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "allsportsapi2.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+// Tournament IDs for major leagues
+const ALLSPORTS_TOURNAMENTS: Record<string, { tournamentId: number; seasonId: number }> = {
+  "premier league": { tournamentId: 17, seasonId: 76986 },
+  "la liga": { tournamentId: 8, seasonId: 76851 },
+  "bundesliga": { tournamentId: 35, seasonId: 76910 },
+  "serie a": { tournamentId: 23, seasonId: 76834 },
+  "ligue 1": { tournamentId: 34, seasonId: 76900 },
+};
+
+async function fetchAllSportsStandings(tournamentId: number, seasonId: number): Promise<Map<string, any>> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return new Map();
+  try {
+    const res = await fetch(`${ALLSPORTS_BASE}/tournament/${tournamentId}/season/${seasonId}/standings/total`, {
+      headers: getAllSportsHeaders(),
+    });
+    if (!res.ok) { console.error(`[AllSports] standings error: ${res.status}`); return new Map(); }
+    const json = await res.json();
+    const standings = json.standings?.[0]?.rows || [];
+    const map = new Map<string, any>();
+    for (const row of standings) {
+      const teamName = (row.team?.name || "").toLowerCase().trim();
+      if (teamName) {
+        map.set(teamName, {
+          position: row.position,
+          matches: row.matches,
+          wins: row.wins,
+          draws: row.draws,
+          losses: row.losses,
+          goalsFor: row.scoresFor,
+          goalsAgainst: row.scoresAgainst,
+          points: row.points,
+        });
+      }
+    }
+    console.log(`[AllSports] Standings for tournament ${tournamentId}: ${map.size} teams`);
+    return map;
+  } catch (e) { console.error("[AllSports] standings error:", e); return new Map(); }
+}
+
 // ─── NHL API5 — ENRICHMENT: rosters and player stats ────────────────
 const NHL_API5_BASE = "https://nhl-api5.p.rapidapi.com";
 
@@ -1047,7 +1095,12 @@ async function enrichMatchesWithAPIs(
   const dateCompact = dateISO.replace(/-/g, "");
 
   // 1. Fetch all enrichment data sources in parallel
-  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData] = await Promise.all([
+  const allSportsStandingsPromises: Promise<Map<string, any>>[] = [];
+  for (const [, cfg] of Object.entries(ALLSPORTS_TOURNAMENTS)) {
+    allSportsStandingsPromises.push(fetchAllSportsStandings(cfg.tournamentId, cfg.seasonId));
+  }
+
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData, ...allSportsResults] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
     fetchSofaScoreRapidEvents(dateISO, "football"),
@@ -1055,7 +1108,15 @@ async function enrichMatchesWithAPIs(
     fetchSofaScoreRapidEvents(dateISO, "tennis"),
     fetchTank01MLBScores(dateCompact),
     fetchNHLSchedule(dateISO),
+    ...allSportsStandingsPromises,
   ]);
+
+  // Merge all AllSports standings into one map
+  const allSportsStandings = new Map<string, any>();
+  for (const standingsMap of allSportsResults) {
+    for (const [k, v] of standingsMap) allSportsStandings.set(k, v);
+  }
+  console.log(`[AllSports] Total standings: ${allSportsStandings.size} teams`);
 
   // Build lookup maps
   const apiFootballMap = new Map<string, APIFootballFixture>();
@@ -1233,10 +1294,36 @@ async function enrichMatchesWithAPIs(
       } catch { /* skip */ }
     }
 
+    // G) AllSportsAPI2 — standings enrichment for football
+    if (row.sport === "football") {
+      const homeKey = row.home_team.toLowerCase().trim();
+      const awayKey = row.away_team.toLowerCase().trim();
+      const homeStanding = allSportsStandings.get(homeKey);
+      const awayStanding = allSportsStandings.get(awayKey);
+      if (homeStanding || awayStanding) {
+        row.match_stats = {
+          ...(row.match_stats || {}),
+          standings: { home: homeStanding || null, away: awayStanding || null },
+        };
+        if (!sources.includes("allsportsapi2")) sources.push("allsportsapi2");
+      }
+    }
+
     row.data_sources = sources;
+
+    // H) Determine ai_hidden: hide if no real data enrichment was found
+    const hasRealData = sources.length > 1 || row.match_stats || row.h2h_data || row.odds || row.home_lineup;
+    const hasAIAnalysis = row.pred_analysis && !row.pred_analysis.startsWith("🤖 Analyse basée sur le modèle statistique");
+    if (!hasRealData && !hasAIAnalysis) {
+      row.ai_hidden = true;
+      row.ai_hidden_reason = "Données insuffisantes — aucune stat, cote, ou analyse IA disponible";
+    } else {
+      row.ai_hidden = false;
+      row.ai_hidden_reason = null;
+    }
   }
 
-  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}`);
+  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}, AllSports: ${allSportsStandings.size}`);
 }
 
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
@@ -1262,6 +1349,8 @@ function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction)
     odds: null, match_stats: null, h2h_data: null,
     odds_updated_at: null,
     data_sources: [m.source],
+    ai_hidden: false,
+    ai_hidden_reason: null,
   };
 }
 

@@ -408,6 +408,49 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── LIST HIDDEN MATCHES ──────────────────────────────────────
+    if (action === "list-hidden") {
+      const { data: hidden } = await supabase
+        .from("cached_matches")
+        .select("id, fixture_id, home_team, away_team, league_name, sport, kickoff, ai_score, ai_hidden, ai_hidden_reason, data_sources, pred_confidence")
+        .eq("ai_hidden", true)
+        .order("kickoff", { ascending: true });
+
+      return new Response(JSON.stringify({ matches: hidden || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── TOGGLE MATCH VISIBILITY ──────────────────────────────────
+    if (action === "toggle-visibility") {
+      const { fixture_id, visible } = body;
+      if (!fixture_id) {
+        return new Response(JSON.stringify({ error: "fixture_id required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error: updateErr } = await supabase
+        .from("cached_matches")
+        .update({
+          ai_hidden: !visible,
+          ai_hidden_reason: visible ? null : "Masqué par l'IA — données insuffisantes",
+        })
+        .eq("fixture_id", fixture_id);
+
+      if (updateErr) throw updateErr;
+
+      await supabase.from("admin_logs").insert({
+        action: visible ? "show_match" : "hide_match",
+        details: { fixture_id },
+        admin_email: user.email!,
+      });
+
+      return new Response(JSON.stringify({ success: true, message: visible ? "Match affiché" : "Match masqué" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
