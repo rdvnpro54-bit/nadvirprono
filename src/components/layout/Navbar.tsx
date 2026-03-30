@@ -23,7 +23,7 @@ const mobileNav = [
 
 export function Navbar() {
   const location = useLocation();
-  const { user, isPremium, isAdmin } = useAuth();
+  const { user, isPremium, isPremiumPlus, isAdmin } = useAuth();
 
   return (
     <>
@@ -97,7 +97,7 @@ export function Navbar() {
                   </Link>
                 ) : isPremium ? (
                   <span className="rounded-full badge-elite px-2.5 py-0.5 text-[10px] font-bold">
-                    PREMIUM
+                    {isPremiumPlus ? "PREMIUM+" : "PREMIUM"}
                   </span>
                 ) : null}
                 <Link to="/compte">
