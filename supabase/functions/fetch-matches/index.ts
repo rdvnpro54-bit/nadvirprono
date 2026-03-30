@@ -903,10 +903,28 @@ async function fetchSofaScoreRapidOdds(eventId: number): Promise<any | null> {
     const json = await res.json();
     const markets = json.markets || [];
     if (markets.length === 0) return null;
-    return markets.slice(0, 8).map((m: any) => ({
+    return markets.slice(0, 10).map((m: any) => ({
       market: m.marketName || m.sourceId, choices: (m.choices || []).map((c: any) => ({
         name: c.name, odds: c.fractionalValue || c.sourceId, change: c.change,
       })),
+    }));
+  } catch { return null; }
+}
+
+async function fetchSofaScoreRapidH2H(eventId: number): Promise<any[] | null> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${SOFASCORE_RAPID_BASE}/event/${eventId}/h2h/events`, {
+      headers: getSofaScoreRapidHeaders(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const events = json.events || [];
+    return events.slice(0, 5).map((e: any) => ({
+      date: e.startTimestamp ? new Date(e.startTimestamp * 1000).toISOString() : null,
+      home: e.homeTeam?.name, away: e.awayTeam?.name,
+      homeGoals: e.homeScore?.current, awayGoals: e.awayScore?.current,
     }));
   } catch { return null; }
 }
