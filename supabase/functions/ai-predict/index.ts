@@ -120,12 +120,12 @@ BOXING/MMA: Weight: Styles matchup 40%, Recent KO/sub rate 25%, Ring rust 20%, R
 - Raw confidence > 90% → display as raw minus 12%
 - NEVER display confidence above 88%
 
-═══ VALUE SCORING (v3.1 — raised minimum) ═══
+═══ VALUE SCORING (v3.2 — raised minimum for loss prevention) ═══
 Value = (AI_Probability / 100 × estimated_odds) - 1
-- Value < 0.08 → DO NOT SHOW THIS PICK (raised from 0.05)
-- Value 0.08-0.15 → Low Value (🟡)
-- Value 0.15-0.25 → Good Value (🟢)
-- Value > 0.25 → High Value (🔥)
+- Value < 0.10 → DO NOT SHOW THIS PICK (raised from 0.08)
+- Value 0.10-0.18 → Low Value (🟡)
+- Value 0.18-0.28 → Good Value (🟢)
+- Value > 0.28 → High Value (🔥)
 
 ═══ ODDS SWEET SPOT (P7.2) ═══
 Odds 1.65–2.40 → value weight ×1.2 (highest ROI bracket)
