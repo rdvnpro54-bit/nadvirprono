@@ -143,6 +143,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
   const anomalyScore = (match as any).anomaly_score || 0;
   const anomalyLabel = (match as any).anomaly_label as string | null;
   const anomalyReason = (match as any).anomaly_reason as string | null;
+  const valueInfo = computeValueInfo(match);
 
   const isFav = favorites.some(f => f.fixture_id === match.fixture_id);
   const time = new Date(match.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
