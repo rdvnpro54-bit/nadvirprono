@@ -11,6 +11,7 @@ import { MissedMatchBanner } from "@/components/home/MissedMatchBanner";
 import { MatchesToAvoid } from "@/components/home/MatchesToAvoid";
 import { SportRankings } from "@/components/home/SportRankings";
 import { WinStreak } from "@/components/home/WinStreak";
+import { Elite5Preview } from "@/components/home/Elite5Preview";
 
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { useEliteWinrate } from "@/hooks/useResults";
@@ -299,6 +300,11 @@ const Index = () => {
 
       {/* TOP PICK DU JOUR */}
       <TopPickSection matches={matches} />
+
+      {/* Elite 5 du Jour — visible par tous, détails Premium+ */}
+      <ScrollSection>
+        <Elite5Preview matches={matches} />
+      </ScrollSection>
 
       {/* Missed match conversion banner */}
       <div className="container px-3 sm:px-4 py-3">
