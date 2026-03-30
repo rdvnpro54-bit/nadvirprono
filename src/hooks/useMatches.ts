@@ -102,6 +102,13 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     anomaly_score: 0,
     anomaly_label: null,
     anomaly_reason: null,
+    suspect_score: 0,
+    data_completeness_score: 100,
+    validation_score: 10,
+    streak_mode_level: "normal",
+    consensus_passed: false,
+    league_tier: 1,
+    context_penalties_total: 0,
     is_top_pick: false,
   },
   {
