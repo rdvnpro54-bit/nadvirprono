@@ -11,7 +11,9 @@ const SPORTSRC_BASE = "https://api.sportsrc.org/v2/";
 const SPORTSRC_KEY = "8d44848359af5c9ea4c13a11aa996811";
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports";
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const APIFOOTBALL_BASE = "https://api-football-v1.p.rapidapi.com/v3";
+// API-Football: try both RapidAPI and direct endpoints
+const APIFOOTBALL_RAPID = "https://api-football-v1.p.rapidapi.com/v3";
+const APIFOOTBALL_DIRECT = "https://v3.football.api-sports.com";
 const SPORTMONKS_BASE = "https://api.sportmonks.com/v3/football";
 
 // ─── UTILS ───────────────────────────────────────────────────────────
@@ -631,17 +633,33 @@ interface APIFootballFixture {
 
 function getAPIFootballHeaders(): Record<string, string> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY") || "";
-  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" };
+  // Support both RapidAPI keys and direct API-Sports keys
+  if (apiKey.includes("msh") || apiKey.length > 40) {
+    // Looks like a RapidAPI key
+    return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" };
+  }
+  // Direct API-Sports key
+  return { "x-apisports-key": apiKey };
+}
+
+function getAPIFootballBase(): string {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY") || "";
+  return (apiKey.includes("msh") || apiKey.length > 40) ? APIFOOTBALL_RAPID : APIFOOTBALL_DIRECT;
 }
 
 async function fetchAPIFootballFixtures(dateISO: string): Promise<APIFootballFixture[]> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) { console.log("[API-Football] No API key configured"); return []; }
+  const base = getAPIFootballBase();
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures?date=${dateISO}&status=NS`, {
+    const res = await fetch(`${base}/fixtures?date=${dateISO}&status=NS`, {
       headers: getAPIFootballHeaders(),
     });
-    if (!res.ok) { console.error(`[API-Football] Fixtures error: ${res.status}`); return []; }
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[API-Football] Fixtures error ${res.status}: ${body.slice(0, 200)}`);
+      return [];
+    }
     const json = await res.json();
     console.log(`[API-Football] Found ${json.response?.length || 0} fixtures for ${dateISO}`);
     return json.response || [];
@@ -652,7 +670,7 @@ async function fetchAPIFootballLineups(fixtureId: number): Promise<{ home: any[]
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/lineups?fixture=${fixtureId}`, {
+    const res = await fetch(`${getAPIFootballBase()}/fixtures/lineups?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -670,7 +688,7 @@ async function fetchAPIFootballOdds(fixtureId: number): Promise<any | null> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/odds?fixture=${fixtureId}`, {
+    const res = await fetch(`${getAPIFootballBase()}/odds?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -691,7 +709,7 @@ async function fetchAPIFootballH2H(homeId: number, awayId: number): Promise<any[
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
+    const res = await fetch(`${getAPIFootballBase()}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -707,7 +725,7 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/statistics?fixture=${fixtureId}`, {
+    const res = await fetch(`${getAPIFootballBase()}/fixtures/statistics?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -727,12 +745,16 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
 async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
   const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
   if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
+  // SportMonks accepts token as query param (api_token) — most reliable method
+  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics`;
+  console.log(`[SportMonks] Fetching: ${url.replace(apiKey, "***")}`);
   try {
-    const res = await fetch(
-      `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?include=participants;scores;odds;lineups;statistics`,
-      { headers: { Authorization: apiKey } },
-    );
-    if (!res.ok) { console.error(`[SportMonks] error: ${res.status} - ${await res.text()}`); return []; }
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`[SportMonks] error ${res.status}: ${errBody.slice(0, 300)}`);
+      return [];
+    }
     const json = await res.json();
     console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures for ${dateISO}`);
     return json.data || [];
@@ -914,7 +936,7 @@ async function enrichMatchesWithAPIs(
       if (smFixture) {
         const { lineups, odds, stats } = parseSportMonksEnrichment(smFixture);
         if (lineups) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
-        if (odds) row.odds = odds;
+        if (odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
         if (stats) row.match_stats = stats;
         if (!sources.includes("sportmonks")) sources.push("sportmonks");
       }
@@ -934,7 +956,7 @@ async function enrichMatchesWithAPIs(
         ]);
         apiFootballCalls += (needLineups ? 1 : 0) + (needOdds ? 1 : 0) + 1;
         if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
-        if (odds && !row.odds) row.odds = odds;
+        if (odds && !row.odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
         if (h2h) row.h2h_data = h2h;
         if (!sources.includes("api-football")) sources.push("api-football");
       }
@@ -957,7 +979,7 @@ async function enrichMatchesWithAPIs(
 
       if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
       if (stats && !row.match_stats) row.match_stats = stats;
-      if (odds && !row.odds) row.odds = odds;
+      if (odds && !row.odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
       if (!sources.includes("sofascore-rapid")) sources.push("sofascore-rapid");
     }
 
@@ -988,6 +1010,7 @@ function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction)
     ai_score: computePredictionAiScore(prediction),
     home_lineup: null, away_lineup: null,
     odds: null, match_stats: null, h2h_data: null,
+    odds_updated_at: null,
     data_sources: [m.source],
   };
 }

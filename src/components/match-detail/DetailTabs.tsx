@@ -1,8 +1,9 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ConfidenceBadge } from "@/components/matches/ConfidenceBadge";
-import { Brain, TrendingUp, Activity, BarChart3, CheckCircle, Target, Swords, Users } from "lucide-react";
+import { Brain, TrendingUp, Activity, BarChart3, CheckCircle, Target, Swords, Users, DollarSign } from "lucide-react";
 import { motion } from "framer-motion";
 import type { CachedMatch } from "@/hooks/useMatches";
+import { OddsTab } from "./OddsTab";
 
 interface DetailTabsProps {
   match: CachedMatch;
@@ -10,6 +11,7 @@ interface DetailTabsProps {
   confidence: number;
   keyFactors: string[];
   userCount: number;
+  isLive?: boolean;
 }
 
 function StatRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -147,12 +149,15 @@ function AnalysisTab({ match, keyFactors }: Pick<DetailTabsProps, "match" | "key
   );
 }
 
-export function DetailTabs({ match, predictionText, confidence, keyFactors, userCount }: DetailTabsProps) {
+export function DetailTabs({ match, predictionText, confidence, keyFactors, userCount, isLive = false }: DetailTabsProps) {
   return (
     <Tabs defaultValue="prediction" className="mt-4">
-      <TabsList className="w-full grid grid-cols-4 bg-card/80 border border-border/50 h-9">
+      <TabsList className="w-full grid grid-cols-5 bg-card/80 border border-border/50 h-9">
         <TabsTrigger value="prediction" className="text-[10px] sm:text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
           <Target className="h-3 w-3 mr-1 hidden sm:inline" /> Prono
+        </TabsTrigger>
+        <TabsTrigger value="odds" className="text-[10px] sm:text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+          <DollarSign className="h-3 w-3 mr-1 hidden sm:inline" /> Cotes
         </TabsTrigger>
         <TabsTrigger value="stats" className="text-[10px] sm:text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
           <Activity className="h-3 w-3 mr-1 hidden sm:inline" /> Stats
@@ -167,6 +172,9 @@ export function DetailTabs({ match, predictionText, confidence, keyFactors, user
 
       <TabsContent value="prediction">
         <PredictionTab match={match} predictionText={predictionText} confidence={confidence} />
+      </TabsContent>
+      <TabsContent value="odds">
+        <OddsTab match={match} isLive={isLive} />
       </TabsContent>
       <TabsContent value="stats">
         <StatsTab match={match} userCount={userCount} />

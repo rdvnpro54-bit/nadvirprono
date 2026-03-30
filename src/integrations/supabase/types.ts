@@ -155,6 +155,7 @@ export type Database = {
           league_tier: number | null
           match_stats: Json | null
           odds: Json | null
+          odds_updated_at: string | null
           pred_analysis: string | null
           pred_away_win: number
           pred_btts_prob: number
@@ -201,6 +202,7 @@ export type Database = {
           league_tier?: number | null
           match_stats?: Json | null
           odds?: Json | null
+          odds_updated_at?: string | null
           pred_analysis?: string | null
           pred_away_win?: number
           pred_btts_prob?: number
@@ -247,6 +249,7 @@ export type Database = {
           league_tier?: number | null
           match_stats?: Json | null
           odds?: Json | null
+          odds_updated_at?: string | null
           pred_analysis?: string | null
           pred_away_win?: number
           pred_btts_prob?: number

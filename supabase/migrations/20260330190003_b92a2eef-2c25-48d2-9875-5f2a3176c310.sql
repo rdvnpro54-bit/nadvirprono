@@ -1,0 +1,1 @@
+ALTER TABLE public.cached_matches ADD COLUMN IF NOT EXISTS odds_updated_at timestamp with time zone DEFAULT NULL;
