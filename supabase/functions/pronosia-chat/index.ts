@@ -139,14 +139,11 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
   let resp = `📊 **Performance Pronosia AI :**\n\n`;
   resp += `🎯 Winrate global : **${winrate}%** (${wins}W / ${total - wins}L sur ${total} picks)\n\n`;
   
-  const sports = [...new Set(resolved.map(r => r.sport))];
-  if (sports.length > 0) {
+  const sportStats = computeSportStats(resolved);
+  if (sportStats.length > 0) {
     resp += `**Par sport :**\n`;
-    for (const sport of sports) {
-      const sportRes = resolved.filter(r => r.sport === sport);
-      const sw = sportRes.filter(r => r.result === "win").length;
-      const wr = Math.round((sw / sportRes.length) * 100);
-      resp += `- ${sport === "football" ? "⚽" : sport === "basketball" ? "🏀" : sport === "hockey" ? "🏒" : sport === "baseball" ? "⚾" : "🎾"} ${sport} : ${wr}% (${sw}/${sportRes.length})\n`;
+    for (const s of sportStats) {
+      resp += `- ${getSportEmoji(s.sport)} ${s.sport} : **${s.winrate}%** (${s.wins}/${s.total})\n`;
     }
   }
   
@@ -156,7 +153,7 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
     if (cr.length > 0) {
       const cw = cr.filter(r => r.result === "win").length;
       const emoji = conf === "SAFE" ? "🟢" : conf === "MODÉRÉ" ? "🟡" : "🔴";
-      resp += `- ${emoji} ${conf} : ${Math.round((cw / cr.length) * 100)}% (${cw}/${cr.length})\n`;
+      resp += `- ${emoji} ${conf} : **${Math.round((cw / cr.length) * 100)}%** (${cw}/${cr.length})\n`;
     }
   }
   
@@ -165,6 +162,101 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
   resp += `\n📈 Derniers 10 picks : **${last10W}/10** (${Math.round(last10W * 10)}%)\n`;
   
   resp += `\n_Statistiques basées sur l'historique complet des prédictions._`;
+  return resp;
+}
+
+// ── Helper: compute per-sport stats ──
+interface SportStat { sport: string; wins: number; losses: number; total: number; winrate: number; }
+
+function computeSportStats(resolved: ResultData[]): SportStat[] {
+  const map: Record<string, { wins: number; losses: number }> = {};
+  for (const r of resolved) {
+    if (!map[r.sport]) map[r.sport] = { wins: 0, losses: 0 };
+    if (r.result === "win") map[r.sport].wins++;
+    else map[r.sport].losses++;
+  }
+  return Object.entries(map).map(([sport, d]) => ({
+    sport, wins: d.wins, losses: d.losses, total: d.wins + d.losses,
+    winrate: Math.round((d.wins / (d.wins + d.losses)) * 100),
+  })).sort((a, b) => b.total - a.total);
+}
+
+function getSportEmoji(sport: string): string {
+  const map: Record<string, string> = { football: "⚽", basketball: "🏀", hockey: "🏒", baseball: "⚾", tennis: "🎾", mma: "🥊", afl: "🏈", rugby: "🏉" };
+  return map[sport.toLowerCase()] || "🎯";
+}
+
+function generateSportDetailResponse(sportName: string, results: ResultData[]): string {
+  const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+  const sportResults = resolved.filter(r => normalize(r.sport).includes(normalize(sportName)));
+  
+  if (sportResults.length === 0) {
+    return `${getSportEmoji(sportName)} Aucune donnée disponible pour le **${sportName}** dans notre historique de prédictions.`;
+  }
+  
+  const wins = sportResults.filter(r => r.result === "win").length;
+  const total = sportResults.length;
+  const winrate = Math.round((wins / total) * 100);
+  
+  let resp = `${getSportEmoji(sportName)} **Performance en ${sportName} :**\n\n`;
+  resp += `🎯 Winrate : **${winrate}%** (${wins}W / ${total - wins}L sur ${total} picks)\n\n`;
+  
+  // Par confiance
+  resp += `**Par confiance :**\n`;
+  for (const conf of ["SAFE", "MODÉRÉ", "RISQUÉ"]) {
+    const cr = sportResults.filter(r => r.predicted_confidence === conf);
+    if (cr.length > 0) {
+      const cw = cr.filter(r => r.result === "win").length;
+      const emoji = conf === "SAFE" ? "🟢" : conf === "MODÉRÉ" ? "🟡" : "🔴";
+      resp += `- ${emoji} ${conf} : **${Math.round((cw / cr.length) * 100)}%** (${cw}/${cr.length})\n`;
+    }
+  }
+  
+  // Par ligue
+  const leagues: Record<string, { wins: number; total: number }> = {};
+  for (const r of sportResults) {
+    if (!leagues[r.league_name]) leagues[r.league_name] = { wins: 0, total: 0 };
+    leagues[r.league_name].total++;
+    if (r.result === "win") leagues[r.league_name].wins++;
+  }
+  const leagueEntries = Object.entries(leagues).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
+  if (leagueEntries.length > 0) {
+    resp += `\n**Par ligue :**\n`;
+    for (const [name, d] of leagueEntries) {
+      resp += `- ${name} : **${Math.round((d.wins / d.total) * 100)}%** (${d.wins}/${d.total})\n`;
+    }
+  }
+  
+  resp += `\n_Statistiques basées sur l'historique complet._`;
+  return resp;
+}
+
+function generateBestSportResponse(results: ResultData[]): string {
+  const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+  const sportStats = computeSportStats(resolved);
+  
+  if (sportStats.length === 0) return "📊 Pas encore assez de données pour comparer les sports.";
+  
+  // Sort by winrate (min 3 picks to be meaningful)
+  const meaningful = sportStats.filter(s => s.total >= 3);
+  if (meaningful.length === 0) return "📊 Pas encore assez de données pour comparer les sports (minimum 3 picks par sport).";
+  
+  const best = [...meaningful].sort((a, b) => b.winrate - a.winrate);
+  const worst = [...meaningful].sort((a, b) => a.winrate - b.winrate);
+  
+  let resp = `📊 **Classement par sport :**\n\n`;
+  resp += `🏆 **Meilleur sport :** ${getSportEmoji(best[0].sport)} ${best[0].sport} — **${best[0].winrate}%** (${best[0].wins}/${best[0].total})\n`;
+  if (worst[0].sport !== best[0].sport) {
+    resp += `⚠️ **Sport le plus difficile :** ${getSportEmoji(worst[0].sport)} ${worst[0].sport} — **${worst[0].winrate}%** (${worst[0].wins}/${worst[0].total})\n`;
+  }
+  
+  resp += `\n**Détail complet :**\n`;
+  for (const s of best) {
+    const bar = s.winrate >= 65 ? "🟢" : s.winrate >= 50 ? "🟡" : "🔴";
+    resp += `${bar} ${getSportEmoji(s.sport)} ${s.sport} : **${s.winrate}%** (${s.wins}W/${s.losses}L sur ${s.total})\n`;
+  }
+  
+  resp += `\n_Seuls les sports avec ≥3 picks sont classés._`;
   return resp;
 }
 
@@ -188,57 +280,122 @@ function generateSafeMatchesResponse(matches: MatchData[]): string {
 function generateFallbackResponse(userMsg: string, matches: MatchData[], results: ResultData[], stats: StatsData[], isPremiumPlus: boolean): string {
   const q = normalize(userMsg);
   
+  // ── 1. Greetings ──
+  if (/^(salut|bonjour|hello|hey|coucou|yo|slt|bsr|bjr)/.test(q)) {
+    const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+    const wr = resolved.length > 0 ? Math.round((resolved.filter(r => r.result === "win").length / resolved.length) * 100) : 0;
+    return `👋 Salut ! Je suis **Pronosia AI**, ton assistant pronostics.\n\n📊 Winrate global : **${wr}%** sur ${resolved.length} picks\n\n💡 Tu peux me demander :\n- 🏆 Les meilleurs matchs du jour\n- 📊 Mes stats par sport ou par confiance\n- ⚽ Le détail d'un match précis\n- 🟢 Les picks les plus sûrs\n\n_Je me base uniquement sur les données réelles de notre système IA._`;
+  }
+  
+  // ── 2. Specific match lookup ──
   const match = findMatchInQuestion(userMsg, matches);
   if (match) return generateMatchResponse(match, isPremiumPlus);
   
-  if (match === null) {
-    for (const r of results) {
-      if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
-        let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
-        resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
-        if (r.result) {
-          const emoji = r.result === "win" ? "✅" : "❌";
-          resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
-        }
-        if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
-        resp += `\n_Données issues de notre historique de prédictions._`;
-        return resp;
+  // Check in results too
+  for (const r of results) {
+    if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
+      let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
+      resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
+      if (r.result) {
+        const emoji = r.result === "win" ? "✅" : "❌";
+        resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
       }
+      if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
+      resp += `\n_Données issues de notre historique de prédictions._`;
+      return resp;
     }
   }
   
+  // ── 3. Sport-specific questions ──
+  const SPORTS_MAP: Record<string, string[]> = {
+    football: ["football", "foot", "soccer"],
+    basketball: ["basketball", "basket", "nba"],
+    hockey: ["hockey", "nhl"],
+    baseball: ["baseball", "mlb"],
+    tennis: ["tennis", "atp", "wta"],
+    mma: ["mma", "ufc", "combat"],
+    afl: ["afl", "rugby", "aussie"],
+  };
+  
+  // Detect if user asks about a specific sport
+  let detectedSport: string | null = null;
+  for (const [sport, keywords] of Object.entries(SPORTS_MAP)) {
+    for (const kw of keywords) {
+      if (q.includes(kw)) { detectedSport = sport; break; }
+    }
+    if (detectedSport) break;
+  }
+  
+  // ── 4. "Best/worst sport" or "which category" questions ──
+  const asksBestWorstSport = q.includes("quel sport") || q.includes("quelle categorie") || q.includes("quel categorie") || 
+    q.includes("classement") || (q.includes("categorie") && (q.includes("plus") || q.includes("moins") || q.includes("meilleur") || q.includes("pire"))) ||
+    (q.includes("sport") && (q.includes("plus") || q.includes("moins") || q.includes("meilleur") || q.includes("pire") || q.includes("reussite") || q.includes("perte") || q.includes("gagn"))) ||
+    (q.includes("ou") && q.includes("reussite")) || (q.includes("ou") && q.includes("perte"));
+  
+  if (asksBestWorstSport) {
+    return generateBestSportResponse(results);
+  }
+  
+  // If a specific sport is mentioned with a stats-like question
+  if (detectedSport && (q.includes("stat") || q.includes("taux") || q.includes("reussite") || q.includes("performance") || q.includes("resultat") || q.includes("winrate") || q.includes("perte") || q.includes("gagn"))) {
+    return generateSportDetailResponse(detectedSport, results);
+  }
+  
+  // If just a sport name alone (e.g. "et le tennis"), show that sport's stats
+  if (detectedSport && q.split(" ").length <= 5) {
+    return generateSportDetailResponse(detectedSport, results);
+  }
+  
+  // ── 5. Best matches ──
   if (q.includes("meilleur") || q.includes("top") || q.includes("best") || q.includes("recommand")) {
+    if (detectedSport) {
+      // Filter matches by sport
+      const sportMatches = matches.filter(m => normalize(m.sport).includes(normalize(detectedSport!)));
+      if (sportMatches.length > 0) {
+        return generateBestMatchesResponse(sportMatches);
+      }
+    }
     return generateBestMatchesResponse(matches);
   }
   
-  if (q.includes("sur") || q.includes("safe") || q.includes("securis") || q.includes("fiable") || q.includes("confian")) {
+  // ── 6. Safe matches ──
+  if (q.includes("safe") || q.includes("securis") || q.includes("fiable") || (q.includes("sur") && (q.includes("match") || q.includes("pick") || q.includes("pari")))) {
     return generateSafeMatchesResponse(matches);
   }
   
-  if (q.includes("taux") || q.includes("winrate") || q.includes("reussite") || q.includes("performance") || q.includes("stat") || q.includes("resultat")) {
+  // ── 7. Stats / performance / winrate ──
+  if (q.includes("taux") || q.includes("winrate") || q.includes("reussite") || q.includes("performance") || q.includes("stat") || q.includes("resultat") || q.includes("bilan") || q.includes("score") || q.includes("global") || q.includes("en general") || q.includes("globalite")) {
     return generateStatsResponse(results, stats);
   }
   
+  // ── 8. Explanations ──
   if (q.includes("pourquoi") || q.includes("expliqu") || q.includes("raison") || q.includes("comment")) {
-    if (match) return generateMatchResponse(match, isPremiumPlus);
     return "🤔 Pour t'expliquer une prédiction, dis-moi le nom d'une équipe ou d'un match ! Par exemple : *\"Pourquoi Germany vs Ghana ?\"*";
   }
   
-  if (q.includes("salut") || q.includes("bonjour") || q.includes("hello") || q.includes("hey") || q.includes("coucou")) {
-    return "👋 Salut ! Je suis **Pronosia AI**, ton assistant pronostics. Pose-moi tes questions sur les matchs du jour, les stats, ou demande-moi d'expliquer une prédiction ! 🏆";
+  // ── 9. Catch short/vague messages as stats request ──
+  if (q.split(" ").length <= 3 && (q.includes("tout") || q.includes("complet") || q.includes("general") || q.includes("global") || q.includes("resume") || q.includes("overview"))) {
+    return generateStatsResponse(results, stats);
   }
   
-  const todayCount = matches.filter(m => isToday(m.kickoff) && m.ai_score > 0).length;
+  // ── 10. Default: intelligent fallback ──
   const resolved = results.filter(r => r.result === "win" || r.result === "loss");
   const wr = resolved.length > 0 ? Math.round((resolved.filter(r => r.result === "win").length / resolved.length) * 100) : 0;
+  const todayCount = matches.filter(m => isToday(m.kickoff) && m.ai_score > 0).length;
+  const sportStats = computeSportStats(resolved);
+  const bestSport = sportStats.filter(s => s.total >= 3).sort((a, b) => b.winrate - a.winrate)[0];
   
-  let resp = `🤖 **Pronosia AI** — Voici ce que je peux faire :\n\n`;
-  resp += `📊 ${todayCount} matchs analysés aujourd'hui • Winrate global : ${wr}%\n\n`;
-  resp += `💡 **Pose-moi une question comme :**\n`;
+  let resp = `🤖 Je n'ai pas bien compris ta question. Voici un résumé rapide :\n\n`;
+  resp += `📊 **${todayCount}** matchs analysés aujourd'hui • Winrate global : **${wr}%** sur ${resolved.length} picks\n`;
+  if (bestSport) {
+    resp += `🏆 Meilleur sport : ${getSportEmoji(bestSport.sport)} ${bestSport.sport} (**${bestSport.winrate}%**)\n`;
+  }
+  resp += `\n💡 **Essaie de me demander :**\n`;
   resp += `- 🏆 *\"Quels sont les meilleurs matchs ?\"*\n`;
-  resp += `- 🟢 *\"Quels matchs sont les plus sûrs ?\"*\n`;
   resp += `- 📊 *\"Quel est ton taux de réussite ?\"*\n`;
-  resp += `- ⚽ *\"Germany vs Ghana\"* (pour les détails d'un match)\n`;
+  resp += `- ⚽ *\"Stats football\"* ou *\"Stats tennis\"*\n`;
+  resp += `- 🔍 *\"Dans quel sport tu es le meilleur ?\"*\n`;
+  resp += `- 🟢 *\"Quels matchs sont les plus sûrs ?\"*\n`;
   resp += `\n_Je me base uniquement sur les données réelles de notre système IA._`;
   return resp;
 }
