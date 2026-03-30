@@ -337,25 +337,9 @@ function removeResolvedMatches(matches: MatchWithFlags[], resolvedFixtureIds: Se
   return matches.filter((match) => !resolvedFixtureIds.has(Number(match.fixture_id)));
 }
 
-function ensureMinFreeMatches(matches: MatchWithFlags[], min: number): MatchWithFlags[] {
-  const freeCount = matches.filter(m => m.is_free).length;
-  if (freeCount >= min) return matches;
-
-  // Find best non-free matches with predictions to promote
-  const candidates = matches
-    .filter(m => !m.is_free && !m.is_top_pick && m.pred_confidence !== "LOCKED" && m.pred_analysis)
-    .sort((a, b) => {
-      // SAFE first
-      const confA = a.pred_confidence === "SAFE" ? 3 : a.pred_confidence === "MODÉRÉ" ? 2 : 1;
-      const confB = b.pred_confidence === "SAFE" ? 3 : b.pred_confidence === "MODÉRÉ" ? 2 : 1;
-      if (confB !== confA) return confB - confA;
-      return (b.ai_score || 0) - (a.ai_score || 0);
-    });
-
-  const needed = min - freeCount;
-  const toPromote = new Set(candidates.slice(0, needed).map(m => m.id));
-
-  return matches.map(m => toPromote.has(m.id) ? { ...m, is_free: true } : m);
+function ensureMinFreeMatches(matches: MatchWithFlags[], _min: number): MatchWithFlags[] {
+  // SECURITY: Never promote non-free matches client-side — server controls free status
+  return matches;
 }
 
 function ensureTopPickIsAnalyzed(matches: MatchWithFlags[]): MatchWithFlags[] {
