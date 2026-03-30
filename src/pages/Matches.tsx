@@ -582,7 +582,7 @@ export default function Matches() {
                 animate="show"
               >
                 {dateMatches.map((match, i) => {
-                  const isLocked = !isPremium && !match.is_free && match.pred_confidence === "LOCKED";
+                  const isLocked = !isPremium && !isAdmin && !match.is_free && !match.is_top_pick;
                   return (
                     <motion.div key={match.id} variants={staggerItem}>
                       <MatchCard match={match} locked={isLocked} index={i} />

@@ -13,21 +13,8 @@ interface TopPickProps {
 export function TopPickSection({ matches }: TopPickProps) {
   const topPick = useMemo(() => {
     if (!matches?.length) return null;
-
-    const flaggedTopPick = matches.find((m) => m.is_top_pick === true);
-    if (flaggedTopPick) return flaggedTopPick;
-
-    const risqueMatches = matches
-      .filter((m) => !m.is_free && m.pred_confidence === "RISQUÉ")
-      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
-
-    if (risqueMatches.length > 0) return risqueMatches[0];
-
-    const analyzedFallback = matches
-      .filter((m) => !m.is_free && m.pred_confidence !== "LOCKED")
-      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
-
-    return analyzedFallback[0] ?? null;
+    // SECURITY: Only use the match the SERVER flagged as top_pick
+    return matches.find((m) => m.is_top_pick === true) ?? null;
   }, [matches]);
 
   if (!topPick) return null;

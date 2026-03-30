@@ -17,20 +17,8 @@ interface TopMatchesSectionProps {
 function useBackendTop2(matches: MatchWithFlags[] | undefined): MatchWithFlags[] {
   return useMemo(() => {
     if (!matches?.length) return [];
-
-    const flaggedFree = matches.filter((m) => m.is_free === true);
-    const safeCandidates = matches
-      .filter((m) => !m.is_top_pick && m.pred_confidence === "SAFE" && !!m.pred_analysis)
-      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
-
-    const combined = [...flaggedFree];
-    for (const candidate of safeCandidates) {
-      if (combined.some((match) => match.id === candidate.id)) continue;
-      combined.push({ ...candidate, is_free: true });
-      if (combined.length >= 2) break;
-    }
-
-    return combined.slice(0, 2);
+    // SECURITY: Only use matches the SERVER flagged as free — never promote client-side
+    return matches.filter((m) => m.is_free === true).slice(0, 2);
   }, [matches]);
 }
 
