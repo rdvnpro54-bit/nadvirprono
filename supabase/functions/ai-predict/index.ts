@@ -312,7 +312,7 @@ interface LeagueThreshold {
 async function getDynamicThreshold(
   supabase: any, leagueName: string, sport: string
 ): Promise<LeagueThreshold> {
-  const defaultThreshold: LeagueThreshold = { minConfidence: 72, source: "unknown-league" };
+  const defaultThreshold: LeagueThreshold = { minConfidence: 74, source: "unknown-league" };
   try {
     const { data } = await supabase
       .from("ai_learning_stats")
