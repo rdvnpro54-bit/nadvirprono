@@ -447,7 +447,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       if (!s) throw new Error("No session");
       
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-predict?force=true&batch=50`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-predict?force=true&batch=10`,
         {
           method: "POST",
           headers: {
