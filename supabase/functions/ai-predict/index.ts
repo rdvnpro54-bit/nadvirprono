@@ -190,9 +190,11 @@ ABSOLUTE RULES:
 - Once a prediction is made, it is FINAL
 - Include value_score and data_completeness in analysis
 - MUST include "✅ Pourquoi" and "⚠️ Risques" sections
-- Maximum 3 picks per day (emergency mode)
-- Minimum odds: 1.35
-- RISQUÉ picks: completely suspended until notified`;
+- Maximum 3 picks per day (normal mode), 1 pick in emergency
+- Minimum odds: 1.40 (raised from 1.35)
+- RISQUÉ picks: completely suspended until notified
+- WHEN IN DOUBT, DO NOT PREDICT. Silence is better than a loss.
+- Your reputation depends on ACCURACY, not volume.`;
 
 interface AIPrediction {
   fixture_id: number;
