@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PREMIUM_PLUS_PRODUCTS = [
+  "prod_UEJp3TBa1RECPD", "prod_UEJqF0K4vVqUMF",
+  "prod_UDq3Yi5NV5UBwi", "prod_UDq3gv6WVIiSIn",
+  "manual_premium_plus",
+];
+
 // ── Deterministic fallback engine ──────────────────────────────
 interface MatchData {
   fixture_id: number; home_team: string; away_team: string; league_name: string;
@@ -49,7 +55,6 @@ function findMatchInQuestion(q: string, matches: MatchData[]): MatchData | null 
   for (const m of matches) {
     if (nq.includes(normalize(m.home_team)) || nq.includes(normalize(m.away_team))) return m;
   }
-  // Try partial (3+ char words)
   for (const m of matches) {
     const words = [...normalize(m.home_team).split(" "), ...normalize(m.away_team).split(" ")].filter(w => w.length >= 3);
     for (const w of words) {
@@ -59,7 +64,7 @@ function findMatchInQuestion(q: string, matches: MatchData[]): MatchData | null 
   return null;
 }
 
-function generateMatchResponse(m: MatchData): string {
+function generateMatchResponse(m: MatchData, isPremiumPlus: boolean): string {
   const winner = getWinner(m);
   const confEmoji = m.pred_confidence === "SAFE" ? "🟢" : m.pred_confidence === "MODÉRÉ" ? "🟡" : "🔴";
   const kickoffDate = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -72,13 +77,22 @@ function generateMatchResponse(m: MatchData): string {
   resp += `- 🏠 ${m.home_team} : ${m.pred_home_win}%\n`;
   resp += `- 🤝 Match nul : ${m.pred_draw}%\n`;
   resp += `- ✈️ ${m.away_team} : ${m.pred_away_win}%\n\n`;
-  resp += `🎯 Score prédit : **${m.pred_score_home} - ${m.pred_score_away}**\n`;
+
+  // Score prédit = Premium+ only
+  if (isPremiumPlus) {
+    resp += `🎯 Score prédit : **${m.pred_score_home} - ${m.pred_score_away}**\n`;
+  } else {
+    resp += `🎯 Score prédit : 🔒 *Réservé aux abonnés Premium+*\n`;
+  }
+
   resp += `📈 BTTS : ${m.pred_btts_prob}% • Over 2.5 : ${m.pred_over_prob}%\n`;
   
   if (m.home_score != null) {
     resp += `\n✅ **Score réel : ${m.home_score} - ${m.away_score}**\n`;
   }
-  if (m.anomaly_label) resp += `\n⚠️ ${m.anomaly_label}\n`;
+  if (isPremiumPlus && m.anomaly_label) {
+    resp += `\n⚠️ ${m.anomaly_label}\n`;
+  }
   if (m.pred_analysis) resp += `\n💡 **Analyse :** ${m.pred_analysis}\n`;
   
   resp += `\n_Ces données sont basées sur notre analyse IA. Aucune garantie de résultat._`;
@@ -125,7 +139,6 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
   let resp = `📊 **Performance Pronosia AI :**\n\n`;
   resp += `🎯 Winrate global : **${winrate}%** (${wins}W / ${total - wins}L sur ${total} picks)\n\n`;
   
-  // By sport
   const sports = [...new Set(resolved.map(r => r.sport))];
   if (sports.length > 0) {
     resp += `**Par sport :**\n`;
@@ -137,7 +150,6 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
     }
   }
   
-  // By confidence
   resp += `\n**Par confiance :**\n`;
   for (const conf of ["SAFE", "MODÉRÉ", "RISQUÉ"]) {
     const cr = resolved.filter(r => r.predicted_confidence === conf);
@@ -148,7 +160,6 @@ function generateStatsResponse(results: ResultData[], stats: StatsData[]): strin
     }
   }
   
-  // Recent streak
   const last10 = resolved.slice(0, 10);
   const last10W = last10.filter(r => r.result === "win").length;
   resp += `\n📈 Derniers 10 picks : **${last10W}/10** (${Math.round(last10W * 10)}%)\n`;
@@ -174,14 +185,12 @@ function generateSafeMatchesResponse(matches: MatchData[]): string {
   return resp;
 }
 
-function generateFallbackResponse(userMsg: string, matches: MatchData[], results: ResultData[], stats: StatsData[]): string {
+function generateFallbackResponse(userMsg: string, matches: MatchData[], results: ResultData[], stats: StatsData[], isPremiumPlus: boolean): string {
   const q = normalize(userMsg);
   
-  // Check for specific match question
   const match = findMatchInQuestion(userMsg, matches);
-  if (match) return generateMatchResponse(match);
+  if (match) return generateMatchResponse(match, isPremiumPlus);
   
-  // Check for result/history of a specific match
   if (match === null) {
     for (const r of results) {
       if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
@@ -198,33 +207,27 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
     }
   }
   
-  // Best matches
   if (q.includes("meilleur") || q.includes("top") || q.includes("best") || q.includes("recommand")) {
     return generateBestMatchesResponse(matches);
   }
   
-  // Safe matches
   if (q.includes("sur") || q.includes("safe") || q.includes("securis") || q.includes("fiable") || q.includes("confian")) {
     return generateSafeMatchesResponse(matches);
   }
   
-  // Stats / winrate / performance
   if (q.includes("taux") || q.includes("winrate") || q.includes("reussite") || q.includes("performance") || q.includes("stat") || q.includes("resultat")) {
     return generateStatsResponse(results, stats);
   }
   
-  // Explanation of a prediction
   if (q.includes("pourquoi") || q.includes("expliqu") || q.includes("raison") || q.includes("comment")) {
-    if (match) return generateMatchResponse(match);
+    if (match) return generateMatchResponse(match, isPremiumPlus);
     return "🤔 Pour t'expliquer une prédiction, dis-moi le nom d'une équipe ou d'un match ! Par exemple : *\"Pourquoi Germany vs Ghana ?\"*";
   }
   
-  // Greeting
   if (q.includes("salut") || q.includes("bonjour") || q.includes("hello") || q.includes("hey") || q.includes("coucou")) {
     return "👋 Salut ! Je suis **Pronosia AI**, ton assistant pronostics. Pose-moi tes questions sur les matchs du jour, les stats, ou demande-moi d'expliquer une prédiction ! 🏆";
   }
   
-  // General fallback
   const todayCount = matches.filter(m => isToday(m.kickoff) && m.ai_score > 0).length;
   const resolved = results.filter(r => r.result === "win" || r.result === "loss");
   const wr = resolved.length > 0 ? Math.round((resolved.filter(r => r.result === "win").length / resolved.length) * 100) : 0;
@@ -241,7 +244,6 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
 }
 
 function makeFallbackSSE(text: string): string {
-  // Simulate SSE streaming with the fallback text split into chunks
   const chunks: string[] = [];
   const words = text.split(" ");
   let current = "";
@@ -272,7 +274,6 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -292,7 +293,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check premium
+    // Check premium + premium+ status
     const { data: sub } = await supabase.from("subscriptions").select("is_premium, plan, expires_at").eq("user_id", user.id).single();
     const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     const isAdmin = !!role;
@@ -304,6 +305,36 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Detect Premium+ tier
+    const isPremiumPlus = isAdmin || (sub?.plan && (
+      sub.plan.includes("premium_plus") || PREMIUM_PLUS_PRODUCTS.includes(sub.plan)
+    ));
+
+    // Also check Stripe for Premium+ product
+    let isPremiumPlusStripe = false;
+    if (!isPremiumPlus && user.email) {
+      try {
+        const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+        if (stripeKey) {
+          const { default: Stripe } = await import("https://esm.sh/stripe@18.5.0");
+          const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+          const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+          if (customers.data.length > 0) {
+            const subs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "active", limit: 1 });
+            if (subs.data.length > 0) {
+              const productId = subs.data[0].items.data[0].price.product;
+              isPremiumPlusStripe = PREMIUM_PLUS_PRODUCTS.includes(productId as string);
+            }
+          }
+        }
+      } catch (e) {
+        console.log("[PRONOSIA-CHAT] Stripe check error:", e);
+      }
+    }
+
+    const canSeeScores = isPremiumPlus || isPremiumPlusStripe;
+    console.log(`[PRONOSIA-CHAT] User ${user.email} - Premium+: ${canSeeScores}`);
+
     const { messages } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "Invalid messages" }), {
@@ -311,7 +342,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch data for both AI and fallback
+    // Fetch data
     const [matchesRes, resultsRes, statsRes] = await Promise.all([
       supabase.from("cached_matches")
         .select("fixture_id, home_team, away_team, league_name, sport, kickoff, pred_home_win, pred_draw, pred_away_win, pred_confidence, pred_analysis, pred_score_home, pred_score_away, pred_btts_prob, pred_over_prob, ai_score, status, home_score, away_score, anomaly_label, streak_mode_level")
@@ -328,10 +359,16 @@ Deno.serve(async (req) => {
     const recentResults = (resultsRes.data || []) as ResultData[];
     const learningStats = (statsRes.data || []) as StatsData[];
 
-    // Build context for AI prompt
+    // Build context for AI - strip scores for non-Premium+ users
     const matchContext = recentMatches.map(m => {
       const winner = getWinner(m);
-      return `• ${m.home_team} vs ${m.away_team} (${m.league_name}, ${m.sport}) - Kickoff: ${m.kickoff} - Prédiction: ${winner} (${m.pred_confidence}, IA: ${m.ai_score}/100) - Probas: ${m.pred_home_win}%/${m.pred_draw}%/${m.pred_away_win}% - Score: ${m.pred_score_home}-${m.pred_score_away} - BTTS: ${m.pred_btts_prob}% - Over: ${m.pred_over_prob}% - Analyse: ${m.pred_analysis || "N/A"}${m.home_score != null ? ` (Réel: ${m.home_score}-${m.away_score})` : ""}`;
+      let line = `• ${m.home_team} vs ${m.away_team} (${m.league_name}, ${m.sport}) - Kickoff: ${m.kickoff} - Prédiction: ${winner} (${m.pred_confidence}, IA: ${m.ai_score}/100) - Probas: ${m.pred_home_win}%/${m.pred_draw}%/${m.pred_away_win}%`;
+      if (canSeeScores) {
+        line += ` - Score prédit: ${m.pred_score_home}-${m.pred_score_away}`;
+      }
+      line += ` - BTTS: ${m.pred_btts_prob}% - Over: ${m.pred_over_prob}% - Analyse: ${m.pred_analysis || "N/A"}`;
+      if (m.home_score != null) line += ` (Réel: ${m.home_score}-${m.away_score})`;
+      return line;
     }).join("\n");
 
     const resultsContext = recentResults.map(r =>
@@ -341,6 +378,14 @@ Deno.serve(async (req) => {
     const statsContext = learningStats.filter(s => s.total_predictions >= 5).map(s =>
       `${s.sport}/${s.confidence_level}${s.bet_type !== "_all" ? `/${s.bet_type}` : ""}: ${s.winrate}% (${s.total_predictions} picks, cal: ${s.calibration_error > 0 ? "+" : ""}${s.calibration_error}%, ROI: ${s.roi || 0}%)`
     ).join("\n");
+
+    const scoreRule = canSeeScores
+      ? "Tu peux donner les scores prédits."
+      : "Tu ne dois JAMAIS donner les scores prédits (pred_score_home/pred_score_away). Si on te demande le score, dis que c'est réservé aux abonnés Premium+.";
+
+    const anomalyRule = canSeeScores
+      ? "Tu peux détailler les anomalies et matchs suspects."
+      : "Ne donne PAS les détails des anomalies/matchs suspects. Indique que c'est réservé aux abonnés Premium+.";
 
     const systemPrompt = `Tu es Pronosia AI, l'assistant intelligent de la plateforme Pronosia - un service de pronostics sportifs propulsé par l'intelligence artificielle.
 
@@ -352,6 +397,8 @@ RÈGLES ABSOLUES:
 5. Tu parles en français, de manière professionnelle mais accessible.
 6. Si un match n'est pas dans tes données, dis-le clairement.
 7. Tu ne donnes AUCUNE garantie de résultat.
+8. ${scoreRule}
+9. ${anomalyRule}
 
 MATCHS ACTUELS:
 ${matchContext || "Aucun match disponible."}
@@ -391,14 +438,12 @@ Réponds de manière concise avec des emojis pertinents.`;
           });
         }
 
-        // 429 = rate limit, tell user to wait
         if (response.status === 429) {
           return new Response(JSON.stringify({ error: "Trop de requêtes, réessaie dans quelques instants." }), {
             status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
-        // 402 or other = fall through to deterministic
         console.log(`[PRONOSIA-CHAT] AI gateway returned ${response.status}, using fallback engine`);
       } catch (e) {
         console.log(`[PRONOSIA-CHAT] AI gateway error, using fallback:`, e);
@@ -408,7 +453,7 @@ Réponds de manière concise avec des emojis pertinents.`;
     // ── Deterministic fallback ──
     console.log("[PRONOSIA-CHAT] Using deterministic fallback engine");
     const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
-    const fallbackText = generateFallbackResponse(lastUserMsg, recentMatches, recentResults, learningStats);
+    const fallbackText = generateFallbackResponse(lastUserMsg, recentMatches, recentResults, learningStats, canSeeScores);
     const sseBody = makeFallbackSSE(fallbackText);
 
     return new Response(sseBody, {
