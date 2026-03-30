@@ -221,13 +221,40 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   };
 
+  const fetchHiddenMatches = useCallback(async () => {
+    try {
+      setLoadingHidden(true);
+      const data = await adminCall("list-hidden");
+      if (data?.matches) setHiddenMatches(data.matches);
+    } catch (err: any) {
+      toast.error("Erreur matchs masqués: " + err.message);
+    } finally {
+      setLoadingHidden(false);
+    }
+  }, [adminCall]);
+
+  const handleToggleVisibility = async (fixtureId: number, showIt: boolean) => {
+    try {
+      setActionLoading(true);
+      await adminCall("toggle-visibility", { fixture_id: fixtureId, visible: showIt });
+      toast.success(showIt ? "✅ Match affiché sur le site" : "🙈 Match masqué");
+      queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
+      fetchHiddenMatches();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchDashboard();
     fetchUsers();
     fetchResults();
     fetchLeaguePerfs();
     fetchWeeklyReports();
-  }, [fetchDashboard, fetchUsers, fetchResults, fetchLeaguePerfs, fetchWeeklyReports]);
+    fetchHiddenMatches();
+  }, [fetchDashboard, fetchUsers, fetchResults, fetchLeaguePerfs, fetchWeeklyReports, fetchHiddenMatches]);
 
   useEffect(() => {
     const channel = supabase
