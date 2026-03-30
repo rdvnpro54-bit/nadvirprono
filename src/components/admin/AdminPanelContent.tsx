@@ -112,6 +112,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   } | null>(null);
   const [v2Loading, setV2Loading] = useState(false);
   const [v2Recalculating, setV2Recalculating] = useState(false);
+  const [promoSending, setPromoSending] = useState(false);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
