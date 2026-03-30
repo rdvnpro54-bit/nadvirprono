@@ -1002,6 +1002,40 @@ function parseToolCallResponse(result: any): AIPrediction[] {
   }
 }
 
+function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
+  const results: AIPrediction[] = [];
+  for (const p of preds) {
+    p.pred_home_win = Number(p.pred_home_win) || 0;
+    p.pred_draw = Number(p.pred_draw) || 0;
+    p.pred_away_win = Number(p.pred_away_win) || 0;
+    p.pred_over_prob = Number(p.pred_over_prob) || 0;
+    p.pred_btts_prob = Number(p.pred_btts_prob) || 0;
+    p.pred_score_home = Number(p.pred_score_home) || 0;
+    p.pred_score_away = Number(p.pred_score_away) || 0;
+    p.pred_over_under = Number(p.pred_over_under) || 2.5;
+    p.ai_score = Number(p.ai_score) || 50;
+    p.anomaly_score = Number(p.anomaly_score) || 0;
+    p.data_completeness_score = Number(p.data_completeness_score) || 70;
+    p.context_penalties_total = Number(p.context_penalties_total) || 0;
+    if (p.pred_home_win <= 1 && p.pred_away_win <= 1) {
+      p.pred_home_win = Math.round(p.pred_home_win * 100);
+      p.pred_draw = Math.round(p.pred_draw * 100);
+      p.pred_away_win = Math.round(p.pred_away_win * 100);
+      p.pred_over_prob = Math.round(p.pred_over_prob * 100);
+      p.pred_btts_prob = Math.round(p.pred_btts_prob * 100);
+    }
+    if (p.ai_score <= 1) p.ai_score = Math.round(p.ai_score * 100);
+    if (p.anomaly_score <= 1 && p.anomaly_score > 0) p.anomaly_score = Math.round(p.anomaly_score * 100);
+    if (p.pred_home_win === 0 && p.pred_away_win === 0) {
+      p.pred_home_win = 50;
+      p.pred_away_win = 50;
+    }
+    results.push(p as AIPrediction);
+  }
+  console.log(`[CEREBRAS] Normalized ${results.length} predictions`);
+  return results;
+}
+
 async function callCerebrasAI(
   cerebrasKey: string, userPrompt: string
 ): Promise<AIPrediction[]> {
@@ -1016,7 +1050,7 @@ async function callCerebrasAI(
         model: "qwen-3-235b-a22b-instruct-2507",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have: fixture_id, pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence (SAFE/MODÉRÉ/RISQUÉ), pred_value_bet, pred_analysis, ai_score, anomaly_score, data_completeness_score, consensus_passed, context_penalties_total." },
-          { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}" },
+          { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}\nDo NOT include any thinking, explanation, or markdown formatting. Output raw JSON only. /no_think" },
         ],
         temperature: 0.3,
         max_tokens: 8000,
@@ -1029,51 +1063,86 @@ async function callCerebrasAI(
       return []; 
     }
     const result = await response.json();
-    const content = result.choices?.[0]?.message?.content;
-    if (!content) return [];
-    try {
-      // Try to extract JSON from response (may contain markdown code blocks)
-      let jsonStr = content;
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) jsonStr = jsonMatch[1].trim();
-      const parsed = JSON.parse(jsonStr);
-      const preds = (parsed.predictions || []) as AIPrediction[];
-      // Robust number coercion + normalize 0-1 scale to 0-100
-      for (const p of preds) {
-        p.pred_home_win = Number(p.pred_home_win) || 0;
-        p.pred_draw = Number(p.pred_draw) || 0;
-        p.pred_away_win = Number(p.pred_away_win) || 0;
-        p.pred_over_prob = Number(p.pred_over_prob) || 0;
-        p.pred_btts_prob = Number(p.pred_btts_prob) || 0;
-        p.pred_score_home = Number(p.pred_score_home) || 0;
-        p.pred_score_away = Number(p.pred_score_away) || 0;
-        p.pred_over_under = Number(p.pred_over_under) || 2.5;
-        p.ai_score = Number(p.ai_score) || 50;
-        p.anomaly_score = Number(p.anomaly_score) || 0;
-        p.data_completeness_score = Number(p.data_completeness_score) || 70;
-        p.context_penalties_total = Number(p.context_penalties_total) || 0;
-
-        if (p.pred_home_win <= 1 && p.pred_away_win <= 1) {
-          p.pred_home_win = Math.round(p.pred_home_win * 100);
-          p.pred_draw = Math.round(p.pred_draw * 100);
-          p.pred_away_win = Math.round(p.pred_away_win * 100);
-          p.pred_over_prob = Math.round(p.pred_over_prob * 100);
-          p.pred_btts_prob = Math.round(p.pred_btts_prob * 100);
-        }
-        if (p.ai_score <= 1) p.ai_score = Math.round(p.ai_score * 100);
-        if (p.anomaly_score <= 1 && p.anomaly_score > 0) p.anomaly_score = Math.round(p.anomaly_score * 100);
-
-        // Skip predictions with all zeros
-        if (p.pred_home_win === 0 && p.pred_away_win === 0) {
-          p.pred_home_win = 50;
-          p.pred_away_win = 50;
-        }
+    
+    // Check for tool_calls first (some models support it)
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      console.log("[CEREBRAS] Got tool_call response");
+      try {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        return normalizeCerebrasPreds(parsed.predictions || []);
+      } catch (e) {
+        console.error("[CEREBRAS] Tool call parse failed:", e);
       }
-      return preds;
-    } catch {
-      console.error("[CEREBRAS] Failed to parse JSON response:", content.substring(0, 200));
+    }
+    
+    const content = result.choices?.[0]?.message?.content;
+    if (!content) {
+      console.warn("[CEREBRAS] Empty content in response. Full result:", JSON.stringify(result).substring(0, 500));
       return [];
     }
+    
+    // Log raw response for debug (first 1000 chars)
+    console.log(`[CEREBRAS] Raw response (${content.length} chars): ${content.substring(0, 1000)}`);
+    
+    // Strategy 1: Try direct JSON parse
+    try {
+      const parsed = JSON.parse(content);
+      console.log("[CEREBRAS] ✅ Direct JSON parse OK");
+      return normalizeCerebrasPreds(parsed.predictions || []);
+    } catch { /* continue */ }
+    
+    // Strategy 2: Extract from markdown code blocks
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1].trim());
+        console.log("[CEREBRAS] ✅ Extracted from code block");
+        return normalizeCerebrasPreds(parsed.predictions || []);
+      } catch { /* continue */ }
+    }
+    
+    // Strategy 3: Find first { ... } containing "predictions"
+    const braceMatch = content.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
+    if (braceMatch) {
+      try {
+        const parsed = JSON.parse(braceMatch[0]);
+        console.log("[CEREBRAS] ✅ Extracted via brace matching");
+        return normalizeCerebrasPreds(parsed.predictions || []);
+      } catch { /* continue */ }
+    }
+    
+    // Strategy 4: Find bare array [ ... ]
+    const arrayMatch = content.match(/\[\s*\{[\s\S]*"fixture_id"[\s\S]*\}\s*\]/);
+    if (arrayMatch) {
+      try {
+        const preds = JSON.parse(arrayMatch[0]);
+        console.log("[CEREBRAS] ✅ Extracted bare array");
+        return normalizeCerebrasPreds(preds);
+      } catch { /* continue */ }
+    }
+    
+    // Strategy 5: Strip thinking tags (<think>...</think>) and retry
+    const withoutThinking = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    if (withoutThinking !== content) {
+      try {
+        const parsed = JSON.parse(withoutThinking);
+        console.log("[CEREBRAS] ✅ Parsed after stripping <think> tags");
+        return normalizeCerebrasPreds(parsed.predictions || []);
+      } catch {
+        const innerBrace = withoutThinking.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
+        if (innerBrace) {
+          try {
+            const parsed = JSON.parse(innerBrace[0]);
+            console.log("[CEREBRAS] ✅ Extracted from post-think content");
+            return normalizeCerebrasPreds(parsed.predictions || []);
+          } catch { /* continue */ }
+        }
+      }
+    }
+    
+    console.error("[CEREBRAS] ❌ All parse strategies failed. Response preview:", content.substring(0, 500));
+    return [];
   } catch (e) {
     clearTimeout(timeout);
     console.error("[CEREBRAS] Error:", e);
