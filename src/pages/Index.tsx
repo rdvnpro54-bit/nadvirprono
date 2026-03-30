@@ -296,6 +296,9 @@ const Index = () => {
       {/* Top 2 GRATUITS */}
       <TopMatchesSection matches={matches} isLoading={isLoading} />
 
+      {/* Daily AI Briefing */}
+      <DailyAIBriefing />
+
       {/* TOP PICK DU JOUR */}
       <TopPickSection matches={matches} />
 
