@@ -1207,11 +1207,11 @@ function postProcessPredictions(
 
     if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) { p.ai_score = 0; continue; }
     const vs = computeValueScore(mainProb, odds);
-    if (vs < 0.08) { p.ai_score = 0; continue; }
-    if (odds < 1.35) { p.ai_score = 0; continue; }
+    if (vs < 0.10) { p.ai_score = 0; continue; } // v3.2: raised from 0.08
+    if (odds < 1.40) { p.ai_score = 0; continue; } // v3.2: raised from 1.35
     if (p.league_tier === 4) { p.ai_score = 0; continue; }
-    if (p.league_tier === 3 && mainProb < 72) { p.ai_score = 0; continue; }
-    if (p.data_completeness_score < 40) { p.ai_score = 0; continue; }
+    if (p.league_tier === 3 && mainProb < 74) { p.ai_score = 0; continue; } // v3.2: raised from 72
+    if (p.data_completeness_score < 50) { p.ai_score = 0; continue; } // v3.2: raised from 40
     if (p.data_completeness_score < 60 && mainProb > 75) {
       p.pred_home_win = Math.min(p.pred_home_win, 75);
       p.pred_away_win = Math.min(p.pred_away_win, 75);
