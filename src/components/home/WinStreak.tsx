@@ -19,28 +19,18 @@ export function WinStreak() {
     else break;
   }
 
-  if (count < 2) return null;
-
-  const isWin = firstResult === "win";
+  // Only show win streaks, never loss streaks
+  if (count < 2 || firstResult !== "win") return null;
 
   return (
     <motion.div
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border backdrop-blur-sm",
-        isWin
-          ? "border-success/30 bg-success/10 text-success"
-          : "border-destructive/30 bg-destructive/10 text-destructive"
-      )}
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border backdrop-blur-sm border-success/30 bg-success/10 text-success"
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 200 }}
     >
-      {isWin ? (
-        <Flame className="h-3.5 w-3.5" />
-      ) : (
-        <TrendingDown className="h-3.5 w-3.5" />
-      )}
-      🔥 Série : {count} {isWin ? "gagnés" : "perdus"} d'affilée
+      <Flame className="h-3.5 w-3.5" />
+      🔥 Série : {count} gagnés d'affilée
     </motion.div>
   );
 }
