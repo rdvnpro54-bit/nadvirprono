@@ -5,6 +5,265 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── Deterministic fallback engine ──────────────────────────────
+interface MatchData {
+  fixture_id: number; home_team: string; away_team: string; league_name: string;
+  sport: string; kickoff: string; pred_home_win: number; pred_draw: number;
+  pred_away_win: number; pred_confidence: string; pred_analysis: string | null;
+  pred_score_home: number; pred_score_away: number; pred_btts_prob: number;
+  pred_over_prob: number; ai_score: number; status: string;
+  home_score: number | null; away_score: number | null;
+  anomaly_label: string | null; streak_mode_level: string | null;
+}
+
+interface ResultData {
+  fixture_id: number; home_team: string; away_team: string; league_name: string;
+  predicted_winner: string; predicted_confidence: string; result: string | null;
+  actual_home_score: number | null; actual_away_score: number | null;
+  bet_type: string | null; sport: string; kickoff: string;
+}
+
+interface StatsData {
+  sport: string; confidence_level: string; winrate: number;
+  total_predictions: number; calibration_error: number;
+  bet_type: string | null; roi: number | null;
+}
+
+function getWinner(m: MatchData): string {
+  const max = Math.max(m.pred_home_win, m.pred_draw, m.pred_away_win);
+  return m.pred_home_win === max ? m.home_team : m.pred_away_win === max ? m.away_team : "Match nul";
+}
+
+function isToday(kickoff: string): boolean {
+  const d = new Date(kickoff);
+  const now = new Date();
+  return d.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+}
+
+function normalize(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+}
+
+function findMatchInQuestion(q: string, matches: MatchData[]): MatchData | null {
+  const nq = normalize(q);
+  for (const m of matches) {
+    if (nq.includes(normalize(m.home_team)) || nq.includes(normalize(m.away_team))) return m;
+  }
+  // Try partial (3+ char words)
+  for (const m of matches) {
+    const words = [...normalize(m.home_team).split(" "), ...normalize(m.away_team).split(" ")].filter(w => w.length >= 3);
+    for (const w of words) {
+      if (nq.includes(w)) return m;
+    }
+  }
+  return null;
+}
+
+function generateMatchResponse(m: MatchData): string {
+  const winner = getWinner(m);
+  const confEmoji = m.pred_confidence === "SAFE" ? "🟢" : m.pred_confidence === "MODÉRÉ" ? "🟡" : "🔴";
+  const kickoffDate = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  
+  let resp = `⚽ **${m.home_team} vs ${m.away_team}**\n`;
+  resp += `📋 ${m.league_name} • ${m.sport} • ${kickoffDate}\n\n`;
+  resp += `🏆 **Prédiction : ${winner}**\n`;
+  resp += `${confEmoji} Confiance : **${m.pred_confidence}** (Score IA : ${m.ai_score}/100)\n\n`;
+  resp += `📊 **Probabilités :**\n`;
+  resp += `- 🏠 ${m.home_team} : ${m.pred_home_win}%\n`;
+  resp += `- 🤝 Match nul : ${m.pred_draw}%\n`;
+  resp += `- ✈️ ${m.away_team} : ${m.pred_away_win}%\n\n`;
+  resp += `🎯 Score prédit : **${m.pred_score_home} - ${m.pred_score_away}**\n`;
+  resp += `📈 BTTS : ${m.pred_btts_prob}% • Over 2.5 : ${m.pred_over_prob}%\n`;
+  
+  if (m.home_score != null) {
+    resp += `\n✅ **Score réel : ${m.home_score} - ${m.away_score}**\n`;
+  }
+  if (m.anomaly_label) resp += `\n⚠️ ${m.anomaly_label}\n`;
+  if (m.pred_analysis) resp += `\n💡 **Analyse :** ${m.pred_analysis}\n`;
+  
+  resp += `\n_Ces données sont basées sur notre analyse IA. Aucune garantie de résultat._`;
+  return resp;
+}
+
+function generateBestMatchesResponse(matches: MatchData[]): string {
+  const todayMatches = matches.filter(m => isToday(m.kickoff) && m.pred_confidence !== "LOCKED" && m.ai_score > 0);
+  const sorted = todayMatches.sort((a, b) => b.ai_score - a.ai_score).slice(0, 5);
+  
+  if (sorted.length === 0) {
+    const upcoming = matches.filter(m => new Date(m.kickoff) > new Date() && m.pred_confidence !== "LOCKED" && m.ai_score > 0)
+      .sort((a, b) => b.ai_score - a.ai_score).slice(0, 5);
+    if (upcoming.length === 0) return "📭 Aucun match avec prédiction disponible pour le moment. Les analyses seront générées prochainement !";
+    
+    let resp = "🏆 **Meilleurs matchs à venir :**\n\n";
+    for (const m of upcoming) {
+      const winner = getWinner(m);
+      const confEmoji = m.pred_confidence === "SAFE" ? "🟢" : m.pred_confidence === "MODÉRÉ" ? "🟡" : "🔴";
+      const date = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      resp += `${confEmoji} **${m.home_team} vs ${m.away_team}** — ${winner} (${m.pred_confidence}, IA: ${m.ai_score}/100) • ${date}\n`;
+    }
+    resp += `\n_Classement basé sur le score IA. Aucune garantie de résultat._`;
+    return resp;
+  }
+  
+  let resp = "🏆 **Top matchs du jour :**\n\n";
+  for (const m of sorted) {
+    const winner = getWinner(m);
+    const confEmoji = m.pred_confidence === "SAFE" ? "🟢" : m.pred_confidence === "MODÉRÉ" ? "🟡" : "🔴";
+    const time = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
+    resp += `${confEmoji} **${m.home_team} vs ${m.away_team}** — ${winner} (${m.pred_confidence}, IA: ${m.ai_score}/100) • ${time}\n`;
+  }
+  resp += `\n_Classement basé sur le score IA. Aucune garantie de résultat._`;
+  return resp;
+}
+
+function generateStatsResponse(results: ResultData[], stats: StatsData[]): string {
+  const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+  const wins = resolved.filter(r => r.result === "win").length;
+  const total = resolved.length;
+  const winrate = total > 0 ? Math.round((wins / total) * 100) : 0;
+  
+  let resp = `📊 **Performance Pronosia AI :**\n\n`;
+  resp += `🎯 Winrate global : **${winrate}%** (${wins}W / ${total - wins}L sur ${total} picks)\n\n`;
+  
+  // By sport
+  const sports = [...new Set(resolved.map(r => r.sport))];
+  if (sports.length > 0) {
+    resp += `**Par sport :**\n`;
+    for (const sport of sports) {
+      const sportRes = resolved.filter(r => r.sport === sport);
+      const sw = sportRes.filter(r => r.result === "win").length;
+      const wr = Math.round((sw / sportRes.length) * 100);
+      resp += `- ${sport === "football" ? "⚽" : sport === "basketball" ? "🏀" : sport === "hockey" ? "🏒" : sport === "baseball" ? "⚾" : "🎾"} ${sport} : ${wr}% (${sw}/${sportRes.length})\n`;
+    }
+  }
+  
+  // By confidence
+  resp += `\n**Par confiance :**\n`;
+  for (const conf of ["SAFE", "MODÉRÉ", "RISQUÉ"]) {
+    const cr = resolved.filter(r => r.predicted_confidence === conf);
+    if (cr.length > 0) {
+      const cw = cr.filter(r => r.result === "win").length;
+      const emoji = conf === "SAFE" ? "🟢" : conf === "MODÉRÉ" ? "🟡" : "🔴";
+      resp += `- ${emoji} ${conf} : ${Math.round((cw / cr.length) * 100)}% (${cw}/${cr.length})\n`;
+    }
+  }
+  
+  // Recent streak
+  const last10 = resolved.slice(0, 10);
+  const last10W = last10.filter(r => r.result === "win").length;
+  resp += `\n📈 Derniers 10 picks : **${last10W}/10** (${Math.round(last10W * 10)}%)\n`;
+  
+  resp += `\n_Statistiques basées sur l'historique complet des prédictions._`;
+  return resp;
+}
+
+function generateSafeMatchesResponse(matches: MatchData[]): string {
+  const safe = matches.filter(m => m.pred_confidence === "SAFE" && m.ai_score > 0 && new Date(m.kickoff) > new Date())
+    .sort((a, b) => b.ai_score - a.ai_score).slice(0, 5);
+  
+  if (safe.length === 0) return "🟢 Aucun match classé **SAFE** disponible pour le moment. Les matchs SAFE sont les picks avec la confiance la plus élevée de notre IA.";
+  
+  let resp = "🟢 **Matchs les plus sûrs :**\n\n";
+  for (const m of safe) {
+    const winner = getWinner(m);
+    const date = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    resp += `✅ **${m.home_team} vs ${m.away_team}** — ${winner} (IA: ${m.ai_score}/100) • ${date}\n`;
+    resp += `   Probas: ${m.pred_home_win}% / ${m.pred_draw}% / ${m.pred_away_win}%\n\n`;
+  }
+  resp += `_Les picks SAFE ont historiquement le meilleur taux de réussite._`;
+  return resp;
+}
+
+function generateFallbackResponse(userMsg: string, matches: MatchData[], results: ResultData[], stats: StatsData[]): string {
+  const q = normalize(userMsg);
+  
+  // Check for specific match question
+  const match = findMatchInQuestion(userMsg, matches);
+  if (match) return generateMatchResponse(match);
+  
+  // Check for result/history of a specific match
+  if (match === null) {
+    for (const r of results) {
+      if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
+        let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
+        resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
+        if (r.result) {
+          const emoji = r.result === "win" ? "✅" : "❌";
+          resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
+        }
+        if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
+        resp += `\n_Données issues de notre historique de prédictions._`;
+        return resp;
+      }
+    }
+  }
+  
+  // Best matches
+  if (q.includes("meilleur") || q.includes("top") || q.includes("best") || q.includes("recommand")) {
+    return generateBestMatchesResponse(matches);
+  }
+  
+  // Safe matches
+  if (q.includes("sur") || q.includes("safe") || q.includes("securis") || q.includes("fiable") || q.includes("confian")) {
+    return generateSafeMatchesResponse(matches);
+  }
+  
+  // Stats / winrate / performance
+  if (q.includes("taux") || q.includes("winrate") || q.includes("reussite") || q.includes("performance") || q.includes("stat") || q.includes("resultat")) {
+    return generateStatsResponse(results, stats);
+  }
+  
+  // Explanation of a prediction
+  if (q.includes("pourquoi") || q.includes("expliqu") || q.includes("raison") || q.includes("comment")) {
+    if (match) return generateMatchResponse(match);
+    return "🤔 Pour t'expliquer une prédiction, dis-moi le nom d'une équipe ou d'un match ! Par exemple : *\"Pourquoi Germany vs Ghana ?\"*";
+  }
+  
+  // Greeting
+  if (q.includes("salut") || q.includes("bonjour") || q.includes("hello") || q.includes("hey") || q.includes("coucou")) {
+    return "👋 Salut ! Je suis **Pronosia AI**, ton assistant pronostics. Pose-moi tes questions sur les matchs du jour, les stats, ou demande-moi d'expliquer une prédiction ! 🏆";
+  }
+  
+  // General fallback
+  const todayCount = matches.filter(m => isToday(m.kickoff) && m.ai_score > 0).length;
+  const resolved = results.filter(r => r.result === "win" || r.result === "loss");
+  const wr = resolved.length > 0 ? Math.round((resolved.filter(r => r.result === "win").length / resolved.length) * 100) : 0;
+  
+  let resp = `🤖 **Pronosia AI** — Voici ce que je peux faire :\n\n`;
+  resp += `📊 ${todayCount} matchs analysés aujourd'hui • Winrate global : ${wr}%\n\n`;
+  resp += `💡 **Pose-moi une question comme :**\n`;
+  resp += `- 🏆 *\"Quels sont les meilleurs matchs ?\"*\n`;
+  resp += `- 🟢 *\"Quels matchs sont les plus sûrs ?\"*\n`;
+  resp += `- 📊 *\"Quel est ton taux de réussite ?\"*\n`;
+  resp += `- ⚽ *\"Germany vs Ghana\"* (pour les détails d'un match)\n`;
+  resp += `\n_Je me base uniquement sur les données réelles de notre système IA._`;
+  return resp;
+}
+
+function makeFallbackSSE(text: string): string {
+  // Simulate SSE streaming with the fallback text split into chunks
+  const chunks: string[] = [];
+  const words = text.split(" ");
+  let current = "";
+  for (const word of words) {
+    current += (current ? " " : "") + word;
+    if (current.length >= 15) {
+      chunks.push(current);
+      current = "";
+    }
+  }
+  if (current) chunks.push(current);
+  
+  let sse = "";
+  for (const chunk of chunks) {
+    const data = JSON.stringify({ choices: [{ delta: { content: chunk + " " } }] });
+    sse += `data: ${data}\n\n`;
+  }
+  sse += "data: [DONE]\n\n";
+  return sse;
+}
+
+// ── Main handler ───────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -12,12 +271,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     // Auth check
     const authHeader = req.headers.get("Authorization");
@@ -58,98 +311,107 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch recent matches + results for context (deterministic data)
-    const { data: recentMatches } = await supabase
-      .from("cached_matches")
-      .select("fixture_id, home_team, away_team, league_name, sport, kickoff, pred_home_win, pred_draw, pred_away_win, pred_confidence, pred_analysis, pred_score_home, pred_score_away, pred_btts_prob, pred_over_prob, ai_score, status, home_score, away_score, anomaly_label, streak_mode_level")
-      .order("kickoff", { ascending: false })
-      .limit(50);
+    // Fetch data for both AI and fallback
+    const [matchesRes, resultsRes, statsRes] = await Promise.all([
+      supabase.from("cached_matches")
+        .select("fixture_id, home_team, away_team, league_name, sport, kickoff, pred_home_win, pred_draw, pred_away_win, pred_confidence, pred_analysis, pred_score_home, pred_score_away, pred_btts_prob, pred_over_prob, ai_score, status, home_score, away_score, anomaly_label, streak_mode_level")
+        .order("kickoff", { ascending: false }).limit(50),
+      supabase.from("match_results")
+        .select("fixture_id, home_team, away_team, league_name, predicted_winner, predicted_confidence, result, actual_home_score, actual_away_score, bet_type, sport, kickoff")
+        .order("kickoff", { ascending: false }).limit(100),
+      supabase.from("ai_learning_stats")
+        .select("sport, confidence_level, winrate, total_predictions, calibration_error, bet_type, roi")
+        .eq("league_name", "_all").eq("odds_bracket", "_all"),
+    ]);
 
-    const { data: recentResults } = await supabase
-      .from("match_results")
-      .select("fixture_id, home_team, away_team, league_name, predicted_winner, predicted_confidence, result, actual_home_score, actual_away_score, bet_type, sport, kickoff")
-      .order("kickoff", { ascending: false })
-      .limit(100);
+    const recentMatches = (matchesRes.data || []) as MatchData[];
+    const recentResults = (resultsRes.data || []) as ResultData[];
+    const learningStats = (statsRes.data || []) as StatsData[];
 
-    // Build deterministic match context
-    const matchContext = (recentMatches || []).map(m => {
-      const maxProb = Math.max(m.pred_home_win, m.pred_draw, m.pred_away_win);
-      const winner = m.pred_home_win === maxProb ? m.home_team : m.pred_away_win === maxProb ? m.away_team : "Nul";
-      return `• ${m.home_team} vs ${m.away_team} (${m.league_name}, ${m.sport}) - Kickoff: ${m.kickoff} - Prédiction: ${winner} (${m.pred_confidence}, score IA: ${m.ai_score}/100) - Probas: Dom ${m.pred_home_win}% / Nul ${m.pred_draw}% / Ext ${m.pred_away_win}% - Score prédit: ${m.pred_score_home}-${m.pred_score_away} - BTTS: ${m.pred_btts_prob}% - Over 2.5: ${m.pred_over_prob}% - Analyse: ${m.pred_analysis || "N/A"} - Statut: ${m.status}${m.home_score != null ? ` (Score réel: ${m.home_score}-${m.away_score})` : ""}`;
+    // Build context for AI prompt
+    const matchContext = recentMatches.map(m => {
+      const winner = getWinner(m);
+      return `• ${m.home_team} vs ${m.away_team} (${m.league_name}, ${m.sport}) - Kickoff: ${m.kickoff} - Prédiction: ${winner} (${m.pred_confidence}, IA: ${m.ai_score}/100) - Probas: ${m.pred_home_win}%/${m.pred_draw}%/${m.pred_away_win}% - Score: ${m.pred_score_home}-${m.pred_score_away} - BTTS: ${m.pred_btts_prob}% - Over: ${m.pred_over_prob}% - Analyse: ${m.pred_analysis || "N/A"}${m.home_score != null ? ` (Réel: ${m.home_score}-${m.away_score})` : ""}`;
     }).join("\n");
 
-    const resultsContext = (recentResults || []).map(r =>
-      `• ${r.home_team} vs ${r.away_team} (${r.league_name}) - Prédiction: ${r.predicted_winner} (${r.predicted_confidence}, type: ${r.bet_type || "winner"}) - Résultat: ${r.result || "en attente"}${r.actual_home_score != null ? ` (${r.actual_home_score}-${r.actual_away_score})` : ""}`
+    const resultsContext = recentResults.map(r =>
+      `• ${r.home_team} vs ${r.away_team} (${r.league_name}) - Préd: ${r.predicted_winner} (${r.predicted_confidence}, ${r.bet_type || "winner"}) - ${r.result || "attente"}${r.actual_home_score != null ? ` (${r.actual_home_score}-${r.actual_away_score})` : ""}`
     ).join("\n");
 
-    // Learning stats for context
-    const { data: learningStats } = await supabase
-      .from("ai_learning_stats")
-      .select("sport, confidence_level, winrate, total_predictions, calibration_error, bet_type, roi")
-      .eq("league_name", "_all")
-      .eq("odds_bracket", "_all");
-
-    const statsContext = (learningStats || []).filter(s => s.total_predictions >= 5).map(s =>
-      `${s.sport}/${s.confidence_level}${s.bet_type !== "_all" ? `/${s.bet_type}` : ""}: ${s.winrate}% winrate (${s.total_predictions} picks, calibration: ${s.calibration_error > 0 ? "+" : ""}${s.calibration_error}%, ROI: ${s.roi || 0}%)`
+    const statsContext = learningStats.filter(s => s.total_predictions >= 5).map(s =>
+      `${s.sport}/${s.confidence_level}${s.bet_type !== "_all" ? `/${s.bet_type}` : ""}: ${s.winrate}% (${s.total_predictions} picks, cal: ${s.calibration_error > 0 ? "+" : ""}${s.calibration_error}%, ROI: ${s.roi || 0}%)`
     ).join("\n");
 
     const systemPrompt = `Tu es Pronosia AI, l'assistant intelligent de la plateforme Pronosia - un service de pronostics sportifs propulsé par l'intelligence artificielle.
 
 RÈGLES ABSOLUES:
-1. Tu es STRICTEMENT COHÉRENT dans tes réponses. Pour un même match, tu donnes TOUJOURS la même analyse et la même conclusion, quel que soit l'utilisateur qui pose la question.
-2. Tu te bases UNIQUEMENT sur les données factuelles des prédictions stockées ci-dessous. Tu ne modifies JAMAIS une prédiction existante.
-3. Quand on te demande pourquoi un match a telle prédiction, tu expliques les facteurs objectifs (probabilités, score IA, analyse technique) sans jamais changer le verdict.
-4. Tu ne fais PAS de nouvelles prédictions. Tu expliques et commentes celles qui existent déjà dans le système.
+1. Tu es STRICTEMENT COHÉRENT. Pour un même match, tu donnes TOUJOURS la même analyse, quel que soit l'utilisateur.
+2. Tu te bases UNIQUEMENT sur les données factuelles ci-dessous. Tu ne modifies JAMAIS une prédiction existante.
+3. Tu expliques les facteurs objectifs (probabilités, score IA, analyse) sans jamais changer le verdict.
+4. Tu ne fais PAS de nouvelles prédictions. Tu expliques celles qui existent.
 5. Tu parles en français, de manière professionnelle mais accessible.
-6. Si on te pose une question sur un match que tu n'as pas dans tes données, dis-le clairement.
-7. Tu ne donnes AUCUNE garantie de résultat. Tu rappelles que ce sont des analyses statistiques.
+6. Si un match n'est pas dans tes données, dis-le clairement.
+7. Tu ne donnes AUCUNE garantie de résultat.
 
-DONNÉES DES MATCHS ACTUELS:
-${matchContext || "Aucun match disponible actuellement."}
+MATCHS ACTUELS:
+${matchContext || "Aucun match disponible."}
 
-HISTORIQUE DES RÉSULTATS RÉCENTS:
-${resultsContext || "Aucun résultat disponible."}
+RÉSULTATS RÉCENTS:
+${resultsContext || "Aucun résultat."}
 
-STATISTIQUES DE PERFORMANCE:
+PERFORMANCE:
 ${statsContext || "Pas assez de données."}
 
-Réponds de manière concise et structurée. Utilise des emojis pertinents pour rendre la lecture agréable.`;
+Réponds de manière concise avec des emojis pertinents.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages.slice(-20), // Keep last 20 messages for context
-        ],
-        stream: true,
-      }),
-    });
+    // Try AI gateway first, fallback to deterministic engine
+    let useAI = !!LOVABLE_API_KEY;
+    
+    if (useAI) {
+      try {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...messages.slice(-20),
+            ],
+            stream: true,
+          }),
+        });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Trop de requêtes, réessaie dans quelques instants." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        if (response.ok) {
+          return new Response(response.body, {
+            headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+          });
+        }
+
+        // 429 = rate limit, tell user to wait
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Trop de requêtes, réessaie dans quelques instants." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // 402 or other = fall through to deterministic
+        console.log(`[PRONOSIA-CHAT] AI gateway returned ${response.status}, using fallback engine`);
+      } catch (e) {
+        console.log(`[PRONOSIA-CHAT] AI gateway error, using fallback:`, e);
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Service temporairement indisponible." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Erreur IA" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    return new Response(response.body, {
+    // ── Deterministic fallback ──
+    console.log("[PRONOSIA-CHAT] Using deterministic fallback engine");
+    const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+    const fallbackText = generateFallbackResponse(lastUserMsg, recentMatches, recentResults, learningStats);
+    const sseBody = makeFallbackSSE(fallbackText);
+
+    return new Response(sseBody, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
