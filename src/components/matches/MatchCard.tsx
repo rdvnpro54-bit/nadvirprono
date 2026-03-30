@@ -213,11 +213,14 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
       >
         <Link to={locked ? "#" : `/match/${match.id}`} onClick={handleLockedClick} className="block">
           <div className={cn(
-            "relative overflow-hidden rounded-xl border border-border/40 bg-card/80 backdrop-blur-sm p-3 sm:p-3.5 transition-all duration-200 active:scale-[0.98]",
-            "hover:border-primary/20 hover:shadow-md hover:shadow-primary/5",
+            "relative overflow-hidden rounded-2xl p-3 sm:p-3.5 transition-all duration-300 active:scale-[0.98]",
+            "bg-[rgba(255,255,255,0.03)] backdrop-blur-xl",
+            "border border-[rgba(255,215,0,0.1)]",
+            "hover:border-[rgba(255,215,0,0.25)] hover:shadow-[0_8px_32px_rgba(255,215,0,0.08)]",
             locked && "opacity-75",
-            getAiScoreGlow(aiScore)
-          )}>
+            aiScore >= 90 && "border-[rgba(255,215,0,0.2)] shadow-[0_0_20px_rgba(255,215,0,0.08)]",
+            aiScore >= 80 && aiScore < 90 && "border-[rgba(16,185,129,0.15)] shadow-[0_0_15px_rgba(16,185,129,0.05)]"
+          ))>
             {/* Live accent bar */}
             {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive animate-pulse" />}
 
