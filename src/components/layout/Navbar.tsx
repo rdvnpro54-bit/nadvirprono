@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Search, Star, User, Zap, Shield, BarChart3 } from "lucide-react";
+import { Home, Search, Star, User, Zap, Shield, BarChart3, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,7 @@ const desktopNav = [
   { label: "Accueil", path: "/" },
   { label: "Analyse", path: "/matches" },
   { label: "Résultats", path: "/resultats" },
+  { label: "Pronosia AI", path: "/pronosia-ai" },
   { label: "Suivis", path: "/suivis" },
   { label: "Premium", path: "/pricing" },
 ];
@@ -17,6 +18,7 @@ const mobileNav = [
   { label: "Accueil", path: "/", icon: Home },
   { label: "Analyse", path: "/matches", icon: Search },
   { label: "Résultats", path: "/resultats", icon: BarChart3 },
+  { label: "AI", path: "/pronosia-ai", icon: Bot },
   { label: "Suivis", path: "/suivis", icon: Star },
   { label: "Compte", path: "/compte", icon: User },
 ];

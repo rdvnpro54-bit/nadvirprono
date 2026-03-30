@@ -27,6 +27,7 @@ import Suivis from "./pages/Suivis";
 import Compte from "./pages/Compte";
 import Admin from "./pages/Admin";
 import Resultats from "./pages/Resultats";
+import PronosiaAI from "./pages/PronosiaAI";
 import Success from "./pages/Success";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -63,6 +64,7 @@ function AnimatedRoutes() {
         <Route path="/success" element={<PageWrapper><Success /></PageWrapper>} />
         <Route path="/admin" element={<PageWrapper><Admin /></PageWrapper>} />
         <Route path="/resultats" element={<PageWrapper><Resultats /></PageWrapper>} />
+        <Route path="/pronosia-ai" element={<PageWrapper><PronosiaAI /></PageWrapper>} />
         <Route path="/reset-password" element={<PageWrapper><ResetPassword /></PageWrapper>} />
         <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
       </Routes>
