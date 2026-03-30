@@ -729,9 +729,10 @@ async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
   if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
   try {
     const res = await fetch(
-      `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics`,
+      `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?include=participants;scores;odds;lineups;statistics`,
+      { headers: { Authorization: apiKey } },
     );
-    if (!res.ok) { console.error(`[SportMonks] error: ${res.status}`); return []; }
+    if (!res.ok) { console.error(`[SportMonks] error: ${res.status} - ${await res.text()}`); return []; }
     const json = await res.json();
     console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures for ${dateISO}`);
     return json.data || [];
