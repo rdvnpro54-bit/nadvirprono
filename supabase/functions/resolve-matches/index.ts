@@ -37,12 +37,43 @@ interface CachedMatch {
   kickoff: string;
   pred_home_win: number;
   pred_away_win: number;
+  pred_draw: number;
   pred_score_home: number;
   pred_score_away: number;
   pred_confidence: string;
+  pred_analysis: string | null;
+  pred_btts_prob: number;
   status: string;
   home_score: number | null;
   away_score: number | null;
+}
+
+// Detect the bet type from the AI analysis text
+function detectBetType(analysis: string | null, predDraw: number, predBtts: number): string {
+  if (!analysis) return "winner";
+  const lower = analysis.toLowerCase();
+  
+  // Double Chance detection
+  if (lower.includes("double chance") || lower.includes("1x") || lower.includes("x2") || lower.includes("1n") || lower.includes("n2")) {
+    return "double_chance";
+  }
+  
+  // BTTS detection
+  if (lower.includes("btts") || lower.includes("les 2 équipes marquent") || lower.includes("les deux équipes marquent")) {
+    return "btts";
+  }
+  
+  // Over/Under detection
+  if (lower.includes("over 2.5") || lower.includes("plus de 2.5") || lower.includes("under 2.5") || lower.includes("moins de 2.5")) {
+    return lower.includes("under") || lower.includes("moins") ? "under" : "over";
+  }
+  
+  // Draw detection  
+  if (lower.includes("match nul") || lower.includes("nul probable")) {
+    return "draw";
+  }
+  
+  return "winner";
 }
 
 // Try to fetch real scores from ESPN — check multiple dates for reliability
@@ -217,14 +248,42 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Determine if prediction was correct
+      // Determine actual outcome
       let actualWinner: string;
       if (actualHome > actualAway) actualWinner = m.home_team;
       else if (actualAway > actualHome) actualWinner = m.away_team;
       else actualWinner = "draw";
 
-      const isWon = predWinner === actualWinner ||
-        (actualWinner === "draw" && m.pred_home_win === m.pred_away_win);
+      // Detect what type of bet the AI recommended
+      const betType = detectBetType(m.pred_analysis, m.pred_draw || 0, m.pred_btts_prob || 0);
+      
+      let isWon = false;
+      switch (betType) {
+        case "double_chance":
+          // Double Chance = predicted winner OR draw = win
+          isWon = predWinner === actualWinner || actualWinner === "draw";
+          break;
+        case "btts":
+          // BTTS = both teams scored
+          isWon = actualHome > 0 && actualAway > 0;
+          break;
+        case "over":
+          isWon = (actualHome + actualAway) > 2.5;
+          break;
+        case "under":
+          isWon = (actualHome + actualAway) < 2.5;
+          break;
+        case "draw":
+          isWon = actualWinner === "draw";
+          break;
+        default:
+          // Standard winner prediction
+          isWon = predWinner === actualWinner ||
+            (actualWinner === "draw" && m.pred_home_win === m.pred_away_win);
+          break;
+      }
+
+      console.log(`[resolve] ${m.home_team} vs ${m.away_team}: betType=${betType}, pred=${predWinner}, actual=${actualWinner}, score=${actualHome}-${actualAway}, result=${isWon ? "win" : "loss"}`);
 
       results.push({
         fixture_id: m.fixture_id,
