@@ -633,31 +633,21 @@ interface APIFootballFixture {
 
 function getAPIFootballHeaders(): Record<string, string> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY") || "";
-  // Support both RapidAPI keys and direct API-Sports keys
-  if (apiKey.includes("msh") || apiKey.length > 40) {
-    // Looks like a RapidAPI key
-    return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" };
-  }
-  // Direct API-Sports key
-  return { "x-apisports-key": apiKey };
-}
-
-function getAPIFootballBase(): string {
-  const apiKey = Deno.env.get("API_FOOTBALL_KEY") || "";
-  return (apiKey.includes("msh") || apiKey.length > 40) ? APIFOOTBALL_RAPID : APIFOOTBALL_DIRECT;
+  // Always use RapidAPI headers — direct api-sports.com has TLS issues with Deno
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" };
 }
 
 async function fetchAPIFootballFixtures(dateISO: string): Promise<APIFootballFixture[]> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) { console.log("[API-Football] No API key configured"); return []; }
-  const base = getAPIFootballBase();
   try {
-    const res = await fetch(`${base}/fixtures?date=${dateISO}&status=NS`, {
+    console.log(`[API-Football] Using RapidAPI endpoint for ${dateISO}`);
+    const res = await fetch(`${APIFOOTBALL_RAPID}/fixtures?date=${dateISO}&status=NS`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) {
       const body = await res.text();
-      console.error(`[API-Football] Fixtures error ${res.status}: ${body.slice(0, 200)}`);
+      console.error(`[API-Football] Fixtures error ${res.status}: ${body.slice(0, 300)}`);
       return [];
     }
     const json = await res.json();
@@ -670,7 +660,7 @@ async function fetchAPIFootballLineups(fixtureId: number): Promise<{ home: any[]
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${getAPIFootballBase()}/fixtures/lineups?fixture=${fixtureId}`, {
+    const res = await fetch(`${APIFOOTBALL_RAPID}/fixtures/lineups?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -688,7 +678,7 @@ async function fetchAPIFootballOdds(fixtureId: number): Promise<any | null> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${getAPIFootballBase()}/odds?fixture=${fixtureId}`, {
+    const res = await fetch(`${APIFOOTBALL_RAPID}/odds?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -709,7 +699,7 @@ async function fetchAPIFootballH2H(homeId: number, awayId: number): Promise<any[
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${getAPIFootballBase()}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
+    const res = await fetch(`${APIFOOTBALL_RAPID}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -725,7 +715,7 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) return null;
   try {
-    const res = await fetch(`${getAPIFootballBase()}/fixtures/statistics?fixture=${fixtureId}`, {
+    const res = await fetch(`${APIFOOTBALL_RAPID}/fixtures/statistics?fixture=${fixtureId}`, {
       headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
@@ -746,7 +736,7 @@ async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
   const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
   if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
   // SportMonks accepts token as query param (api_token) — most reliable method
-  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics`;
+  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics&per_page=50`;
   console.log(`[SportMonks] Fetching: ${url.replace(apiKey, "***")}`);
   try {
     const res = await fetch(url);
@@ -756,7 +746,8 @@ async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
       return [];
     }
     const json = await res.json();
-    console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures for ${dateISO}`);
+    if (json.message) { console.error(`[SportMonks] API message: ${json.message}`); }
+    console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures, pagination: ${json.pagination?.total || 'n/a'}`);
     return json.data || [];
   } catch (e) { console.error("[SportMonks] error:", e); return []; }
 }
