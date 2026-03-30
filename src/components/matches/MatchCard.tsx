@@ -346,7 +346,9 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                   />
                 </div>
 
-                {/* SAFE market badge */}
+                <p className="text-[8px] text-muted-foreground/60 italic">Probabilité calibrée — ajustée pour biais du modèle</p>
+
+
                 {match.pred_confidence === "SAFE" && (
                   <div className="flex items-center gap-1 text-[9px]">
                     <ShieldCheck className="h-2.5 w-2.5 text-emerald-400" />
