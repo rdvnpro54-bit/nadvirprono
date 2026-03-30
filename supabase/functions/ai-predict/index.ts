@@ -1486,24 +1486,92 @@ Deno.serve(async (req) => {
       console.log(`[AI-PREDICT v3.1] ${streak.level.toUpperCase()} MODE: winrate=${streak.rollingWinrate}%, losses=${streak.consecutiveLosses}, maxPicks=${streak.maxPicks}, minConf=${streak.minConfidence}%`);
     }
 
-    // Self-learning context
+    // ═══ ENHANCED SELF-LEARNING CONTEXT (v3.2) ═══
     let learningContext = "";
     try {
-      const { data: learningStats } = await supabase
+      // 1. Global stats by sport + confidence
+      const { data: globalStats } = await supabase
         .from("ai_learning_stats")
         .select("*")
         .eq("league_name", "_all")
         .order("total_predictions", { ascending: false })
         .limit(20);
 
-      if (learningStats && learningStats.length > 0) {
-        const lines = learningStats.map((s: any) =>
-          `• ${s.sport.toUpperCase()} / ${s.confidence_level}: ${s.winrate}% winrate (${s.total_predictions} picks), calibration error ${s.calibration_error}%${s.common_loss_pattern ? `, loss pattern: ${s.common_loss_pattern}` : ""}`
+      // 2. Worst-performing leagues (calibration_error > 8 or winrate < 50)
+      const { data: weakLeagues } = await supabase
+        .from("ai_learning_stats")
+        .select("sport, league_name, winrate, calibration_error, total_predictions, common_loss_pattern")
+        .neq("league_name", "_all")
+        .gte("total_predictions", 5)
+        .order("winrate", { ascending: true })
+        .limit(10);
+
+      // 3. Bet-type performance
+      const { data: betTypeStats } = await supabase
+        .from("ai_learning_stats")
+        .select("bet_type, winrate, total_predictions, calibration_error, roi")
+        .eq("league_name", "_all")
+        .neq("bet_type", "_all")
+        .gte("total_predictions", 3);
+
+      // 4. Recent losses for pattern analysis
+      const { data: recentLosses } = await supabase
+        .from("match_results")
+        .select("sport, league_name, predicted_confidence, predicted_winner, home_team, away_team, pred_home_win, pred_away_win, bet_type")
+        .eq("result", "loss")
+        .order("resolved_at", { ascending: false })
+        .limit(15);
+
+      const sections: string[] = [];
+
+      // Global performance summary
+      if (globalStats && globalStats.length > 0) {
+        const lines = globalStats.map((s: any) =>
+          `• ${s.sport.toUpperCase()} / ${s.confidence_level}: ${s.winrate}% winrate (${s.total_predictions} picks), calibration error ${s.calibration_error}%${s.common_loss_pattern ? `, loss pattern: ${s.common_loss_pattern}` : ""}${s.roi != null ? `, ROI: ${s.roi}%` : ""}`
         );
-        learningContext = `\n\n🧠 SELF-LEARNING DATA (v3.1):\n${lines.join("\n")}\nADJUSTMENTS: If calibration_error > 10 → reduce probability. If winrate < 50% for SAFE → be MORE selective.\n`;
+        sections.push(`📊 GLOBAL PERFORMANCE:\n${lines.join("\n")}`);
       }
-    } catch {
-      console.log("[AI-PREDICT v3.1] Learning stats not available");
+
+      // Weak leagues warning
+      if (weakLeagues && weakLeagues.length > 0) {
+        const badLeagues = weakLeagues.filter((l: any) => l.winrate < 50 || l.calibration_error > 10);
+        if (badLeagues.length > 0) {
+          const lines = badLeagues.slice(0, 6).map((l: any) =>
+            `⚠️ ${l.league_name} (${l.sport}): ${l.winrate}% winrate, ${l.calibration_error}% cal. error${l.common_loss_pattern ? ` — pattern: ${l.common_loss_pattern}` : ""}`
+          );
+          sections.push(`🚨 WEAK LEAGUES (REDUCE CONFIDENCE OR AVOID):\n${lines.join("\n")}`);
+        }
+      }
+
+      // Bet-type insights
+      if (betTypeStats && betTypeStats.length > 0) {
+        const lines = betTypeStats.map((b: any) =>
+          `• ${(b.bet_type || "winner").toUpperCase()}: ${b.winrate}% winrate (${b.total_predictions} picks)${b.roi != null ? `, ROI: ${b.roi}%` : ""}`
+        );
+        sections.push(`🎯 BET TYPE PERFORMANCE:\n${lines.join("\n")}`);
+      }
+
+      // Recent loss analysis
+      if (recentLosses && recentLosses.length > 0) {
+        const lossLines = recentLosses.slice(0, 8).map((l: any) => {
+          const maxProb = Math.max(Number(l.pred_home_win), Number(l.pred_away_win));
+          return `❌ ${l.home_team} vs ${l.away_team} (${l.league_name}) — ${l.predicted_confidence}, prob ${maxProb}%, type: ${l.bet_type || "winner"}`;
+        });
+        // Detect patterns
+        const upsetCount = recentLosses.filter((l: any) => Math.max(Number(l.pred_home_win), Number(l.pred_away_win)) >= 65).length;
+        const safeCount = recentLosses.filter((l: any) => l.predicted_confidence === "SAFE").length;
+        const patternWarnings: string[] = [];
+        if (upsetCount > recentLosses.length * 0.5) patternWarnings.push("⚠️ TOO MANY UPSET LOSSES: You are overconfident on favorites. Reduce probabilities by 5-8% on heavy favorites.");
+        if (safeCount > recentLosses.length * 0.3) patternWarnings.push("⚠️ SAFE PICKS FAILING: Your SAFE classification is too generous. Raise the bar for SAFE — require >75% calibrated probability.");
+        
+        sections.push(`📉 RECENT LOSSES (LEARN FROM THESE):\n${lossLines.join("\n")}${patternWarnings.length > 0 ? "\n" + patternWarnings.join("\n") : ""}`);
+      }
+
+      if (sections.length > 0) {
+        learningContext = `\n\n🧠 SELF-LEARNING ENGINE v3.2 — MANDATORY ADJUSTMENTS:\n${sections.join("\n\n")}\n\nRULES BASED ON DATA:\n- If calibration_error > 10% for a sport/confidence → REDUCE probability by calibration_error/2\n- If a league has winrate < 50% → INCREASE minimum confidence threshold by 5%\n- If a bet type has < 45% winrate → AVOID that bet type\n- If recent losses show upset_favorite pattern → cap favorite probability at 72%\n- NEVER repeat the same error pattern twice. Your reputation depends on LEARNING.\n`;
+      }
+    } catch (e) {
+      console.log("[AI-PREDICT v3.2] Learning stats error:", e);
     }
 
     // Fetch matches needing AI
