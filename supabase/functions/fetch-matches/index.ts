@@ -731,25 +731,66 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
   } catch { return null; }
 }
 
-// ─── SPORTMONKS — ENRICHMENT: pre-match stats, lineups, odds ────────
+// ─── SPORTMONKS — ENRICHMENT: leagues-first approach ────────────────
+async function fetchSportMonksAvailableLeagueIds(): Promise<number[]> {
+  const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
+  if (!apiKey) return [];
+  try {
+    const res = await fetch(`${SPORTMONKS_BASE}/leagues?api_token=${apiKey}&per_page=50`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const ids = (json.data || []).map((l: any) => l.id);
+    console.log(`[SportMonks] Available leagues: ${ids.length} — IDs: ${ids.join(",")}`);
+    return ids;
+  } catch { return []; }
+}
+
 async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
   const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
   if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
-  // SportMonks accepts token as query param (api_token) — most reliable method
-  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics&per_page=50`;
-  console.log(`[SportMonks] Fetching: ${url.replace(apiKey, "***")}`);
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error(`[SportMonks] error ${res.status}: ${errBody.slice(0, 300)}`);
-      return [];
-    }
-    const json = await res.json();
-    if (json.message) { console.error(`[SportMonks] API message: ${json.message}`); }
-    console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures, pagination: ${json.pagination?.total || 'n/a'}`);
-    return json.data || [];
-  } catch (e) { console.error("[SportMonks] error:", e); return []; }
+
+  // Step 1: Get available league IDs
+  const leagueIds = await fetchSportMonksAvailableLeagueIds();
+  if (leagueIds.length === 0) {
+    console.log("[SportMonks] No accessible leagues, skipping");
+    return [];
+  }
+
+  // Step 2: Try fetching fixtures for each accessible league
+  const allFixtures: any[] = [];
+  for (const leagueId of leagueIds) {
+    try {
+      const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;lineups;statistics&filters=fixtureLeagues:${leagueId}&per_page=50`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const fixtures = json.data || [];
+      if (fixtures.length > 0) {
+        console.log(`[SportMonks] League ${leagueId}: ${fixtures.length} fixtures`);
+        allFixtures.push(...fixtures);
+      }
+    } catch { /* skip league */ }
+  }
+
+  // Step 3: If league-based fetch returned nothing, try the season standings for team stats
+  if (allFixtures.length === 0) {
+    // Fallback: try date-based (may work on some plans)
+    try {
+      const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;lineups;statistics&per_page=50`;
+      console.log(`[SportMonks] Fallback date-based fetch for ${dateISO}`);
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.message) console.error(`[SportMonks] API message: ${json.message}`);
+        const fixtures = json.data || [];
+        console.log(`[SportMonks] Found ${fixtures.length} fixtures (date-based)`);
+        allFixtures.push(...fixtures);
+      }
+    } catch { /* skip */ }
+  }
+
+  console.log(`[SportMonks] Total fixtures: ${allFixtures.length}`);
+  return allFixtures;
 }
 
 function parseSportMonksEnrichment(fixture: any): {
