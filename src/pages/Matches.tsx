@@ -97,6 +97,8 @@ export default function Matches() {
   const [aiTier, setAiTier] = useState<AiTier>("ALL");
   const [valueBetsOnly, setValueBetsOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [visibleCount, setVisibleCount] = useState(30);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const freePicksUsed = useMemo(() => {
     if (!matches) return 0;
