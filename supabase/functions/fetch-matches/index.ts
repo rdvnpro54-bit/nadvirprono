@@ -773,16 +773,103 @@ function parseSportMonksEnrichment(fixture: any): {
   return { lineups, odds, stats };
 }
 
+// ─── SOFASCORE RAPIDAPI — ENRICHMENT: events, lineups, stats, odds ──
+const SOFASCORE_RAPID_BASE = "https://sportapi7.p.rapidapi.com/api/v1";
+
+function getSofaScoreRapidHeaders(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "sportapi7.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+async function fetchSofaScoreRapidEvents(dateISO: string, sport: string): Promise<any[]> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) { console.log("[SofaScore-Rapid] No API key"); return []; }
+  const sportPath = sport === "football" ? "football" : sport === "basketball" ? "basketball" : sport === "tennis" ? "tennis" : sport;
+  try {
+    const res = await fetch(`${SOFASCORE_RAPID_BASE}/sport/${sportPath}/scheduled-events/${dateISO}`, {
+      headers: getSofaScoreRapidHeaders(),
+    });
+    if (!res.ok) { console.error(`[SofaScore-Rapid] ${sport} events error: ${res.status}`); return []; }
+    const json = await res.json();
+    const events = json.events || [];
+    console.log(`[SofaScore-Rapid] ${sport} — ${events.length} events for ${dateISO}`);
+    return events;
+  } catch (e) { console.error(`[SofaScore-Rapid] ${sport} error:`, e); return []; }
+}
+
+async function fetchSofaScoreRapidLineups(eventId: number): Promise<{ home: any[]; away: any[] } | null> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${SOFASCORE_RAPID_BASE}/event/${eventId}/lineups`, {
+      headers: getSofaScoreRapidHeaders(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const extract = (team: any) => (team?.players || []).flatMap((row: any) =>
+      (row.players || [row]).map((p: any) => ({
+        name: p.player?.name || p.name, number: p.shirtNumber || p.jerseyNumber,
+        pos: p.position || p.player?.position, rating: p.statistics?.rating,
+      }))
+    );
+    return { home: extract(json.home), away: extract(json.away) };
+  } catch { return null; }
+}
+
+async function fetchSofaScoreRapidStats(eventId: number): Promise<any | null> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${SOFASCORE_RAPID_BASE}/event/${eventId}/statistics`, {
+      headers: getSofaScoreRapidHeaders(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const result: Record<string, any> = {};
+    for (const period of (json.statistics || [])) {
+      for (const group of (period.groups || [])) {
+        for (const item of (group.statisticsItems || [])) {
+          const key = (item.name || "").toLowerCase().replace(/\s+/g, "_");
+          result[key] = { home: item.home, away: item.away };
+        }
+      }
+    }
+    return Object.keys(result).length > 0 ? result : null;
+  } catch { return null; }
+}
+
+async function fetchSofaScoreRapidOdds(eventId: number): Promise<any | null> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`${SOFASCORE_RAPID_BASE}/event/${eventId}/odds/1/all`, {
+      headers: getSofaScoreRapidHeaders(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const markets = json.markets || [];
+    if (markets.length === 0) return null;
+    return markets.slice(0, 8).map((m: any) => ({
+      market: m.marketName || m.sourceId, choices: (m.choices || []).map((c: any) => ({
+        name: c.name, odds: c.fractionalValue || c.sourceId, change: c.change,
+      })),
+    }));
+  } catch { return null; }
+}
+
 // ─── ENRICHMENT ORCHESTRATOR ─────────────────────────────────────────
 async function enrichMatchesWithAPIs(
   rows: any[], dateISO: string
 ): Promise<void> {
   console.log(`[ENRICH] Starting enrichment for ${rows.length} matches...`);
 
-  // 1. Fetch API-Football fixtures to map team names → fixture IDs
-  const [apiFootballFixtures, sportMonksFixtures] = await Promise.all([
+  // 1. Fetch all enrichment data sources in parallel
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
+    fetchSofaScoreRapidEvents(dateISO, "football"),
+    fetchSofaScoreRapidEvents(dateISO, "basketball"),
+    fetchSofaScoreRapidEvents(dateISO, "tennis"),
   ]);
 
   // Build lookup maps
@@ -801,52 +888,83 @@ async function enrichMatchesWithAPIs(
     }
   }
 
-  // 2. Enrich football matches (limit API-Football calls to save quota)
+  // SofaScore RapidAPI map (all sports)
+  const sofaRapidMap = new Map<string, any>();
+  for (const evt of [...sofaFootball, ...sofaBasketball, ...sofaTennis]) {
+    const home = (evt.homeTeam?.name || evt.homeTeam?.shortName || "").toLowerCase().trim();
+    const away = (evt.awayTeam?.name || evt.awayTeam?.shortName || "").toLowerCase().trim();
+    if (home && away) sofaRapidMap.set(`${home}_${away}`, evt);
+  }
+
+  console.log(`[ENRICH] Sources: API-Football=${apiFootballFixtures.length}, SportMonks=${sportMonksFixtures.length}, SofaScore-Rapid=${sofaRapidMap.size}`);
+
+  // 2. Enrich all matches
   let apiFootballCalls = 0;
+  let sofaRapidCalls = 0;
   const MAX_APIFOOTBALL_ENRICHMENTS = 20;
+  const MAX_SOFA_RAPID_ENRICHMENTS = 30;
 
   for (const row of rows) {
-    if (row.sport !== "football") continue;
     const key = `${row.home_team.toLowerCase().trim()}_${row.away_team.toLowerCase().trim()}`;
     const sources: string[] = [...(row.data_sources || [])];
 
-    // Try SportMonks first (included data, no extra API calls)
-    const smFixture = sportMonksMap.get(key);
-    if (smFixture) {
-      const { lineups, odds, stats } = parseSportMonksEnrichment(smFixture);
-      if (lineups) row.home_lineup = lineups.home;
-      if (lineups) row.away_lineup = lineups.away;
-      if (odds) row.odds = odds;
-      if (stats) row.match_stats = stats;
-      if (!sources.includes("sportmonks")) sources.push("sportmonks");
+    // A) SportMonks (football only, included data)
+    if (row.sport === "football") {
+      const smFixture = sportMonksMap.get(key);
+      if (smFixture) {
+        const { lineups, odds, stats } = parseSportMonksEnrichment(smFixture);
+        if (lineups) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
+        if (odds) row.odds = odds;
+        if (stats) row.match_stats = stats;
+        if (!sources.includes("sportmonks")) sources.push("sportmonks");
+      }
     }
 
-    // Then try API-Football for lineups/odds/H2H (if not already enriched)
-    const afFixture = apiFootballMap.get(key);
-    if (afFixture && apiFootballCalls < MAX_APIFOOTBALL_ENRICHMENTS) {
-      const afId = afFixture.fixture.id;
+    // B) API-Football (football only, extra API calls)
+    if (row.sport === "football") {
+      const afFixture = apiFootballMap.get(key);
+      if (afFixture && apiFootballCalls < MAX_APIFOOTBALL_ENRICHMENTS) {
+        const afId = afFixture.fixture.id;
+        const needLineups = !row.home_lineup;
+        const needOdds = !row.odds;
+        const [lineups, odds, h2h] = await Promise.all([
+          needLineups ? fetchAPIFootballLineups(afId) : Promise.resolve(null),
+          needOdds ? fetchAPIFootballOdds(afId) : Promise.resolve(null),
+          fetchAPIFootballH2H(afFixture.teams.home.id, afFixture.teams.away.id),
+        ]);
+        apiFootballCalls += (needLineups ? 1 : 0) + (needOdds ? 1 : 0) + 1;
+        if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
+        if (odds && !row.odds) row.odds = odds;
+        if (h2h) row.h2h_data = h2h;
+        if (!sources.includes("api-football")) sources.push("api-football");
+      }
+    }
 
-      // Only fetch what we don't already have
+    // C) SofaScore RapidAPI (ALL sports — lineups, stats, odds)
+    const sofaEvt = sofaRapidMap.get(key);
+    if (sofaEvt && sofaRapidCalls < MAX_SOFA_RAPID_ENRICHMENTS) {
+      const evtId = sofaEvt.id;
       const needLineups = !row.home_lineup;
+      const needStats = !row.match_stats;
       const needOdds = !row.odds;
 
-      const [lineups, odds, h2h] = await Promise.all([
-        needLineups ? fetchAPIFootballLineups(afId) : Promise.resolve(null),
-        needOdds ? fetchAPIFootballOdds(afId) : Promise.resolve(null),
-        fetchAPIFootballH2H(afFixture.teams.home.id, afFixture.teams.away.id),
+      const [lineups, stats, odds] = await Promise.all([
+        needLineups ? fetchSofaScoreRapidLineups(evtId) : Promise.resolve(null),
+        needStats ? fetchSofaScoreRapidStats(evtId) : Promise.resolve(null),
+        needOdds ? fetchSofaScoreRapidOdds(evtId) : Promise.resolve(null),
       ]);
-      apiFootballCalls += (needLineups ? 1 : 0) + (needOdds ? 1 : 0) + 1;
+      sofaRapidCalls += (needLineups ? 1 : 0) + (needStats ? 1 : 0) + (needOdds ? 1 : 0);
 
       if (lineups && !row.home_lineup) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
+      if (stats && !row.match_stats) row.match_stats = stats;
       if (odds && !row.odds) row.odds = odds;
-      if (h2h) row.h2h_data = h2h;
-      if (!sources.includes("api-football")) sources.push("api-football");
+      if (!sources.includes("sofascore-rapid")) sources.push("sofascore-rapid");
     }
 
     row.data_sources = sources;
   }
 
-  console.log(`[ENRICH] Done. API-Football calls: ${apiFootballCalls}, SportMonks matches: ${sportMonksMap.size}`);
+  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}`);
 }
 
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
