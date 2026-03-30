@@ -1159,10 +1159,33 @@ async function enrichMatchesWithAPIs(
       }
     }
 
+    // E) NHL API5 (hockey only — rosters, venue, scores)
+    if (row.sport === "hockey") {
+      const nhlKey = `${row.home_team.toLowerCase().trim()}_${row.away_team.toLowerCase().trim()}`;
+      const nhlGame = nhlData.get(nhlKey);
+      if (nhlGame) {
+        if (nhlGame.venue) {
+          row.match_stats = { ...(row.match_stats || {}), venue: nhlGame.venue };
+        }
+        if (nhlGame.homeScore != null) row.home_score = parseInt(nhlGame.homeScore) || null;
+        if (nhlGame.awayScore != null) row.away_score = parseInt(nhlGame.awayScore) || null;
+        // Fetch rosters if we don't have lineups
+        if (!row.home_lineup && nhlGame.homeId && nhlGame.awayId) {
+          const [homeRoster, awayRoster] = await Promise.all([
+            fetchNHLRoster(nhlGame.homeId),
+            fetchNHLRoster(nhlGame.awayId),
+          ]);
+          if (homeRoster) row.home_lineup = homeRoster;
+          if (awayRoster) row.away_lineup = awayRoster;
+        }
+        if (!sources.includes("nhl-api5")) sources.push("nhl-api5");
+      }
+    }
+
     row.data_sources = sources;
   }
 
-  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}`);
+  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}`);
 }
 
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
