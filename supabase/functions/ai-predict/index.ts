@@ -1351,7 +1351,7 @@ function postProcessPredictions(
   return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
 }
 
-// Combined multi-model AI call: Cerebras (primary) + Mistral (fallback 1)
+// Combined multi-model AI call: Cerebras Qwen 235B (primary) + Cerebras GPT-OSS 120B (consensus)
 async function callAI(
   _apiKey: string,
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
@@ -1363,38 +1363,32 @@ async function callAI(
   if (eligible.length === 0) return [];
 
   const cerebrasKey = Deno.env.get("CEREBRAS_API_KEY");
-  const mistralKey = Deno.env.get("MISTRAL_API_KEY");
 
   if (!cerebrasKey) {
-    console.error("[AI v3.2] CEREBRAS_API_KEY not configured — falling back to Mistral only");
-    if (mistralKey) {
-      const mistralPreds = await callMistralAI(mistralKey, userPrompt);
-      if (mistralPreds.length > 0) {
-        return postProcessPredictions(mistralPreds.map(p => ({ ...p, consensus_passed: false })), matches, streak);
-      }
-    }
+    console.error("[AI v3.2] CEREBRAS_API_KEY not configured");
     return [];
   }
 
-  // Launch Cerebras (primary) + Mistral (consensus) in parallel
-  console.log(`[AI v3.2] Launching ${mistralKey ? "DUAL-MODEL (Cerebras + Mistral)" : "SINGLE-MODEL (Cerebras)"} consensus...`);
+  // Launch dual Cerebras: Qwen 235B (primary) + GPT-OSS 120B (consensus) in parallel
+  console.log(`[AI v3.2] Launching DUAL-MODEL CEREBRAS (Qwen 235B + GPT-OSS 120B) consensus...`);
 
-  const [cerebrasPreds, mistralPreds] = await Promise.all([
+  const [qwenPreds, gptPreds] = await Promise.all([
     callCerebrasAI(cerebrasKey, userPrompt),
-    mistralKey ? callMistralAI(mistralKey, userPrompt) : Promise.resolve([] as AIPrediction[]),
+    callCerebrasSecondary(cerebrasKey, userPrompt),
   ]);
 
-  console.log(`[AI v3.2] Cerebras: ${cerebrasPreds.length} predictions, Mistral: ${mistralPreds.length} predictions`);
+  console.log(`[AI v3.2] Qwen 235B: ${qwenPreds.length} predictions, GPT-OSS 120B: ${gptPreds.length} predictions`);
 
   let merged: AIPrediction[];
-  if (mistralPreds.length > 0 && cerebrasPreds.length > 0) {
-    merged = mergeConsensus(cerebrasPreds, mistralPreds, eligible, streak);
+  if (gptPreds.length > 0 && qwenPreds.length > 0) {
+    merged = mergeConsensus(qwenPreds, gptPreds, eligible, streak);
     console.log(`[AI v3.2] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
-  } else if (cerebrasPreds.length > 0) {
-    merged = cerebrasPreds.map(p => ({ ...p, consensus_passed: false }));
-  } else if (mistralPreds.length > 0) {
-    console.log("[AI v3.2] Cerebras failed — using Mistral as fallback");
-    merged = mistralPreds.map(p => ({ ...p, consensus_passed: false }));
+  } else if (qwenPreds.length > 0) {
+    merged = qwenPreds.map(p => ({ ...p, consensus_passed: false }));
+    console.log("[AI v3.2] GPT-OSS failed — using Qwen 235B only");
+  } else if (gptPreds.length > 0) {
+    console.log("[AI v3.2] Qwen failed — using GPT-OSS 120B only");
+    merged = gptPreds.map(p => ({ ...p, consensus_passed: false }));
   } else {
     return [];
   }
