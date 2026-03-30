@@ -220,7 +220,7 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
             locked && "opacity-75",
             aiScore >= 90 && "border-[rgba(255,215,0,0.2)] shadow-[0_0_20px_rgba(255,215,0,0.08)]",
             aiScore >= 80 && aiScore < 90 && "border-[rgba(16,185,129,0.15)] shadow-[0_0_15px_rgba(16,185,129,0.05)]"
-          ))>
+          )}>
             {/* Live accent bar */}
             {isLive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-destructive animate-pulse" />}
 
