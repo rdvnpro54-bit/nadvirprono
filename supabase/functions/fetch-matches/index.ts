@@ -745,12 +745,16 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
 async function fetchSportMonksFixtures(dateISO: string): Promise<any[]> {
   const apiKey = Deno.env.get("SPORTMONKS_API_KEY");
   if (!apiKey) { console.log("[SportMonks] No API key configured"); return []; }
+  // SportMonks accepts token as query param (api_token) — most reliable method
+  const url = `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?api_token=${apiKey}&include=participants;scores;odds;lineups;statistics`;
+  console.log(`[SportMonks] Fetching: ${url.replace(apiKey, "***")}`);
   try {
-    const res = await fetch(
-      `${SPORTMONKS_BASE}/fixtures/date/${dateISO}?include=participants;scores;odds;lineups;statistics`,
-      { headers: { Authorization: apiKey } },
-    );
-    if (!res.ok) { console.error(`[SportMonks] error: ${res.status} - ${await res.text()}`); return []; }
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`[SportMonks] error ${res.status}: ${errBody.slice(0, 300)}`);
+      return [];
+    }
     const json = await res.json();
     console.log(`[SportMonks] Found ${json.data?.length || 0} fixtures for ${dateISO}`);
     return json.data || [];
