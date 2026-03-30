@@ -11,7 +11,9 @@ const SPORTSRC_BASE = "https://api.sportsrc.org/v2/";
 const SPORTSRC_KEY = "8d44848359af5c9ea4c13a11aa996811";
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports";
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const APIFOOTBALL_BASE = "https://api-football-v1.p.rapidapi.com/v3";
+// API-Football: try both RapidAPI and direct endpoints
+const APIFOOTBALL_RAPID = "https://api-football-v1.p.rapidapi.com/v3";
+const APIFOOTBALL_DIRECT = "https://v3.football.api-sports.com";
 const SPORTMONKS_BASE = "https://api.sportmonks.com/v3/football";
 
 // ─── UTILS ───────────────────────────────────────────────────────────
