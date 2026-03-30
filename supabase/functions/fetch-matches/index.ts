@@ -1010,6 +1010,7 @@ function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction)
     ai_score: computePredictionAiScore(prediction),
     home_lineup: null, away_lineup: null,
     odds: null, match_stats: null, h2h_data: null,
+    odds_updated_at: null,
     data_sources: [m.source],
   };
 }
