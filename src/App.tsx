@@ -27,6 +27,7 @@ import Suivis from "./pages/Suivis";
 import Compte from "./pages/Compte";
 import Admin from "./pages/Admin";
 import Resultats from "./pages/Resultats";
+import PronosiaAI from "./pages/PronosiaAI";
 import Success from "./pages/Success";
 import ResetPassword from "./pages/ResetPassword";
 
