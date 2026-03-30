@@ -420,6 +420,7 @@ export default function MatchDetail() {
               confidence={confidence}
               keyFactors={keyFactors}
               userCount={userCount}
+              isLive={isLive}
             />
 
             {/* 🧠 AI Risk Analysis Section */}
