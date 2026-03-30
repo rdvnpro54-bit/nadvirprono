@@ -981,27 +981,37 @@ async function fetchNHLSchedule(dateISO: string): Promise<Map<string, any>> {
   const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
   if (!apiKey) return new Map();
   try {
-    const res = await fetch(`${NHL_API5_BASE}/nhlschedule?date=${dateISO}`, {
+    const [year, month, day] = dateISO.split("-");
+    const res = await fetch(`${NHL_API5_BASE}/nhlschedule?year=${year}&month=${month}&day=${day}`, {
       headers: getNHLAPI5Headers(),
     });
     if (!res.ok) { console.error(`[NHL-API5] schedule error: ${res.status}`); return new Map(); }
     const json = await res.json();
-    const games = json.body || json.games || json;
-    const gamesList = Array.isArray(games) ? games : (games?.dates?.[0]?.games || []);
+    // Response format: { "20260330": { games: [...], calendar: [...] } }
+    const dateKey = `${year}${month}${day}`;
+    const dayData = json[dateKey] || json;
+    const gamesList = dayData.games || [];
     console.log(`[NHL-API5] Found ${gamesList.length} NHL games for ${dateISO}`);
     const map = new Map<string, any>();
     for (const g of gamesList) {
-      const home = (g.homeTeam?.name || g.home || g.teams?.home?.team?.name || "").toLowerCase().trim();
-      const away = (g.awayTeam?.name || g.away || g.teams?.away?.team?.name || "").toLowerCase().trim();
+      // ESPN-like structure: competitions[0].competitors
+      const comp = g.competitions?.[0];
+      if (!comp) continue;
+      const competitors = comp.competitors || [];
+      const homeComp = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
+      const awayComp = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
+      if (!homeComp || !awayComp) continue;
+      const home = (homeComp.team?.displayName || "").toLowerCase().trim();
+      const away = (awayComp.team?.displayName || "").toLowerCase().trim();
       if (home && away) {
         map.set(`${home}_${away}`, {
-          gameId: g.id || g.gameId || g.gamePk,
-          homeId: g.homeTeam?.id || g.teams?.home?.team?.id,
-          awayId: g.awayTeam?.id || g.teams?.away?.team?.id,
-          venue: g.venue?.name || g.venue || null,
-          homeScore: g.homeScore ?? g.teams?.home?.score ?? null,
-          awayScore: g.awayScore ?? g.teams?.away?.score ?? null,
-          status: g.gameStatus || g.status?.detailedState || null,
+          homeId: parseInt(homeComp.team?.id) || null,
+          awayId: parseInt(awayComp.team?.id) || null,
+          venue: comp.venue?.fullName || null,
+          homeScore: homeComp.score != null ? parseInt(homeComp.score) : null,
+          awayScore: awayComp.score != null ? parseInt(awayComp.score) : null,
+          status: g.status?.type?.state || null,
+          broadcast: comp.broadcast || null,
         });
       }
     }
