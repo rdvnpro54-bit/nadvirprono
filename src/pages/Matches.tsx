@@ -578,6 +578,20 @@ export default function Matches() {
           ))}
         </AnimatePresence>
 
+        {/* Load more trigger */}
+        {!isLoading && !error && hasMore && (
+          <div ref={loadMoreRef} className="mt-4 text-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVisibleCount(prev => prev + 30)}
+              className="gap-2 text-xs border-border/40 hover:border-primary/30"
+            >
+              Charger plus de matchs ({filtered.length - visibleCount} restants)
+            </Button>
+          </div>
+        )}
+
         {/* Empty state */}
         {!isLoading && !error && filtered.length === 0 && (
           <motion.div
