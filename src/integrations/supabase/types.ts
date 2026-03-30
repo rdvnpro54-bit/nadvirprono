@@ -134,7 +134,10 @@ export type Database = {
           away_logo: string | null
           away_score: number | null
           away_team: string
+          consensus_passed: boolean | null
+          context_penalties_total: number | null
           created_at: string
+          data_completeness_score: number | null
           fetched_at: string
           fixture_id: number
           home_logo: string | null
@@ -145,6 +148,7 @@ export type Database = {
           kickoff: string
           league_country: string | null
           league_name: string
+          league_tier: number | null
           pred_analysis: string | null
           pred_away_win: number
           pred_btts_prob: number
@@ -158,6 +162,9 @@ export type Database = {
           pred_value_bet: boolean
           sport: string
           status: string
+          streak_mode_level: string | null
+          suspect_score: number | null
+          validation_score: number | null
         }
         Insert: {
           ai_score?: number
@@ -167,7 +174,10 @@ export type Database = {
           away_logo?: string | null
           away_score?: number | null
           away_team: string
+          consensus_passed?: boolean | null
+          context_penalties_total?: number | null
           created_at?: string
+          data_completeness_score?: number | null
           fetched_at?: string
           fixture_id: number
           home_logo?: string | null
@@ -178,6 +188,7 @@ export type Database = {
           kickoff: string
           league_country?: string | null
           league_name: string
+          league_tier?: number | null
           pred_analysis?: string | null
           pred_away_win?: number
           pred_btts_prob?: number
@@ -191,6 +202,9 @@ export type Database = {
           pred_value_bet?: boolean
           sport?: string
           status?: string
+          streak_mode_level?: string | null
+          suspect_score?: number | null
+          validation_score?: number | null
         }
         Update: {
           ai_score?: number
@@ -200,7 +214,10 @@ export type Database = {
           away_logo?: string | null
           away_score?: number | null
           away_team?: string
+          consensus_passed?: boolean | null
+          context_penalties_total?: number | null
           created_at?: string
+          data_completeness_score?: number | null
           fetched_at?: string
           fixture_id?: number
           home_logo?: string | null
@@ -211,6 +228,7 @@ export type Database = {
           kickoff?: string
           league_country?: string | null
           league_name?: string
+          league_tier?: number | null
           pred_analysis?: string | null
           pred_away_win?: number
           pred_btts_prob?: number
@@ -224,6 +242,42 @@ export type Database = {
           pred_value_bet?: boolean
           sport?: string
           status?: string
+          streak_mode_level?: string | null
+          suspect_score?: number | null
+          validation_score?: number | null
+        }
+        Relationships: []
+      }
+      daily_briefings: {
+        Row: {
+          avg_confidence: number | null
+          daily_focus: string | null
+          date: string
+          generated_at: string | null
+          leagues_analyzed: number | null
+          matches_discarded: number | null
+          mode: string
+          picks_retained: number | null
+        }
+        Insert: {
+          avg_confidence?: number | null
+          daily_focus?: string | null
+          date: string
+          generated_at?: string | null
+          leagues_analyzed?: number | null
+          matches_discarded?: number | null
+          mode?: string
+          picks_retained?: number | null
+        }
+        Update: {
+          avg_confidence?: number | null
+          daily_focus?: string | null
+          date?: string
+          generated_at?: string | null
+          leagues_analyzed?: number | null
+          matches_discarded?: number | null
+          mode?: string
+          picks_retained?: number | null
         }
         Relationships: []
       }
@@ -275,6 +329,33 @@ export type Database = {
           updated_at?: string
           winrate?: number
           wins?: number
+        }
+        Relationships: []
+      }
+      league_tiers: {
+        Row: {
+          historical_winrate: number | null
+          league_name: string
+          sample_size: number | null
+          sport: string
+          tier: number
+          updated_at: string | null
+        }
+        Insert: {
+          historical_winrate?: number | null
+          league_name: string
+          sample_size?: number | null
+          sport?: string
+          tier?: number
+          updated_at?: string | null
+        }
+        Update: {
+          historical_winrate?: number | null
+          league_name?: string
+          sample_size?: number | null
+          sport?: string
+          tier?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
