@@ -210,7 +210,7 @@ export default function PronosiaAI() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, activeConvoId, debouncedSave, loadConversations]);
+  }, [messages, isLoading, activeConvoId, saveConversation, loadConversations]);
 
   if (!user || !hasAccess) {
     return (
