@@ -619,7 +619,7 @@ function generatePRONOSIAAnalysis(
 
     analyses.push(
       `Modèle PRONOSIA v2.0 : avantage quantifié pour ${fav} (${maxProb}%).`,
-      isSafe ? marketLine : `Signal cohérent sur la majorité des dimensions analysées.`,
+      (isSafe || isModere) ? marketLine : `Signal cohérent sur la majorité des dimensions analysées.`,
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
