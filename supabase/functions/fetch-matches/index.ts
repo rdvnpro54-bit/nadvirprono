@@ -1376,12 +1376,13 @@ async function enrichMatchesWithAPIs(
 
     row.data_sources = sources;
 
-    // H) Determine ai_hidden: hide if no real data enrichment was found
-    const hasRealData = sources.length > 1 || row.match_stats || row.h2h_data || row.odds || row.home_lineup;
-    const hasAIAnalysis = row.pred_analysis && !row.pred_analysis.startsWith("🤖 Analyse basée sur le modèle statistique");
-    if (!hasRealData && !hasAIAnalysis) {
+    // H) Determine ai_hidden: only hide if prediction confidence is completely absent
+    // We want to show as many matches as possible — ESPN alone is sufficient
+    const hasPrediction = row.pred_home_win > 0 || row.pred_away_win > 0;
+    const hasAnalysis = !!row.pred_analysis;
+    if (!hasPrediction && !hasAnalysis) {
       row.ai_hidden = true;
-      row.ai_hidden_reason = "Données insuffisantes — aucune stat, cote, ou analyse IA disponible";
+      row.ai_hidden_reason = "Aucune prédiction disponible";
     } else {
       row.ai_hidden = false;
       row.ai_hidden_reason = null;
