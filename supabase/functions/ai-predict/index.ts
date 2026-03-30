@@ -856,7 +856,7 @@ Deno.serve(async (req) => {
 
     // v2.0: Check streak mode (bypass for forced recalc)
     const streak = forceAll 
-      ? { isStreakMode: false, rollingWinrate: 100, maxPicks: 999, minConfidence: 60, minAiScore: 60 } as StreakState
+      ? { isStreakMode: false, rollingWinrate: 100, maxPicks: 999, minConfidence: 35, minAiScore: 40 } as StreakState
       : await checkStreakMode(supabase);
     if (streak.isStreakMode) {
       console.log(`[AI-PREDICT v2] 📉 STREAK MODE: winrate=${streak.rollingWinrate}%, maxPicks=${streak.maxPicks}, minConf=${streak.minConfidence}%, minAI=${streak.minAiScore}`);
