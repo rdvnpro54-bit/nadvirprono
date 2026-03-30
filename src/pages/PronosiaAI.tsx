@@ -167,8 +167,6 @@ export default function PronosiaAI() {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let finalMessages = newMsgs;
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -190,16 +188,19 @@ export default function PronosiaAI() {
               setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
-                  finalMessages = prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
-                } else {
-                  finalMessages = [...prev, { role: "assistant", content: assistantContent }];
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
                 }
-                return finalMessages;
+                return [...prev, { role: "assistant", content: assistantContent }];
               });
             }
           } catch { /* partial */ }
         }
       }
+
+      // Build final messages with complete assistant response
+      const finalMessages = assistantContent
+        ? [...newMsgs, { role: "assistant" as const, content: assistantContent }]
+        : newMsgs;
 
       // Save immediately after response complete
       await saveConversation(finalMessages, activeConvoId);
