@@ -639,7 +639,7 @@ async function fetchAPIFootballFixtures(dateISO: string): Promise<APIFootballFix
   if (!apiKey) { console.log("[API-Football] No API key configured"); return []; }
   try {
     const res = await fetch(`${APIFOOTBALL_BASE}/fixtures?date=${dateISO}&status=NS`, {
-      headers: { "x-apisports-key": apiKey },
+      headers: getAPIFootballHeaders(),
     });
     if (!res.ok) { console.error(`[API-Football] Fixtures error: ${res.status}`); return []; }
     const json = await res.json();
@@ -653,7 +653,7 @@ async function fetchAPIFootballLineups(fixtureId: number): Promise<{ home: any[]
   if (!apiKey) return null;
   try {
     const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/lineups?fixture=${fixtureId}`, {
-      headers: { "x-apisports-key": apiKey },
+      headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -671,7 +671,7 @@ async function fetchAPIFootballOdds(fixtureId: number): Promise<any | null> {
   if (!apiKey) return null;
   try {
     const res = await fetch(`${APIFOOTBALL_BASE}/odds?fixture=${fixtureId}`, {
-      headers: { "x-apisports-key": apiKey },
+      headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -692,7 +692,7 @@ async function fetchAPIFootballH2H(homeId: number, awayId: number): Promise<any[
   if (!apiKey) return null;
   try {
     const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/headtohead?h2h=${homeId}-${awayId}&last=5`, {
-      headers: { "x-apisports-key": apiKey },
+      headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -708,7 +708,7 @@ async function fetchAPIFootballStats(fixtureId: number): Promise<any | null> {
   if (!apiKey) return null;
   try {
     const res = await fetch(`${APIFOOTBALL_BASE}/fixtures/statistics?fixture=${fixtureId}`, {
-      headers: { "x-apisports-key": apiKey },
+      headers: getAPIFootballHeaders(),
     });
     if (!res.ok) return null;
     const json = await res.json();
