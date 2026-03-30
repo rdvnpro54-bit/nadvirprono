@@ -629,6 +629,11 @@ interface APIFootballFixture {
   teams: { home: { id: number; name: string; logo: string }; away: { id: number; name: string; logo: string } };
 }
 
+function getAPIFootballHeaders(): Record<string, string> {
+  const apiKey = Deno.env.get("API_FOOTBALL_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" };
+}
+
 async function fetchAPIFootballFixtures(dateISO: string): Promise<APIFootballFixture[]> {
   const apiKey = Deno.env.get("API_FOOTBALL_KEY");
   if (!apiKey) { console.log("[API-Football] No API key configured"); return []; }
