@@ -351,6 +351,11 @@ export default function Matches() {
           <LiveUpdateBanner lastUpdate={dataUpdatedAt} matchCount={matches?.length || 0} />
         </motion.div>
 
+        {/* Elite 5 — Premium+ & Admin only */}
+        {!isLoading && !error && elite5Matches.length > 0 && (
+          <Elite5Section matches={elite5Matches} />
+        )}
+
         {/* Search */}
         <motion.div
           className="mt-3 sm:mt-4 relative"
