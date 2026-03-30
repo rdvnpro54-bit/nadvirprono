@@ -51,12 +51,12 @@ export function useGlobalPrecision() {
       const losses = data.filter(r => r.result === "loss").length;
       const total = wins + losses;
 
-      // Seed: 11 wins, 3 losses from initial calibration
-      const totalWins = 11 + wins;
-      const totalMatches = 14 + total;
-      const precision = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 79;
+      // Seed: 4 wins, 1 loss from initial calibration (80%)
+      const totalWins = 4 + wins;
+      const totalMatches = 5 + total;
+      const precision = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 80;
 
-      return { wins: totalWins, losses: 3 + losses, total: totalMatches, precision };
+      return { wins: totalWins, losses: 1 + losses, total: totalMatches, precision };
     },
     staleTime: 5 * 60_000,
   });
