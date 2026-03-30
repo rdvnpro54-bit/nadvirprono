@@ -27,7 +27,7 @@ export const Elite5Section = memo(function Elite5Section({ matches }: Elite5Sect
           transition={{ delay: 0.1 }}
         >
           <motion.div
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30"
+            className="flex h-8 w-8 items-center justify-center rounded-xl badge-elite"
             animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
