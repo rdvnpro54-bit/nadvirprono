@@ -122,24 +122,24 @@ export function ResultCard({ result, index }: { result: MatchResult; index: numb
       />
 
       {/* Bet Type Badge */}
-      {result.bet_type && result.bet_type !== "winner" && (
-        <div className="flex items-center gap-1.5">
-          <span className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-            result.bet_type === "double_chance" && "bg-primary/15 text-primary",
-            result.bet_type === "btts" && "bg-accent/15 text-accent-foreground",
-            result.bet_type === "over" && "bg-success/15 text-success",
-            result.bet_type === "under" && "bg-muted text-muted-foreground",
-            result.bet_type === "draw" && "bg-warning/15 text-warning",
-          )}>
-            {result.bet_type === "double_chance" ? "🎲 Double Chance" :
-             result.bet_type === "btts" ? "⚽ BTTS" :
-             result.bet_type === "over" ? "📈 Over 2.5" :
-             result.bet_type === "under" ? "📉 Under 2.5" :
-             result.bet_type === "draw" ? "🤝 Nul" : result.bet_type}
-          </span>
-        </div>
-      )}
+      <div className="flex items-center gap-1.5">
+        <span className={cn(
+          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+          (!result.bet_type || result.bet_type === "winner") && "bg-primary/10 text-primary",
+          result.bet_type === "double_chance" && "bg-primary/15 text-primary",
+          result.bet_type === "btts" && "bg-accent/15 text-accent-foreground",
+          result.bet_type === "over" && "bg-success/15 text-success",
+          result.bet_type === "under" && "bg-muted text-muted-foreground",
+          result.bet_type === "draw" && "bg-warning/15 text-warning",
+        )}>
+          {!result.bet_type || result.bet_type === "winner" ? "🏆 Winner" :
+           result.bet_type === "double_chance" ? "🎲 Double Chance" :
+           result.bet_type === "btts" ? "⚽ BTTS" :
+           result.bet_type === "over" ? "📈 Over 2.5" :
+           result.bet_type === "under" ? "📉 Under 2.5" :
+           result.bet_type === "draw" ? "🤝 Nul" : result.bet_type}
+        </span>
+      </div>
 
       {/* Prediction vs Reality */}
       <div className="grid grid-cols-3 gap-2 pt-1 border-t border-border/50">
