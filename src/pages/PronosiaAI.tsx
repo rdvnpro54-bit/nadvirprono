@@ -241,25 +241,25 @@ export default function PronosiaAI() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col pb-16 pt-16 md:pb-4">
+    <div className="fixed inset-0 flex flex-col pt-14 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       <Navbar />
-      <div className="container max-w-2xl mx-auto px-3 flex flex-col flex-1 gap-2">
+      <div className="flex flex-col flex-1 min-h-0 max-w-2xl w-full mx-auto px-3">
         {/* Header */}
-        <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center justify-between py-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-primary" />
+        <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center justify-between py-2 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+              <Sparkles className="h-4.5 w-4.5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-bold">Pronosia AI</h1>
-              <p className="text-[11px] text-muted-foreground">Pose tes questions sur les matchs et prédictions</p>
+              <h1 className="text-base font-bold leading-tight">Pronosia AI</h1>
+              <p className="text-[10px] text-muted-foreground">Questions sur les matchs et prédictions</p>
             </div>
           </div>
-          <div className="flex gap-1.5">
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => setShowHistory(!showHistory)}>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => setShowHistory(!showHistory)}>
               <History className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={newConversation}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={newConversation}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -272,9 +272,9 @@ export default function PronosiaAI() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
+              className="overflow-hidden shrink-0"
             >
-              <div className="bg-card border border-border/50 rounded-xl p-3 mb-2 max-h-60 overflow-y-auto space-y-1">
+              <div className="bg-card border border-border/50 rounded-xl p-3 mb-2 max-h-48 overflow-y-auto space-y-1">
                 <p className="text-xs font-medium text-muted-foreground mb-2">Historique ({conversations.length})</p>
                 {loadingHistory && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mx-auto" />}
                 {!loadingHistory && conversations.length === 0 && (
@@ -306,12 +306,15 @@ export default function PronosiaAI() {
           )}
         </AnimatePresence>
 
-        {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 min-h-0 pr-1" style={{ maxHeight: "calc(100vh - 220px)" }}>
+        {/* Messages - scrollable area fills remaining space */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-1 py-2">
           {messages.length === 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3 pt-8">
-              <p className="text-center text-sm text-muted-foreground mb-4">Suggestions :</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full space-y-4">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <Bot className="h-8 w-8 text-primary" />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">Comment puis-je t'aider ?</p>
+              <div className="grid grid-cols-1 gap-2 w-full max-w-sm">
                 {SUGGESTIONS.map((s, i) => (
                   <motion.button
                     key={i}
@@ -319,7 +322,7 @@ export default function PronosiaAI() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.08 }}
                     onClick={() => sendMessage(s)}
-                    className="text-left p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/30 transition-all text-sm text-muted-foreground hover:text-foreground"
+                    className="text-left p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-card hover:border-primary/30 transition-all text-xs text-muted-foreground hover:text-foreground"
                   >
                     {s}
                   </motion.button>
@@ -334,20 +337,20 @@ export default function PronosiaAI() {
                 key={i}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {msg.role === "assistant" && (
-                  <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="h-4 w-4 text-primary" />
+                  <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-primary" />
                   </div>
                 )}
-                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[13px] ${
                   msg.role === "user"
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border/50 rounded-bl-md"
                 }`}>
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0.5">
+                    <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0.5 text-[13px]">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
@@ -355,8 +358,8 @@ export default function PronosiaAI() {
                   )}
                 </div>
                 {msg.role === "user" && (
-                  <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                  <div className="h-6 w-6 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
                 )}
               </motion.div>
@@ -364,32 +367,36 @@ export default function PronosiaAI() {
           </AnimatePresence>
 
           {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2.5">
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                <Bot className="h-4 w-4 text-primary" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2">
+              <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <Bot className="h-3.5 w-3.5 text-primary" />
               </div>
-              <div className="bg-card border border-border/50 rounded-2xl rounded-bl-md px-4 py-3">
+              <div className="bg-card border border-border/50 rounded-2xl rounded-bl-md px-4 py-2.5">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
               </div>
             </motion.div>
           )}
         </div>
 
-        {/* Input */}
-        <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex gap-2 py-2">
+        {/* Input - fixed at bottom of chat area */}
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="shrink-0 flex gap-2 py-2 border-t border-border/30 bg-background"
+        >
           <Input
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
             placeholder="Pose ta question..."
-            className="flex-1 bg-card/80 border-border/50 rounded-xl"
+            className="flex-1 bg-card/80 border-border/50 rounded-xl h-10 text-sm"
             disabled={isLoading}
           />
           <Button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
             size="icon"
-            className="rounded-xl btn-shimmer shrink-0"
+            className="rounded-xl btn-shimmer shrink-0 h-10 w-10"
           >
             <Send className="h-4 w-4" />
           </Button>
