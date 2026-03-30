@@ -134,10 +134,10 @@ Odds 2.41–3.00 → value weight ×1.0
 Odds > 3.00 → value weight ×0.7 (high risk zone)
 Odds < 1.35 → EXCLUDE (insufficient value)
 
-═══ SAFE MODE ═══
-SAFE (65-72% confidence): Only Double Chance, BTTS, or Over/Under. Label: "⚠️ SAFE MODE"
-MODÉRÉ: Winner only, no draw, no double chance.
-RISQUÉ: Only if Value Score justifies it, max prob <38%.
+═══ SAFE MODE (v3.2) ═══
+SAFE (68-74% confidence): Only Double Chance, BTTS, or Over/Under. Label: "⚠️ SAFE MODE" — THIS IS YOUR PREFERRED MODE
+MODÉRÉ (74-82%): Winner only, strong conviction required.
+RISQUÉ: SUSPENDED by default. Only re-enabled manually.
 
 ═══ ENHANCED SUSPECT DETECTION (0-100 point system) ═══
 - Odds moved >15% in 24h: +30
