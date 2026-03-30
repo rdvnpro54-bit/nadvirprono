@@ -195,6 +195,10 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
   const noDrawSports = ["tennis", "basketball", "nba", "baseball", "nfl", "mma"];
   const isNoDraw = noDrawSports.includes(sportKey);
 
+  // P4.2: League tier badge
+  const leagueTier = (match as any).league_tier as number | undefined;
+  const tierBadge = leagueTier === 1 ? "👑" : leagueTier === 3 ? "⚠️" : null;
+
   return (
     <>
       <PremiumModal open={showPremiumModal} onOpenChange={setShowPremiumModal} />
