@@ -544,6 +544,11 @@ export default function Matches() {
           </motion.div>
         )}
 
+        {/* v2.0: Filtered matches transparency */}
+        {!isLoading && !error && (
+          <FilteredMatchesSection allMatches={matches} displayedCount={filtered.length} />
+        )}
+
         <motion.p
           className="mt-6 text-[9px] text-muted-foreground/50 text-center"
           initial={{ opacity: 0 }}
