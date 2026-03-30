@@ -399,7 +399,7 @@ export default function Matches() {
               );
             })}
           </div>
-          <div className="flex gap-0.5 rounded-lg border border-border/50 bg-card p-0.5 overflow-x-auto max-w-full">
+          <div className="flex gap-0.5 rounded-xl border border-[rgba(255,215,0,0.08)] bg-[rgba(255,255,255,0.02)] p-0.5 overflow-x-auto max-w-full backdrop-blur-lg">
             {sportFilters.map(f => {
               const count = f.value === "all" ? (matches?.length || 0) : (matches?.filter(m => m.sport === f.value).length || 0);
               const isActive = sport === f.value;
