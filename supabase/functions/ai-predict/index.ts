@@ -1071,7 +1071,7 @@ async function callMistralAI(
 // MULTI-MODEL CONSENSUS ENGINE (A1)
 // ═══════════════════════════════════════════════════════════════
 function mergeConsensus(
-  geminiPreds: AIPrediction[], mistralPreds: AIPrediction[],
+  groqPreds: AIPrediction[], mistralPreds: AIPrediction[],
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string }[],
   streak: StreakState
 ): AIPrediction[] {
@@ -1080,48 +1080,41 @@ function mergeConsensus(
 
   const merged: AIPrediction[] = [];
 
-  for (const g of geminiPreds) {
+  for (const g of groqPreds) {
     const m = mistralMap.get(g.fixture_id);
     const matchInfo = matches.find(x => x.fixture_id === g.fixture_id);
 
     if (!m) {
-      // Mistral didn't predict this match — still use Gemini but flag no consensus
       console.log(`[CONSENSUS] ${matchInfo?.home_team || g.fixture_id}: Mistral skipped — single-pass only`);
       g.consensus_passed = false;
-      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Gemini uniquement)";
+      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Groq uniquement)";
       merged.push(g);
       continue;
     }
 
-    // Check consensus: same predicted winner
     const gWinner = g.pred_home_win >= g.pred_away_win ? "home" : "away";
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Gemini=${gWinner}, Mistral=${mWinner} → UNCERTAIN, downgraded`);
-      // Models disagree — downgrade to SAFE or discard
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → UNCERTAIN, downgraded`);
       const gMax = Math.max(g.pred_home_win, g.pred_away_win);
       if (gMax < 60 || streak.isStreakMode) {
-        // Discard in streak mode or low confidence
         continue;
       }
-      // Downgrade to SAFE
       g.pred_confidence = "SAFE";
       g.consensus_passed = false;
       g.ai_score = Math.min(g.ai_score, 72);
-      g.pred_analysis = g.pred_analysis + "\n⚠️ Désaccord IA (Gemini vs Mistral) — pick dégradé en SAFE";
+      g.pred_analysis = g.pred_analysis + "\n⚠️ Désaccord IA (Groq vs Mistral) — pick dégradé en SAFE";
       merged.push(g);
       continue;
     }
 
-    // Same winner — check confidence gap
     const gConf = Math.max(g.pred_home_win, g.pred_away_win);
     const mConf = Math.max(m.pred_home_win, m.pred_away_win);
     const confGap = Math.abs(gConf - mConf);
 
     if (confGap > 7) {
-      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Gemini=${gConf}%, Mistral=${mConf}%`);
-      // Average the probabilities when gap is significant
+      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Groq=${gConf}%, Mistral=${mConf}%`);
       g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
       g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
       g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
@@ -1129,12 +1122,10 @@ function mergeConsensus(
       g.consensus_passed = false;
       g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
     } else {
-      // Full consensus ✅
-      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Gemini=${gConf}%, Mistral=${mConf}%)`);
+      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Groq=${gConf}%, Mistral=${mConf}%)`);
       g.consensus_passed = true;
-      // Boost AI score slightly for double-validated picks
       g.ai_score = Math.min(g.ai_score + 3, 100);
-      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Gemini + Mistral)";
+      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Groq + Mistral)";
     }
 
     // Take higher suspect score (more cautious)
