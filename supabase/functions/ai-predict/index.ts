@@ -1038,17 +1038,36 @@ async function callCerebrasAI(
       if (jsonMatch) jsonStr = jsonMatch[1].trim();
       const parsed = JSON.parse(jsonStr);
       const preds = (parsed.predictions || []) as AIPrediction[];
-      // Normalize 0-1 scale to 0-100
+      // Robust number coercion + normalize 0-1 scale to 0-100
       for (const p of preds) {
+        p.pred_home_win = Number(p.pred_home_win) || 0;
+        p.pred_draw = Number(p.pred_draw) || 0;
+        p.pred_away_win = Number(p.pred_away_win) || 0;
+        p.pred_over_prob = Number(p.pred_over_prob) || 0;
+        p.pred_btts_prob = Number(p.pred_btts_prob) || 0;
+        p.pred_score_home = Number(p.pred_score_home) || 0;
+        p.pred_score_away = Number(p.pred_score_away) || 0;
+        p.pred_over_under = Number(p.pred_over_under) || 2.5;
+        p.ai_score = Number(p.ai_score) || 50;
+        p.anomaly_score = Number(p.anomaly_score) || 0;
+        p.data_completeness_score = Number(p.data_completeness_score) || 70;
+        p.context_penalties_total = Number(p.context_penalties_total) || 0;
+
         if (p.pred_home_win <= 1 && p.pred_away_win <= 1) {
           p.pred_home_win = Math.round(p.pred_home_win * 100);
           p.pred_draw = Math.round(p.pred_draw * 100);
           p.pred_away_win = Math.round(p.pred_away_win * 100);
-          p.pred_over_prob = Math.round((p.pred_over_prob || 0) * 100);
-          p.pred_btts_prob = Math.round((p.pred_btts_prob || 0) * 100);
+          p.pred_over_prob = Math.round(p.pred_over_prob * 100);
+          p.pred_btts_prob = Math.round(p.pred_btts_prob * 100);
         }
         if (p.ai_score <= 1) p.ai_score = Math.round(p.ai_score * 100);
-        if ((p.anomaly_score || 0) <= 1) p.anomaly_score = Math.round((p.anomaly_score || 0) * 100);
+        if (p.anomaly_score <= 1 && p.anomaly_score > 0) p.anomaly_score = Math.round(p.anomaly_score * 100);
+
+        // Skip predictions with all zeros
+        if (p.pred_home_win === 0 && p.pred_away_win === 0) {
+          p.pred_home_win = 50;
+          p.pred_away_win = 50;
+        }
       }
       return preds;
     } catch {
