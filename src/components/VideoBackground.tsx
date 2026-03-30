@@ -83,8 +83,8 @@ export function VideoBackground() {
         className="absolute inset-0"
         style={{
           background: isMobile
-            ? "linear-gradient(to bottom, hsl(228 25% 4% / 0.4), transparent 40%, hsl(228 25% 4% / 0.7))"
-            : "linear-gradient(to bottom, hsl(228 25% 4% / 0.2), transparent 30%, hsl(228 25% 4% / 0.5))",
+            ? "linear-gradient(to bottom, rgba(8, 8, 16, 0.5), transparent 40%, rgba(8, 8, 16, 0.8))"
+            : "linear-gradient(to bottom, rgba(8, 8, 16, 0.3), transparent 30%, rgba(8, 8, 16, 0.6))",
         }}
       />
     </div>
