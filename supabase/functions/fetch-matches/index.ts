@@ -936,7 +936,7 @@ async function enrichMatchesWithAPIs(
       if (smFixture) {
         const { lineups, odds, stats } = parseSportMonksEnrichment(smFixture);
         if (lineups) { row.home_lineup = lineups.home; row.away_lineup = lineups.away; }
-        if (odds) row.odds = odds;
+        if (odds) { row.odds = odds; row.odds_updated_at = new Date().toISOString(); }
         if (stats) row.match_stats = stats;
         if (!sources.includes("sportmonks")) sources.push("sportmonks");
       }
