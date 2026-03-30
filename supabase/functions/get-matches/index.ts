@@ -356,7 +356,24 @@ Deno.serve(async (req) => {
     const freeIds = pickTop2Free(allMatches);
     const topPickId = pickTopPick(allMatches, freeIds);
 
-    console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}`);
+    // v2.0: Check streak mode from recent results
+    let streakMode = false;
+    let rollingWinrate = 100;
+    try {
+      const { data: recentResults } = await adminClient
+        .from("match_results")
+        .select("result")
+        .not("result", "is", null)
+        .order("resolved_at", { ascending: false })
+        .limit(5);
+      if (recentResults && recentResults.length >= 3) {
+        const wins = recentResults.filter((r: any) => r.result === "win").length;
+        rollingWinrate = Math.round((wins / recentResults.length) * 100);
+        streakMode = rollingWinrate < 50;
+      }
+    } catch {}
+
+    console.log(`[get-matches] total=${allMatches.length}, withPreds=${allMatches.filter(hasPredictions).length}, freeIds=[${[...freeIds]}], topPick=${topPickId}, streak=${streakMode}`);
 
     if (isPremium) {
       const mapFn = (m: Record<string, unknown>) => {
