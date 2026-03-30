@@ -37,12 +37,43 @@ interface CachedMatch {
   kickoff: string;
   pred_home_win: number;
   pred_away_win: number;
+  pred_draw: number;
   pred_score_home: number;
   pred_score_away: number;
   pred_confidence: string;
+  pred_analysis: string | null;
+  pred_btts_prob: number;
   status: string;
   home_score: number | null;
   away_score: number | null;
+}
+
+// Detect the bet type from the AI analysis text
+function detectBetType(analysis: string | null, predDraw: number, predBtts: number): string {
+  if (!analysis) return "winner";
+  const lower = analysis.toLowerCase();
+  
+  // Double Chance detection
+  if (lower.includes("double chance") || lower.includes("1x") || lower.includes("x2") || lower.includes("1n") || lower.includes("n2")) {
+    return "double_chance";
+  }
+  
+  // BTTS detection
+  if (lower.includes("btts") || lower.includes("les 2 équipes marquent") || lower.includes("les deux équipes marquent")) {
+    return "btts";
+  }
+  
+  // Over/Under detection
+  if (lower.includes("over 2.5") || lower.includes("plus de 2.5") || lower.includes("under 2.5") || lower.includes("moins de 2.5")) {
+    return lower.includes("under") || lower.includes("moins") ? "under" : "over";
+  }
+  
+  // Draw detection  
+  if (lower.includes("match nul") || lower.includes("nul probable")) {
+    return "draw";
+  }
+  
+  return "winner";
 }
 
 // Try to fetch real scores from ESPN — check multiple dates for reliability
