@@ -597,7 +597,7 @@ function generatePRONOSIAAnalysis(
 
     analyses.push(
       `Analyse surface-ELO : ${fav} montre un avantage technique quantifié.`,
-      isSafe ? marketLine : `Probabilité calibrée à ${maxProb}%.`,
+      (isSafe || isModere) ? marketLine : `Probabilité calibrée à ${maxProb}%.`,
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
