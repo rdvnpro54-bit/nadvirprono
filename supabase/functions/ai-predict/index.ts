@@ -1005,6 +1005,13 @@ function parseToolCallResponse(result: any): AIPrediction[] {
 function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
   const results: AIPrediction[] = [];
   for (const p of preds) {
+    // Normalize fixture_id from various field names
+    if (!p.fixture_id && p.match_id) p.fixture_id = p.match_id;
+    p.fixture_id = Number(p.fixture_id) || 0;
+    // Map alternative field names from smaller models
+    if (!p.pred_home_win && p.confidence !== undefined) {
+      // Llama 8B may return simplified format — skip these
+    }
     p.pred_home_win = Number(p.pred_home_win) || 0;
     p.pred_draw = Number(p.pred_draw) || 0;
     p.pred_away_win = Number(p.pred_away_win) || 0;
