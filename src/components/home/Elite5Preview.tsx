@@ -74,12 +74,11 @@ export const Elite5Preview = memo(function Elite5Preview({ matches }: Elite5Prev
               transition={{ delay: i * 0.08, duration: 0.4, type: "spring", stiffness: 200 }}
               className="relative"
             >
-              {/* Rank badge */}
-              <div className="absolute -top-2 -left-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 text-[10px] font-bold text-background shadow-lg">
+              <div className="absolute -top-2 -left-1 z-10 flex h-6 w-6 items-center justify-center rounded-full badge-elite text-[10px] font-bold shadow-lg">
                 {i + 1}
               </div>
 
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.03] relative overflow-hidden">
+              <div className="rounded-2xl border border-[rgba(255,215,0,0.12)] bg-[rgba(255,215,0,0.02)] backdrop-blur-xl relative overflow-hidden">
                 {canSeeDetails ? (
                   <MatchCard match={match} index={i} />
                 ) : (
