@@ -361,8 +361,8 @@ export const MatchCard = memo(function MatchCard({ match, locked = false, index 
                 <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
                   <div
                     className={cn(
-                      "h-full rounded-full transition-all duration-700",
-                      confidence >= 75 ? "bg-success" : confidence >= 55 ? "bg-primary" : confidence >= 40 ? "bg-amber-400" : "bg-destructive"
+                      "h-1.5 rounded-full transition-all duration-700 prob-bar-fill",
+                      confidence >= 75 ? "bg-success" : confidence >= 55 ? "bg-primary" : confidence >= 40 ? "bg-warning" : "bg-destructive"
                     )}
                     style={{ width: `${confidence}%` }}
                   />
