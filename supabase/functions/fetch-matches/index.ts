@@ -990,7 +990,10 @@ Deno.serve(async (req) => {
     // ─── Convert to rows (fallback predictions initially) ─────
     const rows = deduped.map(m => toRow(m, false));
 
-    console.log(`[PREDICTIONS] ${rows.length} matches with initial predictions (AI will process via ai-predict function)`);
+    // ─── Enrich with API-Football + SportMonks ────────────────
+    await enrichMatchesWithAPIs(rows, iso);
+
+    console.log(`[PREDICTIONS] ${rows.length} matches with initial predictions + enrichment`);
 
     // ─── TOP 3 FREE: 1 per sport ─────────────────────────────
     const freeIds = new Set<number>();
