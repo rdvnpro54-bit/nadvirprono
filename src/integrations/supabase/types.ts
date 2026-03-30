@@ -131,6 +131,7 @@ export type Database = {
           anomaly_label: string | null
           anomaly_reason: string | null
           anomaly_score: number
+          away_lineup: Json | null
           away_logo: string | null
           away_score: number | null
           away_team: string
@@ -138,8 +139,11 @@ export type Database = {
           context_penalties_total: number | null
           created_at: string
           data_completeness_score: number | null
+          data_sources: string[] | null
           fetched_at: string
           fixture_id: number
+          h2h_data: Json | null
+          home_lineup: Json | null
           home_logo: string | null
           home_score: number | null
           home_team: string
@@ -149,6 +153,8 @@ export type Database = {
           league_country: string | null
           league_name: string
           league_tier: number | null
+          match_stats: Json | null
+          odds: Json | null
           pred_analysis: string | null
           pred_away_win: number
           pred_btts_prob: number
@@ -171,6 +177,7 @@ export type Database = {
           anomaly_label?: string | null
           anomaly_reason?: string | null
           anomaly_score?: number
+          away_lineup?: Json | null
           away_logo?: string | null
           away_score?: number | null
           away_team: string
@@ -178,8 +185,11 @@ export type Database = {
           context_penalties_total?: number | null
           created_at?: string
           data_completeness_score?: number | null
+          data_sources?: string[] | null
           fetched_at?: string
           fixture_id: number
+          h2h_data?: Json | null
+          home_lineup?: Json | null
           home_logo?: string | null
           home_score?: number | null
           home_team: string
@@ -189,6 +199,8 @@ export type Database = {
           league_country?: string | null
           league_name: string
           league_tier?: number | null
+          match_stats?: Json | null
+          odds?: Json | null
           pred_analysis?: string | null
           pred_away_win?: number
           pred_btts_prob?: number
@@ -211,6 +223,7 @@ export type Database = {
           anomaly_label?: string | null
           anomaly_reason?: string | null
           anomaly_score?: number
+          away_lineup?: Json | null
           away_logo?: string | null
           away_score?: number | null
           away_team?: string
@@ -218,8 +231,11 @@ export type Database = {
           context_penalties_total?: number | null
           created_at?: string
           data_completeness_score?: number | null
+          data_sources?: string[] | null
           fetched_at?: string
           fixture_id?: number
+          h2h_data?: Json | null
+          home_lineup?: Json | null
           home_logo?: string | null
           home_score?: number | null
           home_team?: string
@@ -229,6 +245,8 @@ export type Database = {
           league_country?: string | null
           league_name?: string
           league_tier?: number | null
+          match_stats?: Json | null
+          odds?: Json | null
           pred_analysis?: string | null
           pred_away_win?: number
           pred_btts_prob?: number
