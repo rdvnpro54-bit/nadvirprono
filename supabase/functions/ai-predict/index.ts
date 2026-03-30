@@ -573,14 +573,20 @@ function generatePRONOSIAAnalysis(
 
   if (sport === "football" || sport === "soccer") {
     whyPick.push(`Avantage quantifié de ${maxProb}% pour ${fav} sur 11 facteurs`);
-    whyPick.push(isSafe ? `Marché protégé Double Chance sécurisé` : `Signal cohérent forme + données`);
+    if (isSafe) {
+      whyPick.push(bttsProb >= 55 ? `Les 2 équipes marquent probablement (BTTS ${bttsProb}%)` : `Marché protégé Double Chance sécurisé`);
+    } else if (isModere) {
+      whyPick.push(`${fav} vainqueur — confiance suffisante, pas de double chance`);
+    } else {
+      whyPick.push(`Signal cohérent forme + données`);
+    }
     if (valueBet) whyPick.push(`Value Score positif — cote sous-estimée par le marché`);
     risks.push(`Variance naturelle du football — résultat jamais garanti`);
     if (maxProb < 70) risks.push(`Confiance modérée — gestion de mise prudente conseillée`);
 
     analyses.push(
       `Analyse PRONOSIA v2.0 : ${fav} affiche un avantage de ${maxProb}% basé sur 11 facteurs (forme, H2H, terrain, effectif, motivation, xG, marché, biais public, volatilité, patterns, données).`,
-      isSafe ? marketLine : (valueBet ? `Value Bet détecté (edge significatif) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — variance élevée du football.`),
+      (isSafe || isModere) ? marketLine : (valueBet ? `Value Bet détecté (edge significatif) — la cote sous-estime ${fav}.` : `Marge d'incertitude intégrée — variance élevée du football.`),
       `${calibrationNote}${valueNote}${safeModeNote}${streakNote}`,
       riskNote
     );
