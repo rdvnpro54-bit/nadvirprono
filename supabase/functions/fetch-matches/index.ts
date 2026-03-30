@@ -1349,6 +1349,8 @@ function toRow(m: NormalizedMatch, isFree: boolean, aiPrediction?: AIPrediction)
     odds: null, match_stats: null, h2h_data: null,
     odds_updated_at: null,
     data_sources: [m.source],
+    ai_hidden: false,
+    ai_hidden_reason: null,
   };
 }
 
