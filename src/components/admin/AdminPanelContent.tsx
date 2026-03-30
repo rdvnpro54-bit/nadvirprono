@@ -29,6 +29,9 @@ import {
   Zap,
   TrendingDown,
   Filter,
+  ShieldAlert,
+  Calendar,
+  Globe,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -77,6 +80,35 @@ interface MatchResultEntry {
   actual_away_score: number | null;
 }
 
+interface LeaguePerf {
+  league_name: string;
+  sport: string;
+  total_picks: number;
+  wins: number;
+  losses: number;
+  winrate: number;
+  roi: number;
+  is_blacklisted: boolean;
+  blacklist_expires_at: string | null;
+  blacklist_reason: string | null;
+  consecutive_bad_weeks: number;
+}
+
+interface WeeklyReport {
+  id: string;
+  week_start: string;
+  week_end: string;
+  total_picks: number;
+  wins: number;
+  losses: number;
+  winrate: number;
+  roi: number;
+  best_league: string | null;
+  worst_league: string | null;
+  best_bet_type: string | null;
+  created_at: string;
+}
+
 interface AdminPanelContentProps {
   embedded?: boolean;
 }
@@ -113,6 +145,12 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
   const [v2Loading, setV2Loading] = useState(false);
   const [v2Recalculating, setV2Recalculating] = useState(false);
   const [promoSending, setPromoSending] = useState(false);
+
+  // v3.0: League performance + weekly reports
+  const [leaguePerfs, setLeaguePerfs] = useState<LeaguePerf[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [leagueSearch, setLeagueSearch] = useState("");
+  const [auditRunning, setAuditRunning] = useState(false);
 
   const adminCall = useCallback(async (action: string, extra: Record<string, any> = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -161,6 +199,27 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   }, [adminCall]);
 
+  const fetchLeaguePerfs = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from("league_performance")
+        .select("*")
+        .order("total_picks", { ascending: false });
+      if (data) setLeaguePerfs(data as any[]);
+    } catch {}
+  }, []);
+
+  const fetchWeeklyReports = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from("weekly_reports")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(4);
+      if (data) setWeeklyReports(data as any[]);
+    } catch {}
+  }, []);
+
   const handleUpdateResult = async (matchId: string, newResult: string) => {
     try {
       setActionLoading(true);
@@ -183,7 +242,9 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     fetchDashboard();
     fetchUsers();
     fetchResults();
-  }, [fetchDashboard, fetchUsers, fetchResults]);
+    fetchLeaguePerfs();
+    fetchWeeklyReports();
+  }, [fetchDashboard, fetchUsers, fetchResults, fetchLeaguePerfs, fetchWeeklyReports]);
 
   useEffect(() => {
     const channel = supabase
@@ -204,7 +265,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
 
   useEffect(() => {
     const presenceChannel = supabase.channel(`admin-presence-viewer-${embedded ? "embedded" : "page"}`);
-
     presenceChannel
       .on("presence", { event: "sync" }, () => {
         const state = presenceChannel.presenceState();
@@ -222,10 +282,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         setOnlineUsers(allUsers);
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(presenceChannel);
-    };
+    return () => { supabase.removeChannel(presenceChannel); };
   }, [embedded]);
 
   const handleActivatePremium = async () => {
@@ -280,7 +337,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     setPromoSending(true);
     try {
       const channel = supabase.channel("admin-promo-broadcast");
-      // Must subscribe before sending
       await new Promise<void>((resolve, reject) => {
         channel.subscribe((status) => {
           if (status === "SUBSCRIBED") resolve();
@@ -297,7 +353,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         },
       });
       toast.success(`🎉 Promo -${promoDiscount}% envoyée à tous les utilisateurs en ligne !`);
-      // Clean up admin's channel after sending
       setTimeout(() => supabase.removeChannel(channel), 2000);
     } catch (err: any) {
       toast.error(err.message || "Erreur envoi promo");
@@ -311,7 +366,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     try {
       const { data: { session: s } } = await supabase.auth.getSession();
       if (!s) return;
-      // Fetch recent results for streak
       const { data: recentResults } = await supabase
         .from("match_results")
         .select("result")
@@ -324,7 +378,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const rollingWinrate = total >= 3 ? Math.round((wins / total) * 100) : 100;
       const streakMode = total >= 3 && rollingWinrate < 50;
 
-      // Fetch match counts via admin edge function (service_role bypasses RLS)
       const { data: v2Data, error: v2Err } = await supabase.functions.invoke("admin-actions", {
         body: { action: "v2-stats" },
         headers: { Authorization: `Bearer ${s.access_token}` },
@@ -356,15 +409,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const { data: { session: s } } = await supabase.auth.getSession();
       if (!s) throw new Error("No session");
       
-      const { data, error } = await supabase.functions.invoke("ai-predict", {
-        body: {},
-        headers: { 
-          Authorization: `Bearer ${s.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      // Call with force=true via URL params
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-predict?force=true&batch=50`,
         {
@@ -381,12 +425,12 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const result = await res.json();
       
       if (result.success) {
-        toast.success(`🤖 IA v2.0 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
+        toast.success(`🤖 IA v3.0 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
         setV2Stats(prev => prev ? {
           ...prev,
-          source: result.source || "pronosia-v2",
+          source: result.source || "pronosia-v3",
           predictionsGenerated: result.predictions_generated || 0,
-          excludedCount: (result.batch_size || 0) - (result.eligible || 0),
+          excludedCount: result.excluded || 0,
           streakMode: result.streak_mode ?? prev.streakMode,
           rollingWinrate: result.rolling_winrate ?? prev.rollingWinrate,
           lastRecalc: new Date().toISOString(),
@@ -402,10 +446,70 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
     }
   };
 
+  const handleForceAudit = async () => {
+    setAuditRunning(true);
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (!s) throw new Error("No session");
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/weekly-audit`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${s.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        }
+      );
+      const result = await res.json();
+      if (result.success) {
+        toast.success(`📊 Audit hebdo terminé ! ${result.total_picks} picks analysés, ${result.winrate}% winrate, ROI ${result.roi}%`);
+        fetchLeaguePerfs();
+        fetchWeeklyReports();
+      } else {
+        toast.error("Erreur audit: " + (result.error || "Inconnu"));
+      }
+    } catch (err: any) {
+      toast.error("Erreur audit: " + (err.message || "Inconnu"));
+    } finally {
+      setAuditRunning(false);
+    }
+  };
+
+  const handleToggleBlacklist = async (league: LeaguePerf) => {
+    try {
+      const { error } = await supabase
+        .from("league_performance")
+        .update({
+          is_blacklisted: !league.is_blacklisted,
+          blacklisted_at: !league.is_blacklisted ? new Date().toISOString() : null,
+          blacklist_expires_at: !league.is_blacklisted
+            ? new Date(Date.now() + 14 * 86400000).toISOString()
+            : null,
+          blacklist_reason: !league.is_blacklisted ? "Blacklist manuelle admin" : null,
+        })
+        .eq("league_name", league.league_name)
+        .eq("sport", league.sport);
+
+      if (error) throw error;
+      toast.success(league.is_blacklisted
+        ? `✅ ${league.league_name} retirée de la blacklist`
+        : `🚫 ${league.league_name} ajoutée à la blacklist (14 jours)`);
+      fetchLeaguePerfs();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   useEffect(() => { fetchV2Stats(); }, [fetchV2Stats]);
 
   const filteredUsers = users.filter((u) => u.email.toLowerCase().includes(searchTerm.toLowerCase()));
-
+  const filteredLeagues = leaguePerfs.filter(l =>
+    !leagueSearch || l.league_name.toLowerCase().includes(leagueSearch.toLowerCase())
+  );
+  const blacklistedCount = leaguePerfs.filter(l => l.is_blacklisted).length;
 
   return (
     <div className={embedded ? "mt-3" : ""}>
@@ -413,14 +517,16 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
         <div className="mb-2 flex items-center gap-3">
           <Shield className="h-6 w-6 text-primary" />
           <h2 className="font-display text-2xl font-bold">Panneau Admin</h2>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">v3.0</span>
         </div>
         <p className="text-sm text-muted-foreground">Gestion en temps réel • {user?.email}</p>
       </motion.div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4 sm:grid-cols-8">
+        <TabsList className="grid w-full max-w-3xl grid-cols-5 sm:grid-cols-9">
           <TabsTrigger value="dashboard" className="gap-1 text-[10px] sm:text-xs"><BarChart3 className="h-3 w-3" /> Stats</TabsTrigger>
-          <TabsTrigger value="ai-v2" className="gap-1 text-[10px] sm:text-xs"><Brain className="h-3 w-3" /> IA v2</TabsTrigger>
+          <TabsTrigger value="ai-v2" className="gap-1 text-[10px] sm:text-xs"><Brain className="h-3 w-3" /> IA v3</TabsTrigger>
+          <TabsTrigger value="leagues" className="gap-1 text-[10px] sm:text-xs"><Globe className="h-3 w-3" /> Ligues</TabsTrigger>
           <TabsTrigger value="live" className="gap-1 text-[10px] sm:text-xs"><Radio className="h-3 w-3" /> Live</TabsTrigger>
           <TabsTrigger value="users" className="gap-1 text-[10px] sm:text-xs"><Users className="h-3 w-3" /> Users</TabsTrigger>
           <TabsTrigger value="results" className="gap-1 text-[10px] sm:text-xs"><FileEdit className="h-3 w-3" /> Résultats</TabsTrigger>
@@ -429,6 +535,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
           <TabsTrigger value="logs" className="gap-1 text-[10px] sm:text-xs"><Activity className="h-3 w-3" /> Logs</TabsTrigger>
         </TabsList>
 
+        {/* ═══ DASHBOARD TAB ═══ */}
         <TabsContent value="dashboard">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {loadingStats ? (
@@ -482,7 +589,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
           </div>
         </TabsContent>
 
-        {/* ═══ IA v2.0 TAB ═══ */}
+        {/* ═══ IA v3.0 TAB ═══ */}
         <TabsContent value="ai-v2">
           <div className="space-y-4">
             {/* Streak Mode Banner */}
@@ -497,8 +604,8 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {v2Stats?.streakMode
-                      ? `Winrate récent < 50% → sélection ultra-stricte (max 2 picks, confiance min 72%, AI min 75)`
-                      : `Les filtres v2.0 fonctionnent en mode standard`}
+                      ? `Winrate récent < 50% → max 2 picks, confiance min 72%, AI min 75, RISQUÉ interdit`
+                      : `Filtres v3.0 en mode standard — intelligence adaptative par sport`}
                   </p>
                 </div>
               </div>
@@ -526,16 +633,38 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               />
               <StatCard
                 icon={Filter}
-                label="Exclus par filtres v2"
+                label="Exclus par filtres v3"
                 value={v2Loading ? "..." : v2Stats?.excludedCount ?? "—"}
                 color="text-muted-foreground"
               />
             </div>
 
-            {/* v2.0 Filter Rules */}
+            {/* Additional v3.0 stats */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <StatCard
+                icon={ShieldAlert}
+                label="Ligues blacklistées"
+                value={blacklistedCount}
+                color="text-destructive"
+              />
+              <StatCard
+                icon={Calendar}
+                label="Rapports hebdo"
+                value={weeklyReports.length}
+                color="text-primary"
+              />
+              <StatCard
+                icon={Globe}
+                label="Ligues suivies"
+                value={leaguePerfs.length}
+                color="text-secondary"
+              />
+            </div>
+
+            {/* Filter Rules */}
             <Card className="p-4">
               <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
-                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v2.0
+                <Filter className="h-4 w-4 text-primary" /> Filtres d'exclusion v3.0
               </h3>
               <div className="grid gap-2 sm:grid-cols-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -544,7 +673,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <Ban className="h-3 w-3 text-destructive" />
-                  <span>Confiance &lt; {v2Stats?.streakMode ? "72" : "65"}% → Exclu</span>
+                  <span>Confiance &lt; seuil dynamique (A3) → Exclu</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Ban className="h-3 w-3 text-destructive" />
@@ -552,7 +681,15 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <Ban className="h-3 w-3 text-destructive" />
-                  <span>Ligues amicales/mineures → Exclu</span>
+                  <span>Suspect Score ≥ 51 → Non recommandé</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Ban className="h-3 w-3 text-destructive" />
+                  <span>Ligues blacklistées auto → Exclu</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3 text-success" />
+                  <span>Profils sport granulaires (A2)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
@@ -560,22 +697,38 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-3 w-3 text-success" />
-                  <span>Max affiché: 88% (jamais plus)</span>
+                  <span>Consensus validation IA (A1)</span>
                 </div>
-                {v2Stats?.streakMode && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-3 w-3 text-warning" />
-                      <span>Max picks/jour: 2 (streak mode)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-3 w-3 text-warning" />
-                      <span>RISQUÉ interdit (streak mode)</span>
-                    </div>
-                  </>
-                )}
               </div>
             </Card>
+
+            {/* Weekly Reports */}
+            {weeklyReports.length > 0 && (
+              <Card className="p-4">
+                <h3 className="flex items-center gap-2 font-display font-semibold text-sm mb-3">
+                  <Calendar className="h-4 w-4 text-primary" /> Derniers rapports hebdomadaires
+                </h3>
+                <div className="space-y-2">
+                  {weeklyReports.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between rounded-lg bg-muted/30 p-3 text-xs">
+                      <div>
+                        <span className="font-semibold">{r.week_start} → {r.week_end}</span>
+                        <span className="ml-2 text-muted-foreground">{r.total_picks} picks</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={r.winrate >= 55 ? "text-success font-bold" : r.winrate >= 45 ? "text-warning font-bold" : "text-destructive font-bold"}>
+                          {r.winrate}% WR
+                        </span>
+                        <span className={r.roi >= 0 ? "text-success" : "text-destructive"}>
+                          {r.roi >= 0 ? "+" : ""}{r.roi}% ROI
+                        </span>
+                        {r.best_league && <span className="text-muted-foreground">🏆 {r.best_league}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* Last recalc info */}
             {v2Stats?.lastRecalc && (
@@ -596,7 +749,11 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               </Button>
               <Button size="sm" onClick={handleForceRecalculate} disabled={v2Recalculating} className="gap-1 bg-primary">
                 {v2Recalculating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Brain className="h-3 w-3" />}
-                🤖 Forcer recalcul IA v2.0
+                🤖 Forcer recalcul IA v3.0
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleForceAudit} disabled={auditRunning} className="gap-1">
+                {auditRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calendar className="h-3 w-3" />}
+                📊 Forcer audit hebdo
               </Button>
             </div>
 
@@ -613,15 +770,92 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 >
                   <Brain className="h-6 w-6 text-primary" />
                 </motion.div>
-                <p className="text-sm font-semibold">Recalcul IA v2.0 en cours...</p>
+                <p className="text-sm font-semibold">Recalcul IA v3.0 en cours...</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Application des filtres d'exclusion, calibration et value scoring sur tous les matchs
+                  Profils sport granulaires, seuils dynamiques, détection suspects améliorée, blacklist active
                 </p>
               </motion.div>
             )}
           </div>
         </TabsContent>
 
+        {/* ═══ LEAGUES TAB (NEW v3.0) ═══ */}
+        <TabsContent value="leagues">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher une ligue..."
+                value={leagueSearch}
+                onChange={(e) => setLeagueSearch(e.target.value)}
+                className="max-w-sm"
+              />
+              <Button variant="outline" size="sm" onClick={fetchLeaguePerfs} className="gap-1">
+                <RefreshCw className="h-3 w-3" /> Rafraîchir
+              </Button>
+            </div>
+
+            {filteredLeagues.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Globe className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                <p className="text-sm">Aucune donnée de ligue — lancez un audit hebdo</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredLeagues.map((l, i) => (
+                  <motion.div
+                    key={`${l.sport}-${l.league_name}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.02 }}
+                    className={`flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between ${
+                      l.is_blacklisted ? "border-destructive/30 bg-destructive/5" : "border-border/30 bg-card/50"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {l.is_blacklisted && <Ban className="h-3.5 w-3.5 text-destructive" />}
+                        <span>{l.league_name}</span>
+                        <span className="text-[10px] text-muted-foreground capitalize">({l.sport})</span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>{l.total_picks} picks</span>
+                        <span>•</span>
+                        <span className={l.winrate >= 55 ? "text-success font-semibold" : l.winrate >= 45 ? "text-warning" : "text-destructive font-semibold"}>
+                          {l.winrate}% WR
+                        </span>
+                        <span>•</span>
+                        <span className={l.roi >= 0 ? "text-success" : "text-destructive"}>
+                          ROI {l.roi >= 0 ? "+" : ""}{l.roi}%
+                        </span>
+                        {l.is_blacklisted && l.blacklist_expires_at && (
+                          <>
+                            <span>•</span>
+                            <span className="text-destructive">Expire: {new Date(l.blacklist_expires_at).toLocaleDateString("fr-FR")}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant={l.is_blacklisted ? "outline" : "destructive"}
+                      size="sm"
+                      onClick={() => handleToggleBlacklist(l)}
+                      className="gap-1 text-xs"
+                    >
+                      {l.is_blacklisted ? (
+                        <><CheckCircle className="h-3 w-3" /> Unblacklist</>
+                      ) : (
+                        <><Ban className="h-3 w-3" /> Blacklist</>
+                      )}
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ═══ LIVE TAB ═══ */}
         <TabsContent value="live">
           <Card className="p-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -639,7 +873,6 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
               <div className="py-8 text-center">
                 <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                 <p className="text-sm text-muted-foreground">Aucun utilisateur connecté en temps réel</p>
-                <p className="mt-1 text-[10px] text-muted-foreground/60">Les utilisateurs apparaîtront ici lorsqu'ils navigueront sur le site</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -669,22 +902,16 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
           </Card>
         </TabsContent>
 
+        {/* ═══ USERS TAB ═══ */}
         <TabsContent value="users">
           <div className="mb-4 flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
-            />
+            <Input placeholder="Rechercher un email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="max-w-sm" />
             <span className="text-xs text-muted-foreground">{filteredUsers.length} utilisateur(s)</span>
           </div>
 
           {loadingUsers ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Chargement...
-            </div>
+            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -699,13 +926,8 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                 </thead>
                 <tbody>
                   {filteredUsers.map((u, i) => (
-                    <motion.tr
-                      key={u.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.02 }}
-                      className="border-b border-border/20 transition-colors hover:bg-muted/30"
-                    >
+                    <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                      className="border-b border-border/20 transition-colors hover:bg-muted/30">
                       <td className="py-2.5 pr-4 text-xs font-medium">{u.email}</td>
                       <td className="py-2.5 pr-4">
                         {u.is_premium ? (
@@ -729,6 +951,7 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
           )}
         </TabsContent>
 
+        {/* ═══ PREMIUM TAB ═══ */}
         <TabsContent value="premium">
           <Card className="max-w-lg p-6">
             <h3 className="mb-4 flex items-center gap-2 font-display font-semibold">
@@ -768,24 +991,19 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
             </div>
           </Card>
         </TabsContent>
+
+        {/* ═══ RESULTS TAB ═══ */}
         <TabsContent value="results">
           <div className="mb-4 flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un match..."
-              value={resultSearch}
-              onChange={(e) => setResultSearch(e.target.value)}
-              className="max-w-sm"
-            />
+            <Input placeholder="Rechercher un match..." value={resultSearch} onChange={(e) => setResultSearch(e.target.value)} className="max-w-sm" />
             <Button variant="outline" size="sm" onClick={fetchResults} className="gap-1">
               <RefreshCw className="h-3 w-3" /> Rafraîchir
             </Button>
           </div>
 
           {loadingResults ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Chargement des résultats...
-            </div>
+            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>
           ) : (
             <div className="space-y-2">
               {matchResults
@@ -794,13 +1012,8 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                   return !q || m.home_team.toLowerCase().includes(q) || m.away_team.toLowerCase().includes(q) || m.league_name.toLowerCase().includes(q);
                 })
                 .map((m, i) => (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.02 }}
-                    className="flex flex-col gap-2 rounded-lg border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
+                  <motion.div key={m.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                    className="flex flex-col gap-2 rounded-lg border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <span>{m.home_team} vs {m.away_team}</span>
@@ -829,14 +1042,8 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                       }`}>
                         {m.result || "pending"}
                       </span>
-                      <Select
-                        defaultValue={m.result || "pending"}
-                        onValueChange={(val) => handleUpdateResult(m.id, val)}
-                        disabled={actionLoading}
-                      >
-                        <SelectTrigger className="h-7 w-24 text-[11px]">
-                          <SelectValue />
-                        </SelectTrigger>
+                      <Select defaultValue={m.result || "pending"} onValueChange={(val) => handleUpdateResult(m.id, val)} disabled={actionLoading}>
+                        <SelectTrigger className="h-7 w-24 text-[11px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="win">✅ Win</SelectItem>
                           <SelectItem value="loss">❌ Loss</SelectItem>
@@ -856,17 +1063,18 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
           )}
         </TabsContent>
 
+        {/* ═══ PROMO TAB ═══ */}
         <TabsContent value="promo">
           <Card className="max-w-lg p-6">
             <h3 className="mb-4 flex items-center gap-2 font-display font-semibold">
               <Megaphone className="h-5 w-5 text-primary" /> Notification Promo Push
             </h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Envoie une notification promo en temps réel à <span className="font-bold text-foreground">tous les utilisateurs actuellement connectés</span> sur le site.
+              Envoie une notification promo en temps réel à <span className="font-bold text-foreground">tous les utilisateurs actuellement connectés</span>.
             </p>
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Message de la promo</label>
+                <label className="mb-1 block text-xs text-muted-foreground">Message</label>
                 <Input value={promoMessage} onChange={(e) => setPromoMessage(e.target.value)} placeholder="Message promo..." />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -875,45 +1083,33 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
                   <Input type="number" min={1} max={50} value={promoDiscount} onChange={(e) => setPromoDiscount(Number(e.target.value))} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-muted-foreground">Durée (minutes)</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">Durée (min)</label>
                   <Input type="number" min={1} max={60} value={promoDuration} onChange={(e) => setPromoDuration(Number(e.target.value))} />
                 </div>
               </div>
-
               <div className="rounded-lg bg-muted/30 p-3 text-[11px] text-muted-foreground">
                 <p>📢 Aperçu : <span className="font-semibold text-foreground">-{promoDiscount}%</span> pendant <span className="font-semibold text-foreground">{promoDuration} min</span></p>
                 <p className="mt-1 italic">"{promoMessage}"</p>
               </div>
-
               <Button onClick={handleSendPromo} disabled={promoSending || !promoMessage.trim()} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
                 {promoSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Envoyer à tous les utilisateurs
               </Button>
-
-              <p className="text-[10px] text-muted-foreground/60 text-center">
-                ⚡ La notification apparaîtra en haut de l'écran de tous les utilisateurs connectés
-              </p>
             </div>
           </Card>
         </TabsContent>
 
+        {/* ═══ LOGS TAB ═══ */}
         <TabsContent value="logs">
           {loadingStats ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Chargement...
-            </div>
+            <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Chargement...</div>
           ) : stats?.logs && stats.logs.length > 0 ? (
             <div className="space-y-2">
               {stats.logs.map((log: any, i: number) => (
-                <motion.div
-                  key={log.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="glass-card flex items-start gap-3 p-3"
-                >
+                <motion.div key={log.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+                  className="glass-card flex items-start gap-3 p-3">
                   <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
-                    log.action.includes("activate") ? "bg-success" : log.action.includes("deactivate") ? "bg-destructive" : "bg-secondary"
+                    log.action.includes("activate") ? "bg-success" : log.action.includes("deactivate") ? "bg-destructive" : log.action.includes("audit") ? "bg-primary" : "bg-secondary"
                   }`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 text-sm">
