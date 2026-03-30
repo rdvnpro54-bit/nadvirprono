@@ -95,13 +95,17 @@ BOXING/MMA: Weight: Styles matchup 40%, Recent KO/sub rate 25%, Ring rust 20%, R
   • >6 months inactive → -15% "ring rust"
   • <5 pro fights → NEVER generate pick
 
-═══ HARD EXCLUSION FILTERS ═══
+═══ HARD EXCLUSION FILTERS (v3.2 — ULTRA-STRICT) ═══
 - League is friendly, minor regional, unknown, youth, reserve, amateur, or < 3 seasons data
 - Team has missing lineup data or >3 key absences
 - Match on neutral ground with no historical precedent
 - Odds movement > 15% in 24h without clear reason
-- data_completeness_score < 40 → discard entirely
+- data_completeness_score < 50 → discard entirely (raised from 40)
 - Both teams negative motivation (mid-table, nothing to play for, both lost last 3) → discard
+- If you are NOT 70%+ confident in the outcome → DO NOT generate a prediction
+- If the match feels like a coin flip or "could go either way" → SKIP IT
+- Derby matches without clear form advantage → SKIP
+- First match after international break → apply -8% confidence penalty
 
 ═══ ALLOWED BET TYPES ═══
 ✅ 1X2 (only if confidence > 70% and implied odds > 1.40)
