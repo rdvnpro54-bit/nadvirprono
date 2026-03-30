@@ -306,14 +306,10 @@ const Index = () => {
       </ScrollSection>
 
       {/* Missed match conversion banner */}
-      <div className="container px-3 sm:px-4 py-3">
-        <MissedMatchBanner />
-      </div>
+      <MissedMatchBanner />
 
       {/* Win Streak badge */}
-      <div className="flex justify-center py-2">
-        <WinStreak />
-      </div>
+      <WinStreak />
 
       {/* Combiné IA du jour */}
       <ScrollSection>
