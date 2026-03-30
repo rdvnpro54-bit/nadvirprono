@@ -303,12 +303,11 @@ export default function Pricing() {
 
             {/* PREMIUM+ */}
             <div
-              className="glass-card p-5 md:p-6 flex flex-col min-w-[270px] snap-center shrink-0 md:min-w-0 md:shrink relative overflow-hidden"
-              style={{ border: "1px solid hsl(var(--primary) / 0.4)" }}
+              className="glass-card-elevated holographic animated-border p-5 md:p-6 flex flex-col min-w-[270px] snap-center shrink-0 md:min-w-0 md:shrink relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5 pointer-events-none" />
-              <div className="absolute -top-px left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
-              <span className="absolute top-1.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-2.5 py-[3px] text-[9px] font-bold text-black z-10 leading-none whitespace-nowrap">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-[rgba(138,43,226,0.03)] pointer-events-none" />
+              <div className="absolute -top-px left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent, hsl(45 100% 50%), transparent)", opacity: 0.6 }} />
+              <span className="absolute top-1.5 left-1/2 -translate-x-1/2 rounded-full badge-elite px-2.5 py-[3px] text-[9px] font-bold z-10 leading-none whitespace-nowrap">
                 ⭐ Recommandé
               </span>
 
