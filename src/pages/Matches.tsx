@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MatchCard } from "@/components/matches/MatchCard";
@@ -97,6 +97,8 @@ export default function Matches() {
   const [aiTier, setAiTier] = useState<AiTier>("ALL");
   const [valueBetsOnly, setValueBetsOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [visibleCount, setVisibleCount] = useState(30);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const freePicksUsed = useMemo(() => {
     if (!matches) return 0;
@@ -159,6 +161,27 @@ export default function Matches() {
       .slice(0, 4);
   }, [filtered]);
 
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [sport, confidence, aiTier, valueBetsOnly, searchQuery]);
+
+  // Intersection Observer for auto-load-more
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount(prev => prev + 30);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [filtered.length]);
+
   const grouped = useMemo(() => {
     const now = Date.now();
     const FINISHED_STATUSES = ["FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD", "FINISHED", "COMPLETED", "ENDED"];
@@ -177,20 +200,23 @@ export default function Matches() {
       const statusB = getStatus(b);
       const order: Record<string, number> = { live: 0, upcoming: 1, finished: 2 };
       if (order[statusA] !== order[statusB]) return order[statusA] - order[statusB];
-      // Live & upcoming: soonest first; finished: most recent first
       if (statusA === "finished") return new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime();
       return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
     });
 
+    // Progressive loading: only process first N matches
+    const limited = sortedFiltered.slice(0, visibleCount);
+
     const groups: Record<string, CachedMatch[]> = {};
-    sortedFiltered.forEach(m => {
+    limited.forEach(m => {
       const date = new Date(m.kickoff).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
       if (!groups[date]) groups[date] = [];
       groups[date].push(m);
     });
     return groups;
-  }, [filtered]);
+  }, [filtered, visibleCount]);
 
+  const hasMore = filtered.length > visibleCount;
   const freeMatches = filtered.filter(m => m.is_free).sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
 
   return (
@@ -551,6 +577,20 @@ export default function Matches() {
             </motion.div>
           ))}
         </AnimatePresence>
+
+        {/* Load more trigger */}
+        {!isLoading && !error && hasMore && (
+          <div ref={loadMoreRef} className="mt-4 text-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVisibleCount(prev => prev + 30)}
+              className="gap-2 text-xs border-border/40 hover:border-primary/30"
+            >
+              Charger plus de matchs ({filtered.length - visibleCount} restants)
+            </Button>
+          </div>
+        )}
 
         {/* Empty state */}
         {!isLoading && !error && filtered.length === 0 && (
