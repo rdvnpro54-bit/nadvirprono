@@ -6,7 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ADMIN_EMAIL = "rdvnpro54@gmail.com";
+const log = (step: string, details?: any) => {
+  console.log(`[CHECK-SUB] ${step}${details ? ` - ${JSON.stringify(details)}` : ''}`);
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -28,6 +30,7 @@ Deno.serve(async (req) => {
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
+    log("User", { id: user.id, email: user.email });
 
     // Check admin role
     const { data: roleData } = await supabaseClient
@@ -38,25 +41,41 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const isAdmin = !!roleData;
+    log("Admin check", { isAdmin });
 
     // Check manual premium in subscriptions table
-    const { data: subData } = await supabaseClient
+    const { data: subData, error: subError } = await supabaseClient
       .from("subscriptions")
       .select("is_premium, plan, expires_at")
       .eq("user_id", user.id)
       .maybeSingle();
 
+    log("Sub query", { subData, subError: subError?.message || null });
+
+    const now = new Date();
     const manualPremium = subData?.is_premium === true &&
-      (!subData.expires_at || new Date(subData.expires_at) > new Date());
+      (!subData.expires_at || new Date(subData.expires_at) > now);
+
+    log("Manual premium", { manualPremium, isPremium: subData?.is_premium, expiresAt: subData?.expires_at, now: now.toISOString() });
+
+    // Determine plan tier for manual premium
+    const plan = subData?.plan || "premium";
+    const isManualPremiumPlus = plan.includes("premium_plus");
 
     // If admin or manual premium, return subscribed immediately
     if (isAdmin || manualPremium) {
-      return new Response(JSON.stringify({
+      const result = {
         subscribed: true,
         is_admin: isAdmin,
-        product_id: manualPremium ? "manual_" + (subData?.plan || "premium") : "admin",
+        product_id: manualPremium
+          ? (isManualPremiumPlus ? "manual_premium_plus" : "manual_premium")
+          : "admin",
         subscription_end: subData?.expires_at || null,
-      }), {
+        plan: plan,
+        is_premium_plus: isAdmin || isManualPremiumPlus,
+      };
+      log("Returning manual/admin", result);
+      return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -65,6 +84,7 @@ Deno.serve(async (req) => {
     // Check Stripe subscription
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
+      log("No Stripe key");
       return new Response(JSON.stringify({ subscribed: false, is_admin: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -75,6 +95,7 @@ Deno.serve(async (req) => {
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
     if (customers.data.length === 0) {
+      log("No Stripe customer");
       return new Response(JSON.stringify({ subscribed: false, is_admin: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -97,6 +118,8 @@ Deno.serve(async (req) => {
       productId = sub.items.data[0].price.product;
     }
 
+    log("Stripe result", { hasActiveSub, productId });
+
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       is_admin: false,
@@ -108,6 +131,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
+    log("ERROR", { message: msg });
     return new Response(JSON.stringify({ error: msg }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

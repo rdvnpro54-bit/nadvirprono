@@ -66,6 +66,8 @@ const PREMIUM_PLUS_PRODUCT_IDS = [
   // Legacy product IDs for existing subscribers
   "prod_UDq3Yi5NV5UBwi",
   "prod_UDq3gv6WVIiSIn",
+  // Manual premium plus (admin-activated)
+  "manual_premium_plus",
 ] as const;
 
 const DEFAULT_SUB: SubscriptionState = { subscribed: false, productId: null, subscriptionEnd: null, isAdmin: false };
