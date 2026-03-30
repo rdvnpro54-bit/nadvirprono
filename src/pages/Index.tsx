@@ -11,7 +11,7 @@ import { MissedMatchBanner } from "@/components/home/MissedMatchBanner";
 import { MatchesToAvoid } from "@/components/home/MatchesToAvoid";
 import { SportRankings } from "@/components/home/SportRankings";
 import { WinStreak } from "@/components/home/WinStreak";
-import { DailyAIBriefing } from "@/components/home/DailyAIBriefing";
+
 import { useMatches, useTriggerFetch } from "@/hooks/useMatches";
 import { useEliteWinrate } from "@/hooks/useResults";
 import { useMatchDiagnostics } from "@/hooks/useMatchLifecycle";
@@ -296,8 +296,6 @@ const Index = () => {
       {/* Top 2 GRATUITS */}
       <TopMatchesSection matches={matches} isLoading={isLoading} />
 
-      {/* Daily AI Briefing */}
-      <DailyAIBriefing />
 
       {/* TOP PICK DU JOUR */}
       <TopPickSection matches={matches} />
