@@ -248,14 +248,42 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Determine if prediction was correct
+      // Determine actual outcome
       let actualWinner: string;
       if (actualHome > actualAway) actualWinner = m.home_team;
       else if (actualAway > actualHome) actualWinner = m.away_team;
       else actualWinner = "draw";
 
-      const isWon = predWinner === actualWinner ||
-        (actualWinner === "draw" && m.pred_home_win === m.pred_away_win);
+      // Detect what type of bet the AI recommended
+      const betType = detectBetType(m.pred_analysis, m.pred_draw || 0, m.pred_btts_prob || 0);
+      
+      let isWon = false;
+      switch (betType) {
+        case "double_chance":
+          // Double Chance = predicted winner OR draw = win
+          isWon = predWinner === actualWinner || actualWinner === "draw";
+          break;
+        case "btts":
+          // BTTS = both teams scored
+          isWon = actualHome > 0 && actualAway > 0;
+          break;
+        case "over":
+          isWon = (actualHome + actualAway) > 2.5;
+          break;
+        case "under":
+          isWon = (actualHome + actualAway) < 2.5;
+          break;
+        case "draw":
+          isWon = actualWinner === "draw";
+          break;
+        default:
+          // Standard winner prediction
+          isWon = predWinner === actualWinner ||
+            (actualWinner === "draw" && m.pred_home_win === m.pred_away_win);
+          break;
+      }
+
+      console.log(`[resolve] ${m.home_team} vs ${m.away_team}: betType=${betType}, pred=${predWinner}, actual=${actualWinner}, score=${actualHome}-${actualAway}, result=${isWon ? "win" : "loss"}`);
 
       results.push({
         fixture_id: m.fixture_id,
