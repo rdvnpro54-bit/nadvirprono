@@ -1137,7 +1137,7 @@ async function enrichMatchesWithAPIs(
     allSportsStandingsPromises.push(fetchAllSportsStandings(cfg.tournamentId, cfg.seasonId));
   }
 
-  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData, ...allSportsResults] = await Promise.all([
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData, nbaTeams, ...allSportsResults] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
     fetchSofaScoreRapidEvents(dateISO, "football"),
@@ -1145,6 +1145,7 @@ async function enrichMatchesWithAPIs(
     fetchSofaScoreRapidEvents(dateISO, "tennis"),
     fetchTank01MLBScores(dateCompact),
     fetchNHLSchedule(dateISO),
+    fetchNBATeams(),
     ...allSportsStandingsPromises,
   ]);
 
