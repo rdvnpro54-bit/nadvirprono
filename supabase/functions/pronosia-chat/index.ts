@@ -277,6 +277,27 @@ function generateSafeMatchesResponse(matches: MatchData[]): string {
   return resp;
 }
 
+function generateSportMatchesResponse(sportName: string, matches: MatchData[], isPremiumPlus: boolean): string {
+  const sportMatches = matches.filter(m => normalize(m.sport).includes(normalize(sportName)) && new Date(m.kickoff) > new Date() && m.ai_score > 0)
+    .sort((a, b) => b.ai_score - a.ai_score).slice(0, 5);
+  
+  if (sportMatches.length === 0) {
+    // Show stats instead if no upcoming matches
+    return `${getSportEmoji(sportName)} Aucun match de **${sportName}** à venir pour le moment.\n\nVoici les stats historiques à la place :\n\n` + generateSportDetailResponse(sportName, []);
+  }
+  
+  let resp = `${getSportEmoji(sportName)} **Meilleurs matchs de ${sportName} à venir :**\n\n`;
+  for (const m of sportMatches) {
+    const winner = getWinner(m);
+    const confEmoji = m.pred_confidence === "SAFE" ? "🟢" : m.pred_confidence === "MODÉRÉ" ? "🟡" : "🔴";
+    const date = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    resp += `${confEmoji} **${m.home_team} vs ${m.away_team}** — ${winner} (${m.pred_confidence}, IA: ${m.ai_score}/100) • ${date}\n`;
+  }
+  resp += `\n_Classement basé sur le score IA. Aucune garantie de résultat._`;
+  return resp;
+}
+
+// ── Main fallback router ──────────────────────────────────────
 function generateFallbackResponse(userMsg: string, matches: MatchData[], results: ResultData[], stats: StatsData[], isPremiumPlus: boolean): string {
   const q = normalize(userMsg);
   
@@ -287,37 +308,18 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
     return `👋 Salut ! Je suis **Pronosia AI**, ton assistant pronostics.\n\n📊 Winrate global : **${wr}%** sur ${resolved.length} picks\n\n💡 Tu peux me demander :\n- 🏆 Les meilleurs matchs du jour\n- 📊 Mes stats par sport ou par confiance\n- ⚽ Le détail d'un match précis\n- 🟢 Les picks les plus sûrs\n\n_Je me base uniquement sur les données réelles de notre système IA._`;
   }
   
-  // ── 2. Specific match lookup ──
-  const match = findMatchInQuestion(userMsg, matches);
-  if (match) return generateMatchResponse(match, isPremiumPlus);
-  
-  // Check in results too
-  for (const r of results) {
-    if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
-      let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
-      resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
-      if (r.result) {
-        const emoji = r.result === "win" ? "✅" : "❌";
-        resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
-      }
-      if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
-      resp += `\n_Données issues de notre historique de prédictions._`;
-      return resp;
-    }
-  }
-  
-  // ── 3. Sport-specific questions ──
+  // ── 2. Detect sport in the question ──
   const SPORTS_MAP: Record<string, string[]> = {
-    football: ["football", "foot", "soccer"],
-    basketball: ["basketball", "basket", "nba"],
-    hockey: ["hockey", "nhl"],
+    football: ["football", "foot", "soccer", "ligue 1", "premier league", "liga", "serie a", "bundesliga"],
+    basketball: ["basketball", "basket", "nba", "euroleague"],
+    hockey: ["hockey", "nhl", "lnh"],
     baseball: ["baseball", "mlb"],
-    tennis: ["tennis", "atp", "wta"],
-    mma: ["mma", "ufc", "combat"],
-    afl: ["afl", "rugby", "aussie"],
+    tennis: ["tennis", "atp", "wta", "roland garros", "wimbledon"],
+    mma: ["mma", "ufc", "combat", "boxe"],
+    afl: ["afl", "aussie rules"],
+    rugby: ["rugby", "top 14", "six nations"],
   };
   
-  // Detect if user asks about a specific sport
   let detectedSport: string | null = null;
   for (const [sport, keywords] of Object.entries(SPORTS_MAP)) {
     for (const kw of keywords) {
@@ -326,59 +328,122 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
     if (detectedSport) break;
   }
   
+  // ── 3. Specific match lookup (only if no broad question detected) ──
+  const isBroadQuestion = q.includes("quel") || q.includes("meilleur") || q.includes("moins") || q.includes("plus") || 
+    q.includes("donne") || q.includes("montre") || q.includes("liste") || q.includes("tous") ||
+    q.includes("stat") || q.includes("taux") || q.includes("winrate") || q.includes("reussite") ||
+    q.includes("defaite") || q.includes("defaut") || q.includes("perte") || q.includes("victoire") ||
+    q.includes("confiance") || q.includes("safe") || q.includes("sport") || q.includes("categorie");
+  
+  if (!isBroadQuestion) {
+    const match = findMatchInQuestion(userMsg, matches);
+    if (match) return generateMatchResponse(match, isPremiumPlus);
+    
+    for (const r of results) {
+      if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
+        let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
+        resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
+        if (r.result) {
+          const emoji = r.result === "win" ? "✅" : "❌";
+          resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
+        }
+        if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
+        resp += `\n_Données issues de notre historique de prédictions._`;
+        return resp;
+      }
+    }
+  }
+  
   // ── 4. "Best/worst sport" or "which category" questions ──
   const asksBestWorstSport = q.includes("quel sport") || q.includes("quelle categorie") || q.includes("quel categorie") || 
-    q.includes("classement") || (q.includes("categorie") && (q.includes("plus") || q.includes("moins") || q.includes("meilleur") || q.includes("pire"))) ||
-    (q.includes("sport") && (q.includes("plus") || q.includes("moins") || q.includes("meilleur") || q.includes("pire") || q.includes("reussite") || q.includes("perte") || q.includes("gagn"))) ||
-    (q.includes("ou") && q.includes("reussite")) || (q.includes("ou") && q.includes("perte"));
+    q.includes("classement sport") ||
+    (q.includes("categorie") && (q.includes("plus") || q.includes("moins") || q.includes("meilleur") || q.includes("pire"))) ||
+    (q.includes("sport") && (q.includes("plus") || q.includes("moins") || q.includes("meilleur") || q.includes("pire") || q.includes("reussite") || q.includes("perte") || q.includes("gagn") || q.includes("defaite") || q.includes("defaut") || q.includes("victoire") || q.includes("perdu") || q.includes("perd"))) ||
+    (q.includes("ou") && (q.includes("reussite") || q.includes("perte") || q.includes("defaite") || q.includes("victoire") || q.includes("gagn"))) ||
+    (q.includes("moins") && (q.includes("defaite") || q.includes("defaut") || q.includes("perte") || q.includes("perdu"))) ||
+    (q.includes("plus") && (q.includes("victoire") || q.includes("gagn") || q.includes("reussite")));
   
-  if (asksBestWorstSport) {
+  if (asksBestWorstSport && !detectedSport) {
     return generateBestSportResponse(results);
   }
   
-  // If a specific sport is mentioned with a stats-like question
-  if (detectedSport && (q.includes("stat") || q.includes("taux") || q.includes("reussite") || q.includes("performance") || q.includes("resultat") || q.includes("winrate") || q.includes("perte") || q.includes("gagn"))) {
-    return generateSportDetailResponse(detectedSport, results);
-  }
-  
-  // If just a sport name alone (e.g. "et le tennis"), show that sport's stats
-  if (detectedSport && q.split(" ").length <= 5) {
-    return generateSportDetailResponse(detectedSport, results);
-  }
-  
-  // ── 5. Best matches ──
-  if (q.includes("meilleur") || q.includes("top") || q.includes("best") || q.includes("recommand")) {
-    if (detectedSport) {
-      // Filter matches by sport
-      const sportMatches = matches.filter(m => normalize(m.sport).includes(normalize(detectedSport!)));
-      if (sportMatches.length > 0) {
-        return generateBestMatchesResponse(sportMatches);
+  // ── 5. Sport + "confiance"/"match"/"donne"/"montre" → show best matches for that sport ──
+  if (detectedSport && (q.includes("confiance") || q.includes("donne") || q.includes("montre") || q.includes("match") || q.includes("prochain") || q.includes("aujourd") || q.includes("pick"))) {
+    // Filter matches by this sport and show best ones
+    const sportMatches = matches.filter(m => normalize(m.sport).includes(normalize(detectedSport!)));
+    
+    // If asking about "plus grande confiance" → filter to SAFE
+    if (q.includes("grande confiance") || q.includes("plus confian") || q.includes("safe")) {
+      const safeMatches = sportMatches.filter(m => m.pred_confidence === "SAFE" && new Date(m.kickoff) > new Date())
+        .sort((a, b) => b.ai_score - a.ai_score).slice(0, 5);
+      if (safeMatches.length > 0) {
+        let resp = `${getSportEmoji(detectedSport)} **Matchs ${detectedSport} avec la plus grande confiance :**\n\n`;
+        for (const m of safeMatches) {
+          const winner = getWinner(m);
+          const date = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+          resp += `🟢 **${m.home_team} vs ${m.away_team}** — ${winner} (SAFE, IA: ${m.ai_score}/100) • ${date}\n`;
+        }
+        resp += `\n_Seuls les matchs classés SAFE sont affichés._`;
+        return resp;
       }
+      // No SAFE, show best available
+      const bestAvail = sportMatches.filter(m => new Date(m.kickoff) > new Date() && m.ai_score > 0)
+        .sort((a, b) => b.ai_score - a.ai_score).slice(0, 5);
+      if (bestAvail.length > 0) {
+        let resp = `${getSportEmoji(detectedSport)} Aucun match SAFE en **${detectedSport}** actuellement. Voici les meilleurs picks disponibles :\n\n`;
+        for (const m of bestAvail) {
+          const winner = getWinner(m);
+          const confEmoji = m.pred_confidence === "SAFE" ? "🟢" : m.pred_confidence === "MODÉRÉ" ? "🟡" : "🔴";
+          const date = new Date(m.kickoff).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+          resp += `${confEmoji} **${m.home_team} vs ${m.away_team}** — ${winner} (${m.pred_confidence}, IA: ${m.ai_score}/100) • ${date}\n`;
+        }
+        return resp;
+      }
+      return `${getSportEmoji(detectedSport)} Aucun match de **${detectedSport}** avec prédiction disponible pour le moment.`;
+    }
+    
+    return generateSportMatchesResponse(detectedSport, matches, isPremiumPlus);
+  }
+  
+  // ── 6. Sport + stats-like question ──
+  if (detectedSport && (q.includes("stat") || q.includes("taux") || q.includes("reussite") || q.includes("performance") || q.includes("resultat") || q.includes("winrate") || q.includes("perte") || q.includes("gagn") || q.includes("defaite") || q.includes("defaut") || q.includes("victoire") || q.includes("bilan"))) {
+    return generateSportDetailResponse(detectedSport, results);
+  }
+  
+  // ── 7. Sport mentioned alone or with short question → show stats ──
+  if (detectedSport) {
+    return generateSportDetailResponse(detectedSport, results);
+  }
+  
+  // ── 8. Best matches ──
+  if (q.includes("meilleur") || q.includes("top") || q.includes("best") || q.includes("recommand")) {
+    return generateBestMatchesResponse(matches);
+  }
+  
+  // ── 9. Safe matches ──
+  if (q.includes("safe") || q.includes("securis") || q.includes("fiable") || q.includes("confiance") || (q.includes("sur") && (q.includes("match") || q.includes("pick") || q.includes("pari")))) {
+    return generateSafeMatchesResponse(matches);
+  }
+  
+  // ── 10. Stats / performance / winrate ──
+  if (q.includes("taux") || q.includes("winrate") || q.includes("reussite") || q.includes("performance") || q.includes("stat") || q.includes("resultat") || q.includes("bilan") || q.includes("global") || q.includes("globalite") || q.includes("en general") || q.includes("resume") || q.includes("complet")) {
+    return generateStatsResponse(results, stats);
+  }
+  
+  // ── 11. Explanations ──
+  if (q.includes("pourquoi") || q.includes("expliqu") || q.includes("raison")) {
+    return "🤔 Pour t'expliquer une prédiction, dis-moi le nom d'une équipe ou d'un match ! Par exemple : *\"Pourquoi Germany vs Ghana ?\"*";
+  }
+  
+  // ── 12. "donne moi" / "montre moi" without sport → best matches ──
+  if (q.includes("donne") || q.includes("montre") || q.includes("affiche") || q.includes("liste")) {
+    if (q.includes("defaite") || q.includes("perte") || q.includes("perdu")) {
+      return generateBestSportResponse(results);
     }
     return generateBestMatchesResponse(matches);
   }
   
-  // ── 6. Safe matches ──
-  if (q.includes("safe") || q.includes("securis") || q.includes("fiable") || (q.includes("sur") && (q.includes("match") || q.includes("pick") || q.includes("pari")))) {
-    return generateSafeMatchesResponse(matches);
-  }
-  
-  // ── 7. Stats / performance / winrate ──
-  if (q.includes("taux") || q.includes("winrate") || q.includes("reussite") || q.includes("performance") || q.includes("stat") || q.includes("resultat") || q.includes("bilan") || q.includes("score") || q.includes("global") || q.includes("en general") || q.includes("globalite")) {
-    return generateStatsResponse(results, stats);
-  }
-  
-  // ── 8. Explanations ──
-  if (q.includes("pourquoi") || q.includes("expliqu") || q.includes("raison") || q.includes("comment")) {
-    return "🤔 Pour t'expliquer une prédiction, dis-moi le nom d'une équipe ou d'un match ! Par exemple : *\"Pourquoi Germany vs Ghana ?\"*";
-  }
-  
-  // ── 9. Catch short/vague messages as stats request ──
-  if (q.split(" ").length <= 3 && (q.includes("tout") || q.includes("complet") || q.includes("general") || q.includes("global") || q.includes("resume") || q.includes("overview"))) {
-    return generateStatsResponse(results, stats);
-  }
-  
-  // ── 10. Default: intelligent fallback ──
+  // ── 13. Default: try to be helpful ──
   const resolved = results.filter(r => r.result === "win" || r.result === "loss");
   const wr = resolved.length > 0 ? Math.round((resolved.filter(r => r.result === "win").length / resolved.length) * 100) : 0;
   const todayCount = matches.filter(m => isToday(m.kickoff) && m.ai_score > 0).length;
