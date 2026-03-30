@@ -191,12 +191,7 @@ export default function Pricing() {
   const offerSecs = remainingSecs % 60;
 
   return (
-    <div className="min-h-screen bg-background pb-28 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-primary/5 blur-[100px]" />
-        <div className="absolute bottom-40 right-10 w-80 h-80 rounded-full bg-secondary/5 blur-[100px]" />
-      </div>
-
+    <div className="min-h-screen pb-28 relative overflow-hidden">
       <Navbar />
 
       <div className="container max-w-5xl pt-20 pb-8 px-3 sm:px-6 relative z-10">
