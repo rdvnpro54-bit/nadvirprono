@@ -462,14 +462,15 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
       const result = await res.json();
       
       if (result.success) {
-        toast.success(`🤖 IA v3.0 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
+        toast.success(`🤖 IA v3.1 recalculée ! ${result.updated} matchs mis à jour via ${result.source}. ${result.streak_mode ? "📉 Streak Mode actif" : ""}`);
         setV2Stats(prev => prev ? {
           ...prev,
-          source: result.source || "pronosia-v3",
+          source: result.source || "pronosia-v3.1",
           predictionsGenerated: result.predictions_generated || 0,
           excludedCount: result.excluded || 0,
           streakMode: result.streak_mode ?? prev.streakMode,
           rollingWinrate: result.rolling_winrate ?? prev.rollingWinrate,
+          streakLevel: result.streak_level ?? prev.streakLevel,
           lastRecalc: new Date().toISOString(),
         } : null);
         queryClient.invalidateQueries({ queryKey: ["cached-matches"] });
