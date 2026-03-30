@@ -33,11 +33,11 @@ export const Elite5Preview = memo(function Elite5Preview({ matches }: Elite5Prev
         <div className="mb-3 sm:mb-4">
           <div className="flex items-center gap-2">
             <motion.div
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30"
+              className="flex h-8 w-8 items-center justify-center rounded-xl badge-elite"
               animate={inView ? { scale: [1, 1.05, 1] } : {}}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              <Crown className="h-4 w-4 text-amber-400" />
+              <Crown className="h-4 w-4" />
             </motion.div>
             <div>
               <h2 className="font-display text-sm sm:text-base font-bold flex items-center gap-1.5">
