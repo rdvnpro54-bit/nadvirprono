@@ -1017,6 +1017,43 @@ async function fetchAllSportsStandings(tournamentId: number, seasonId: number): 
   } catch (e) { console.error("[AllSports] standings error:", e); return new Map(); }
 }
 
+// ─── NBA FREE DATA API — ENRICHMENT: team logos, metadata ───────────
+const NBA_FREE_BASE = "https://nba-api-free-data.p.rapidapi.com";
+
+function getNBAFreeHeaders(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "nba-api-free-data.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+async function fetchNBATeams(): Promise<Map<string, { id: string; name: string; abbrev: string; logo: string; logoDark: string }>> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return new Map();
+  const divisions = ["atlantic", "central", "southeast", "northwest", "pacific", "southwest"];
+  const map = new Map<string, any>();
+  try {
+    const results = await Promise.all(
+      divisions.map(div =>
+        fetch(`${NBA_FREE_BASE}/nba-${div}-team-list`, { headers: getNBAFreeHeaders() })
+          .then(r => r.ok ? r.json() : { response: { teamList: [] } })
+          .catch(() => ({ response: { teamList: [] } }))
+      )
+    );
+    for (const json of results) {
+      for (const t of (json.response?.teamList || [])) {
+        const key = (t.name || "").toLowerCase().trim();
+        if (key) {
+          map.set(key, { id: t.id, name: t.name, abbrev: t.abbrev, logo: t.logo, logoDark: t.logoDark });
+          // Also map short name for fuzzy matching
+          const shortKey = (t.shortName || "").toLowerCase().trim();
+          if (shortKey) map.set(shortKey, map.get(key));
+        }
+      }
+    }
+    console.log(`[NBA-Free] Loaded ${map.size} NBA teams across ${divisions.length} divisions`);
+  } catch (e) { console.error("[NBA-Free] error:", e); }
+  return map;
+}
+
 // ─── NHL API5 — ENRICHMENT: rosters and player stats ────────────────
 const NHL_API5_BASE = "https://nhl-api5.p.rapidapi.com";
 
