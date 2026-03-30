@@ -256,9 +256,9 @@ function computeValueScore(probability: number, odds: number): number {
 }
 
 function getValueLabel(value: number): string | null {
-  if (value < 0.08) return null; // v3.1: raised from 0.05
-  if (value <= 0.15) return "🟡 Low Value";
-  if (value <= 0.25) return "🟢 Good Value";
+  if (value < 0.10) return null; // v3.2: raised from 0.08
+  if (value <= 0.18) return "🟡 Low Value";
+  if (value <= 0.28) return "🟢 Good Value";
   return "🔥 High Value";
 }
 
