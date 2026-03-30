@@ -231,7 +231,7 @@ export default function Matches() {
   }, [matches, isPremiumPlus, isAdmin]);
 
   return (
-    <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
+    <div className="min-h-screen pb-20 overflow-x-hidden">
       <Navbar />
       <div className="container pt-20 pb-16 overflow-x-hidden px-3 sm:px-4">
         <motion.div
