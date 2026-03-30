@@ -75,8 +75,8 @@ export function VideoBackground() {
         className="absolute inset-0"
         style={{
           background: isMobile
-            ? "hsl(228 25% 4% / 0.55)"
-            : "hsl(228 25% 4% / 0.40)",
+            ? "rgba(8, 8, 16, 0.7)"
+            : "rgba(8, 8, 16, 0.55)",
         }}
       />
       <div
