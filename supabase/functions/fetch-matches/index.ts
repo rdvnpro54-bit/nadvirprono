@@ -969,6 +969,76 @@ async function fetchTank01MLBScores(dateCompact: string): Promise<Map<string, an
   } catch (e) { console.error("[Tank01-MLB] error:", e); return new Map(); }
 }
 
+// ─── NHL API5 — ENRICHMENT: rosters and player stats ────────────────
+const NHL_API5_BASE = "https://nhl-api5.p.rapidapi.com";
+
+function getNHLAPI5Headers(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "nhl-api5.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+async function fetchNHLSchedule(dateISO: string): Promise<Map<string, any>> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return new Map();
+  try {
+    const [year, month, day] = dateISO.split("-");
+    const res = await fetch(`${NHL_API5_BASE}/nhlschedule?year=${year}&month=${month}&day=${day}`, {
+      headers: getNHLAPI5Headers(),
+    });
+    if (!res.ok) { console.error(`[NHL-API5] schedule error: ${res.status}`); return new Map(); }
+    const json = await res.json();
+    // Response format: { "20260330": { games: [...], calendar: [...] } }
+    const dateKey = `${year}${month}${day}`;
+    const dayData = json[dateKey] || json;
+    const gamesList = dayData.games || [];
+    console.log(`[NHL-API5] Found ${gamesList.length} NHL games for ${dateISO}`);
+    const map = new Map<string, any>();
+    for (const g of gamesList) {
+      // ESPN-like structure: competitions[0].competitors
+      const comp = g.competitions?.[0];
+      if (!comp) continue;
+      const competitors = comp.competitors || [];
+      const homeComp = competitors.find((c: any) => c.homeAway === "home") || competitors[0];
+      const awayComp = competitors.find((c: any) => c.homeAway === "away") || competitors[1];
+      if (!homeComp || !awayComp) continue;
+      const home = (homeComp.team?.displayName || "").toLowerCase().trim();
+      const away = (awayComp.team?.displayName || "").toLowerCase().trim();
+      if (home && away) {
+        map.set(`${home}_${away}`, {
+          homeId: parseInt(homeComp.team?.id) || null,
+          awayId: parseInt(awayComp.team?.id) || null,
+          venue: comp.venue?.fullName || null,
+          homeScore: homeComp.score != null ? parseInt(homeComp.score) : null,
+          awayScore: awayComp.score != null ? parseInt(awayComp.score) : null,
+          status: g.status?.type?.state || null,
+          broadcast: comp.broadcast || null,
+        });
+      }
+    }
+    return map;
+  } catch (e) { console.error("[NHL-API5] error:", e); return new Map(); }
+}
+
+async function fetchNHLRoster(teamId: number): Promise<any[] | null> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey || !teamId) return null;
+  try {
+    const res = await fetch(`${NHL_API5_BASE}/players/id?teamId=${teamId}`, {
+      headers: getNHLAPI5Headers(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const players = json.body || json;
+    const roster = Array.isArray(players) ? players : [];
+    return roster.slice(0, 25).map((p: any) => ({
+      name: p.longName || p.playerName || p.name,
+      number: p.jerseyNum || p.jerseyNumber,
+      pos: p.pos || p.position,
+      team: p.team || null,
+    }));
+  } catch { return null; }
+}
+
 // ─── ENRICHMENT ORCHESTRATOR ─────────────────────────────────────────
 async function enrichMatchesWithAPIs(
   rows: any[], dateISO: string
@@ -977,13 +1047,14 @@ async function enrichMatchesWithAPIs(
   const dateCompact = dateISO.replace(/-/g, "");
 
   // 1. Fetch all enrichment data sources in parallel
-  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData] = await Promise.all([
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData, nhlData] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
     fetchSofaScoreRapidEvents(dateISO, "football"),
     fetchSofaScoreRapidEvents(dateISO, "basketball"),
     fetchSofaScoreRapidEvents(dateISO, "tennis"),
     fetchTank01MLBScores(dateCompact),
+    fetchNHLSchedule(dateISO),
   ]);
 
   // Build lookup maps
@@ -1098,10 +1169,33 @@ async function enrichMatchesWithAPIs(
       }
     }
 
+    // E) NHL API5 (hockey only — rosters, venue, scores)
+    if (row.sport === "hockey") {
+      const nhlKey = `${row.home_team.toLowerCase().trim()}_${row.away_team.toLowerCase().trim()}`;
+      const nhlGame = nhlData.get(nhlKey);
+      if (nhlGame) {
+        if (nhlGame.venue) {
+          row.match_stats = { ...(row.match_stats || {}), venue: nhlGame.venue };
+        }
+        if (nhlGame.homeScore != null) row.home_score = parseInt(nhlGame.homeScore) || null;
+        if (nhlGame.awayScore != null) row.away_score = parseInt(nhlGame.awayScore) || null;
+        // Fetch rosters if we don't have lineups
+        if (!row.home_lineup && nhlGame.homeId && nhlGame.awayId) {
+          const [homeRoster, awayRoster] = await Promise.all([
+            fetchNHLRoster(nhlGame.homeId),
+            fetchNHLRoster(nhlGame.awayId),
+          ]);
+          if (homeRoster) row.home_lineup = homeRoster;
+          if (awayRoster) row.away_lineup = awayRoster;
+        }
+        if (!sources.includes("nhl-api5")) sources.push("nhl-api5");
+      }
+    }
+
     row.data_sources = sources;
   }
 
-  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}`);
+  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}, NHL-API5: ${nhlData.size}`);
 }
 
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
