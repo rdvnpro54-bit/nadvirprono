@@ -929,19 +929,61 @@ async function fetchSofaScoreRapidH2H(eventId: number): Promise<any[] | null> {
   } catch { return null; }
 }
 
+// ─── TANK01 MLB — ENRICHMENT: live scores, top performers ───────────
+const TANK01_MLB_BASE = "https://tank01-mlb-live-in-game-real-time-statistics.p.rapidapi.com";
+
+function getTank01Headers(): Record<string, string> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY") || "";
+  return { "x-rapidapi-key": apiKey, "x-rapidapi-host": "tank01-mlb-live-in-game-real-time-statistics.p.rapidapi.com", "Content-Type": "application/json" };
+}
+
+async function fetchTank01MLBScores(dateCompact: string): Promise<Map<string, any>> {
+  const apiKey = Deno.env.get("SOFASCORE_RAPIDAPI_KEY");
+  if (!apiKey) return new Map();
+  try {
+    const res = await fetch(`${TANK01_MLB_BASE}/getMLBScoresOnly?gameDate=${dateCompact}&topPerformers=true`, {
+      headers: getTank01Headers(),
+    });
+    if (!res.ok) { console.error(`[Tank01-MLB] error: ${res.status}`); return new Map(); }
+    const json = await res.json();
+    const body = json.body || json;
+    const games = Array.isArray(body) ? body : [];
+    console.log(`[Tank01-MLB] Found ${games.length} MLB games for ${dateCompact}`);
+    const map = new Map<string, any>();
+    for (const g of games) {
+      const home = (g.home || g.homeTeam || "").toLowerCase().trim();
+      const away = (g.away || g.awayTeam || "").toLowerCase().trim();
+      if (home && away) {
+        map.set(`${home}_${away}`, {
+          homeScore: g.homeResult ?? g.homeScore ?? null,
+          awayScore: g.awayResult ?? g.awayScore ?? null,
+          status: g.gameStatus || g.statusType || null,
+          topPerformers: g.topPerformers || null,
+          innings: g.lineScore || null,
+          venue: g.venue || null,
+          weather: g.weather || null,
+        });
+      }
+    }
+    return map;
+  } catch (e) { console.error("[Tank01-MLB] error:", e); return new Map(); }
+}
+
 // ─── ENRICHMENT ORCHESTRATOR ─────────────────────────────────────────
 async function enrichMatchesWithAPIs(
   rows: any[], dateISO: string
 ): Promise<void> {
   console.log(`[ENRICH] Starting enrichment for ${rows.length} matches...`);
+  const dateCompact = dateISO.replace(/-/g, "");
 
   // 1. Fetch all enrichment data sources in parallel
-  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis] = await Promise.all([
+  const [apiFootballFixtures, sportMonksFixtures, sofaFootball, sofaBasketball, sofaTennis, mlbData] = await Promise.all([
     fetchAPIFootballFixtures(dateISO),
     fetchSportMonksFixtures(dateISO),
     fetchSofaScoreRapidEvents(dateISO, "football"),
     fetchSofaScoreRapidEvents(dateISO, "basketball"),
     fetchSofaScoreRapidEvents(dateISO, "tennis"),
+    fetchTank01MLBScores(dateCompact),
   ]);
 
   // Build lookup maps
@@ -1036,10 +1078,30 @@ async function enrichMatchesWithAPIs(
       if (!sources.includes("sofascore-rapid")) sources.push("sofascore-rapid");
     }
 
+    // D) Tank01 MLB (baseball only — live scores, top performers, venue, weather)
+    if (row.sport === "baseball") {
+      const mlbKey = `${row.home_team.toLowerCase().trim()}_${row.away_team.toLowerCase().trim()}`;
+      const mlbGame = mlbData.get(mlbKey);
+      if (mlbGame) {
+        if (mlbGame.topPerformers || mlbGame.innings || mlbGame.venue) {
+          row.match_stats = {
+            ...(row.match_stats || {}),
+            topPerformers: mlbGame.topPerformers,
+            innings: mlbGame.innings,
+            venue: mlbGame.venue,
+            weather: mlbGame.weather,
+          };
+        }
+        if (mlbGame.homeScore != null) row.home_score = parseInt(mlbGame.homeScore) || null;
+        if (mlbGame.awayScore != null) row.away_score = parseInt(mlbGame.awayScore) || null;
+        if (!sources.includes("tank01-mlb")) sources.push("tank01-mlb");
+      }
+    }
+
     row.data_sources = sources;
   }
 
-  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}`);
+  console.log(`[ENRICH] Done. API-Football: ${apiFootballCalls}, SportMonks: ${sportMonksMap.size}, SofaScore-Rapid: ${sofaRapidCalls}, Tank01-MLB: ${mlbData.size}`);
 }
 
 // ─── CONVERT TO DB ROW (with AI or fallback prediction) ─────────────
