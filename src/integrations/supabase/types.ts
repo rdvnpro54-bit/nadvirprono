@@ -391,6 +391,7 @@ export type Database = {
           actual_away_score: number | null
           actual_home_score: number | null
           away_team: string
+          bet_type: string | null
           created_at: string
           fixture_id: number
           home_team: string
@@ -409,6 +410,7 @@ export type Database = {
           actual_away_score?: number | null
           actual_home_score?: number | null
           away_team: string
+          bet_type?: string | null
           created_at?: string
           fixture_id: number
           home_team: string
@@ -427,6 +429,7 @@ export type Database = {
           actual_away_score?: number | null
           actual_home_score?: number | null
           away_team?: string
+          bet_type?: string | null
           created_at?: string
           fixture_id?: number
           home_team?: string
