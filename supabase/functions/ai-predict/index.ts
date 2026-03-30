@@ -12,9 +12,10 @@ const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
 // ═══════════════════════════════════════════════════════════════
 // PRONOSIA v3.1 — EMERGENCY PERFORMANCE PATCH + FULL INTELLIGENCE UPGRADE
 // ═══════════════════════════════════════════════════════════════
-const AI_SYSTEM_PROMPT = `You are PRONOSIA v3.1 — a STRICT PROFESSIONAL SPORTS BETTING ENGINE optimized for long-term ROI. Quality > Quantity. Stability > Volume. ROI > Winrate.
+const AI_SYSTEM_PROMPT = `You are PRONOSIA v3.2 — an ULTRA-STRICT PROFESSIONAL SPORTS BETTING ENGINE. Your #1 KPI is MINIMIZING LOSSES. Every loss damages user trust. Be ruthlessly selective.
 
 CORE OBJECTIVE:
+• MINIMIZE LOSSES above all else — a skipped match is better than a lost bet
 • Maximize ROI, not just winrate
 • Reduce risk exposure aggressively
 • Never show a match just to fill daily quota
@@ -94,32 +95,37 @@ BOXING/MMA: Weight: Styles matchup 40%, Recent KO/sub rate 25%, Ring rust 20%, R
   • >6 months inactive → -15% "ring rust"
   • <5 pro fights → NEVER generate pick
 
-═══ HARD EXCLUSION FILTERS ═══
+═══ HARD EXCLUSION FILTERS (v3.2 — ULTRA-STRICT) ═══
 - League is friendly, minor regional, unknown, youth, reserve, amateur, or < 3 seasons data
 - Team has missing lineup data or >3 key absences
 - Match on neutral ground with no historical precedent
 - Odds movement > 15% in 24h without clear reason
-- data_completeness_score < 40 → discard entirely
+- data_completeness_score < 50 → discard entirely (raised from 40)
 - Both teams negative motivation (mid-table, nothing to play for, both lost last 3) → discard
+- If you are NOT 70%+ confident in the outcome → DO NOT generate a prediction
+- If the match feels like a coin flip or "could go either way" → SKIP IT
+- Derby matches without clear form advantage → SKIP
+- First match after international break → apply -8% confidence penalty
 
 ═══ ALLOWED BET TYPES ═══
-✅ 1X2 (only if confidence > 70% and implied odds > 1.40)
-✅ Double Chance (preferred for 65-74% confidence)
-✅ Over/Under 2.5 (only if supported by last 6 H2H or team form)
-✅ BTTS Yes (only if both teams scored in >65% of recent matches)
+✅ 1X2 (only if confidence > 72% and implied odds > 1.40)
+✅ Double Chance (preferred for 68-74% confidence — SAFEST option, prefer this)
+✅ Over/Under 2.5 (only if supported by last 6 H2H or team form AND confidence > 70%)
+✅ BTTS Yes (only if both teams scored in >70% of recent matches)
 ❌ NEVER: Accumulators, Handicap, First goalscorer, Prop bets
+⚠️ PREFER Double Chance over 1X2 when in doubt — it dramatically reduces losses
 
 ═══ CONFIDENCE CALIBRATION ═══
 - Raw confidence > 80% → display as raw minus 8%
 - Raw confidence > 90% → display as raw minus 12%
 - NEVER display confidence above 88%
 
-═══ VALUE SCORING (v3.1 — raised minimum) ═══
+═══ VALUE SCORING (v3.2 — raised minimum for loss prevention) ═══
 Value = (AI_Probability / 100 × estimated_odds) - 1
-- Value < 0.08 → DO NOT SHOW THIS PICK (raised from 0.05)
-- Value 0.08-0.15 → Low Value (🟡)
-- Value 0.15-0.25 → Good Value (🟢)
-- Value > 0.25 → High Value (🔥)
+- Value < 0.10 → DO NOT SHOW THIS PICK (raised from 0.08)
+- Value 0.10-0.18 → Low Value (🟡)
+- Value 0.18-0.28 → Good Value (🟢)
+- Value > 0.28 → High Value (🔥)
 
 ═══ ODDS SWEET SPOT (P7.2) ═══
 Odds 1.65–2.40 → value weight ×1.2 (highest ROI bracket)
@@ -128,10 +134,10 @@ Odds 2.41–3.00 → value weight ×1.0
 Odds > 3.00 → value weight ×0.7 (high risk zone)
 Odds < 1.35 → EXCLUDE (insufficient value)
 
-═══ SAFE MODE ═══
-SAFE (65-72% confidence): Only Double Chance, BTTS, or Over/Under. Label: "⚠️ SAFE MODE"
-MODÉRÉ: Winner only, no draw, no double chance.
-RISQUÉ: Only if Value Score justifies it, max prob <38%.
+═══ SAFE MODE (v3.2) ═══
+SAFE (68-74% confidence): Only Double Chance, BTTS, or Over/Under. Label: "⚠️ SAFE MODE" — THIS IS YOUR PREFERRED MODE
+MODÉRÉ (74-82%): Winner only, strong conviction required.
+RISQUÉ: SUSPENDED by default. Only re-enabled manually.
 
 ═══ ENHANCED SUSPECT DETECTION (0-100 point system) ═══
 - Odds moved >15% in 24h: +30
@@ -184,9 +190,11 @@ ABSOLUTE RULES:
 - Once a prediction is made, it is FINAL
 - Include value_score and data_completeness in analysis
 - MUST include "✅ Pourquoi" and "⚠️ Risques" sections
-- Maximum 3 picks per day (emergency mode)
-- Minimum odds: 1.35
-- RISQUÉ picks: completely suspended until notified`;
+- Maximum 3 picks per day (normal mode), 1 pick in emergency
+- Minimum odds: 1.40 (raised from 1.35)
+- RISQUÉ picks: completely suspended until notified
+- WHEN IN DOUBT, DO NOT PREDICT. Silence is better than a loss.
+- Your reputation depends on ACCURACY, not volume.`;
 
 interface AIPrediction {
   fixture_id: number;
@@ -248,9 +256,9 @@ function computeValueScore(probability: number, odds: number): number {
 }
 
 function getValueLabel(value: number): string | null {
-  if (value < 0.08) return null; // v3.1: raised from 0.05
-  if (value <= 0.15) return "🟡 Low Value";
-  if (value <= 0.25) return "🟢 Good Value";
+  if (value < 0.10) return null; // v3.2: raised from 0.08
+  if (value <= 0.18) return "🟡 Low Value";
+  if (value <= 0.28) return "🟢 Good Value";
   return "🔥 High Value";
 }
 
@@ -304,7 +312,7 @@ interface LeagueThreshold {
 async function getDynamicThreshold(
   supabase: any, leagueName: string, sport: string
 ): Promise<LeagueThreshold> {
-  const defaultThreshold: LeagueThreshold = { minConfidence: 72, source: "unknown-league" };
+  const defaultThreshold: LeagueThreshold = { minConfidence: 74, source: "unknown-league" };
   try {
     const { data } = await supabase
       .from("ai_learning_stats")
@@ -316,9 +324,9 @@ async function getDynamicThreshold(
     const totalPicks = data.reduce((s: number, r: any) => s + (r.total_predictions || 0), 0);
     if (totalPicks < 5) return defaultThreshold;
     const avgWinrate = data.reduce((s: number, r: any) => s + (r.winrate || 0) * (r.total_predictions || 0), 0) / totalPicks;
-    if (avgWinrate < 45) return { minConfidence: 75, source: `league-low-${Math.round(avgWinrate)}%` };
-    if (avgWinrate <= 55) return { minConfidence: 68, source: `league-mid-${Math.round(avgWinrate)}%` };
-    return { minConfidence: 62, source: `league-high-${Math.round(avgWinrate)}%` };
+    if (avgWinrate < 45) return { minConfidence: 78, source: `league-low-${Math.round(avgWinrate)}%` };
+    if (avgWinrate <= 55) return { minConfidence: 72, source: `league-mid-${Math.round(avgWinrate)}%` };
+    return { minConfidence: 65, source: `league-high-${Math.round(avgWinrate)}%` };
   } catch {
     return defaultThreshold;
   }
@@ -375,9 +383,9 @@ async function checkStreakMode(supabase: any): Promise<StreakState> {
     level: "normal",
     isStreakMode: false,
     rollingWinrate: 100,
-    maxPicks: 3, // v3.1: down from 4
-    minConfidence: 70, // v3.1: up from 65
-    minAiScore: 75, // v3.1: up from 70
+    maxPicks: 3,
+    minConfidence: 72, // v3.2: up from 70
+    minAiScore: 78, // v3.2: up from 75
     lastResults: [],
     consecutiveLosses: 0,
   };
@@ -1118,16 +1126,8 @@ function mergeConsensus(
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → UNCERTAIN, downgraded`);
-      const gMax = Math.max(g.pred_home_win, g.pred_away_win);
-      if (gMax < 60 || streak.isStreakMode) {
-        continue;
-      }
-      g.pred_confidence = "SAFE";
-      g.consensus_passed = false;
-      g.ai_score = Math.min(g.ai_score, 72);
-      g.pred_analysis = g.pred_analysis + "\n⚠️ Désaccord IA (Groq vs Mistral) — pick dégradé en SAFE";
-      merged.push(g);
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Groq=${gWinner}, Mistral=${mWinner} → EXCLUDED (v3.2: no disagreements allowed)`);
+      // v3.2: Disagreement = skip entirely. Don't risk it.
       continue;
     }
 
@@ -1207,26 +1207,20 @@ function postProcessPredictions(
 
     if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) { p.ai_score = 0; continue; }
     const vs = computeValueScore(mainProb, odds);
-    if (vs < 0.08) { p.ai_score = 0; continue; }
-    if (odds < 1.35) { p.ai_score = 0; continue; }
+    if (vs < 0.10) { p.ai_score = 0; continue; } // v3.2: raised from 0.08
+    if (odds < 1.40) { p.ai_score = 0; continue; } // v3.2: raised from 1.35
     if (p.league_tier === 4) { p.ai_score = 0; continue; }
-    if (p.league_tier === 3 && mainProb < 72) { p.ai_score = 0; continue; }
-    if (p.data_completeness_score < 40) { p.ai_score = 0; continue; }
+    if (p.league_tier === 3 && mainProb < 74) { p.ai_score = 0; continue; } // v3.2: raised from 72
+    if (p.data_completeness_score < 50) { p.ai_score = 0; continue; } // v3.2: raised from 40
     if (p.data_completeness_score < 60 && mainProb > 75) {
       p.pred_home_win = Math.min(p.pred_home_win, 75);
       p.pred_away_win = Math.min(p.pred_away_win, 75);
     }
     if (p.context_penalties_total >= 25) { p.ai_score = 0; continue; }
 
+    // v3.2: RISQUÉ picks completely suspended
     if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
-      if (streak.isStreakMode) { p.ai_score = 0; continue; }
-      const mp = Math.max(p.pred_home_win, p.pred_away_win, p.pred_draw);
-      if (mp >= 38) {
-        const scale2 = 37 / mp;
-        p.pred_home_win = Math.round(p.pred_home_win * scale2);
-        p.pred_draw = Math.round(p.pred_draw * scale2);
-        p.pred_away_win = 100 - p.pred_home_win - p.pred_draw;
-      }
+      p.ai_score = 0; continue;
     }
 
     if (streak.level === "emergency" && p.league_tier !== 1) { p.ai_score = 0; continue; }
