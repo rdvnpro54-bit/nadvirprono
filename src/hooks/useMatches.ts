@@ -75,6 +75,8 @@ const FALLBACK_MATCHES: MatchWithFlags[] = [
     h2h_data: null,
     data_sources: [],
     odds_updated_at: null,
+    ai_hidden: false,
+    ai_hidden_reason: null,
     is_top_pick: false,
   },
   {
