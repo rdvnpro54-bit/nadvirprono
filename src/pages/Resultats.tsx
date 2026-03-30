@@ -432,9 +432,9 @@ export default function Resultats() {
                       <div key={label}>
                         <p className="text-xs font-bold text-muted-foreground mb-2">{label}</p>
                         <motion.div className="space-y-2" variants={staggerContainer} initial="hidden" animate="show">
-                          {groupResults.map((r) => (
+                          {groupResults.map((r, i) => (
                             <motion.div key={r.id} variants={staggerItem}>
-                              <ResultCard result={r} />
+                              <ResultCard result={r} index={i} />
                             </motion.div>
                           ))}
                         </motion.div>
