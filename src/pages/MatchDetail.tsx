@@ -194,13 +194,21 @@ export default function MatchDetail() {
           {/* Stadium field background */}
           <SportField sport={match.sport || "football"} />
 
-          {/* Football lineup overlay */}
+          {/* Lineup overlay — show for football (and any sport with lineup data) */}
           {(match.sport || "football").toLowerCase() === "football" && (
             <FootballLineup
               homeTeam={match.home_team}
               awayTeam={match.away_team}
-              homePlayers={[]}
-              awayPlayers={[]}
+              homePlayers={Array.isArray(match.home_lineup) ? match.home_lineup.map((p: any) => ({
+                name: p.name || p.player_name || "?",
+                number: p.number || p.jersey_number || p.shirtNumber || 0,
+                position: p.pos || p.position || p.position_name || "?",
+              })) : []}
+              awayPlayers={Array.isArray(match.away_lineup) ? match.away_lineup.map((p: any) => ({
+                name: p.name || p.player_name || "?",
+                number: p.number || p.jersey_number || p.shirtNumber || 0,
+                position: p.pos || p.position || p.position_name || "?",
+              })) : []}
             />
           )}
 
