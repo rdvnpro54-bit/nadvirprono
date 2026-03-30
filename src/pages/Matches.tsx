@@ -90,7 +90,7 @@ const staggerItem = {
 export default function Matches() {
   const { data: matches, isLoading, error, refetch, dataUpdatedAt } = useMatches();
   const { data: triggerData } = useTriggerFetch();
-  const { isPremium, user } = useAuth();
+  const { isPremium, isPremiumPlus, isAdmin, user } = useAuth();
 
   const [sport, setSport] = useState("all");
   const [confidence, setConfidence] = useState<Confidence | "all">("all");
