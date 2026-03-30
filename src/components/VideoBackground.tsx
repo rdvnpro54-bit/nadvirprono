@@ -62,7 +62,7 @@ export function VideoBackground() {
         style={{
           willChange: "transform",
           transform: "translateZ(0)",
-          opacity: isLoaded ? (isMobile ? 0.45 : 0.6) : 0,
+          opacity: isLoaded ? (isMobile ? 0.55 : 0.7) : 0,
           filter: isMobile
             ? "saturate(1.05) brightness(0.7)"
             : "saturate(1.15) brightness(0.8)",
