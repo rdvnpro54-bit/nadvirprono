@@ -29,7 +29,8 @@ export const GoldenParticles = memo(function GoldenParticles() {
     resize();
     window.addEventListener("resize", resize);
 
-    const COUNT = Math.min(50, Math.floor(window.innerWidth / 20));
+    const isMobile = window.innerWidth < 768;
+    const COUNT = isMobile ? Math.min(20, Math.floor(window.innerWidth / 25)) : Math.min(50, Math.floor(window.innerWidth / 20));
 
     const createParticle = (): Particle => ({
       x: Math.random() * canvas.width,

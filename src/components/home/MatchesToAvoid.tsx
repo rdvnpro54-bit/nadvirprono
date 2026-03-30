@@ -63,7 +63,7 @@ const MatchRow = forwardRef<HTMLDivElement, { m: MatchWithFlags; i: number }>(fu
       </Link>
     </motion.div>
   );
-}
+});
 
 export function MatchesToAvoid({ matches }: MatchesToAvoidProps) {
   const { isPremiumPlus } = useAuth();
