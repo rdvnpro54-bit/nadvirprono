@@ -379,7 +379,7 @@ export default function Matches() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <div className="flex gap-0.5 rounded-lg border border-primary/20 bg-primary/5 p-0.5">
+          <div className="flex gap-0.5 rounded-xl border border-primary/15 bg-primary/[0.04] p-0.5 backdrop-blur-lg">
             {aiTierFilters.map(f => {
               const Icon = f.icon;
               const isActive = aiTier === f.value;
