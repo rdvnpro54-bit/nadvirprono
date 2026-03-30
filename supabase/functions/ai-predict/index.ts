@@ -197,13 +197,13 @@ function capDisplayConfidence(prob: number): number {
   return Math.min(prob, 88);
 }
 
-function estimateOdds(probability: number): number {
+function estimateOdds(probability: number, seed: number = 0): number {
   if (probability <= 0) return 10;
   const raw = 100 / probability;
-  // Simulate market odds: add margin for underdog, reduce for favorite
-  // This creates a spread where the AI can find value against the market
-  const variability = 1 + (Math.random() * 0.15 - 0.02); // Market inefficiency simulation
-  return Math.round((raw * variability) * 100) / 100;
+  // Simulate market inefficiency: odds can be slightly higher (value) or lower (trap)
+  // Using seed for determinism. Market typically overvalues favorites.
+  const inefficiency = probability > 60 ? 1.08 : probability > 45 ? 1.05 : 1.02;
+  return Math.round((raw * inefficiency) * 100) / 100;
 }
 
 function computeValueScore(probability: number, odds: number): number {
