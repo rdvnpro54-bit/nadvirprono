@@ -1013,7 +1013,7 @@ async function callCerebrasAI(
       signal: controller.signal,
       headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b",
+        model: "gpt-oss-120b",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have: fixture_id, pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence (SAFE/MODÉRÉ/RISQUÉ), pred_value_bet, pred_analysis, ai_score, anomaly_score, data_completeness_score, consensus_passed, context_penalties_total." },
           { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}" },
