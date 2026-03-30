@@ -595,6 +595,12 @@ export function AdminPanelContent({ embedded = false }: AdminPanelContentProps) 
             <TabsTrigger value="logs" className="px-2 py-1.5 text-[10px]">
               <Activity className="h-3 w-3 mr-1" />Logs
             </TabsTrigger>
+            <TabsTrigger value="hidden" className="px-2 py-1.5 text-[10px]">
+              <EyeOff className="h-3 w-3 mr-1" />Masqués
+              {hiddenMatches.length > 0 && (
+                <span className="ml-1 rounded-full bg-destructive/20 px-1 text-[8px] font-bold text-destructive">{hiddenMatches.length}</span>
+              )}
+            </TabsTrigger>
           </TabsList>
         </div>
 
