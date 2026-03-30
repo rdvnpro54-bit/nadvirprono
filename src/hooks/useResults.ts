@@ -18,6 +18,7 @@ export interface MatchResult {
   result: string | null;
   resolved_at: string | null;
   created_at: string;
+  bet_type: string | null;
 }
 
 const FIXED_STAKE = 10;
