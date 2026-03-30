@@ -109,6 +109,18 @@ function getPredictionText(match: CachedMatch): string {
   return `${shortName(winner)}`;
 }
 
+// v2.0: Value score computation
+function computeValueInfo(match: CachedMatch): { score: number; label: string; color: string } | null {
+  const mainProb = Math.max(Number(match.pred_home_win), Number(match.pred_away_win));
+  if (mainProb <= 0) return null;
+  const odds = Math.round((100 / mainProb) * 0.92 * 100) / 100;
+  const value = (mainProb / 100 * odds) - 1;
+  if (value < 0.05) return null;
+  if (value <= 0.10) return { score: value, label: "🟡 Low Value", color: "text-amber-400" };
+  if (value <= 0.20) return { score: value, label: "🟢 Good Value", color: "text-emerald-400" };
+  return { score: value, label: "🔥 High Value", color: "text-primary" };
+}
+
 function getAiScoreGlow(score: number): string {
   if (score >= 90) return "ring-1 ring-amber-400/30 shadow-md shadow-amber-500/10";
   if (score >= 80) return "ring-1 ring-emerald-400/20 shadow-sm shadow-emerald-500/5";
