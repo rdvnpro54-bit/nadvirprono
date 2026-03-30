@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const CEREBRAS_API = "https://api.cerebras.ai/v1/chat/completions";
-// Dual-model Cerebras: Qwen 235B (primary) + GPT-OSS 120B (consensus)
+// Dual-model Cerebras: Qwen 235B (primary) + Llama 3.1 8B (consensus)
 
 // ═══════════════════════════════════════════════════════════════
 // PRONOSIA v3.1 — EMERGENCY PERFORMANCE PATCH + FULL INTELLIGENCE UPGRADE
@@ -1005,6 +1005,35 @@ function parseToolCallResponse(result: any): AIPrediction[] {
 function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
   const results: AIPrediction[] = [];
   for (const p of preds) {
+    // Normalize fixture_id from various field names (id, match_id, fixture_id)
+    if (!p.fixture_id && p.match_id) p.fixture_id = p.match_id;
+    if (!p.fixture_id && p.id) p.fixture_id = p.id;
+    p.fixture_id = Number(p.fixture_id) || 0;
+
+    // Handle nested prediction format from smaller models (Llama 8B)
+    // e.g. { id: 123, prediction: { home_win: 55, draw: 25, away_win: 20 } }
+    const pred = p.prediction || {};
+    if (pred.home_win !== undefined || pred.pred_home_win !== undefined) {
+      p.pred_home_win = pred.home_win ?? pred.pred_home_win ?? p.pred_home_win;
+      p.pred_draw = pred.draw ?? pred.pred_draw ?? p.pred_draw;
+      p.pred_away_win = pred.away_win ?? pred.pred_away_win ?? p.pred_away_win;
+      p.pred_score_home = pred.score_home ?? pred.pred_score_home ?? p.pred_score_home;
+      p.pred_score_away = pred.score_away ?? pred.pred_score_away ?? p.pred_score_away;
+      p.pred_over_under = pred.over_under ?? pred.pred_over_under ?? p.pred_over_under;
+      p.pred_over_prob = pred.over_prob ?? pred.pred_over_prob ?? p.pred_over_prob;
+      p.pred_btts_prob = pred.btts_prob ?? pred.pred_btts_prob ?? p.pred_btts_prob;
+      p.pred_confidence = pred.confidence ?? pred.pred_confidence ?? p.pred_confidence;
+      p.pred_value_bet = pred.value_bet ?? pred.pred_value_bet ?? p.pred_value_bet;
+      p.pred_analysis = pred.analysis ?? pred.pred_analysis ?? p.pred_analysis ?? "";
+      p.ai_score = pred.ai_score ?? p.ai_score;
+      p.anomaly_score = pred.anomaly_score ?? p.anomaly_score;
+    }
+
+    // Also handle matchContext.data_completeness_score
+    if (p.matchContext?.data_completeness_score !== undefined) {
+      p.data_completeness_score = p.matchContext.data_completeness_score;
+    }
+
     p.pred_home_win = Number(p.pred_home_win) || 0;
     p.pred_draw = Number(p.pred_draw) || 0;
     p.pred_away_win = Number(p.pred_away_win) || 0;
@@ -1030,7 +1059,7 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
       p.pred_home_win = 50;
       p.pred_away_win = 50;
     }
-    results.push(p as AIPrediction);
+    if (p.fixture_id > 0) results.push(p as AIPrediction);
   }
   console.log(`[CEREBRAS] Normalized ${results.length} predictions`);
   return results;
@@ -1151,7 +1180,7 @@ async function callCerebrasAI(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CEREBRAS GPT-OSS 120B CALL (Pass 2 — Consensus)
+// CEREBRAS LLAMA 4 SCOUT CALL (Pass 2 — Consensus)
 // ═══════════════════════════════════════════════════════════════
 async function callCerebrasSecondary(
   cerebrasKey: string, userPrompt: string
@@ -1164,7 +1193,7 @@ async function callCerebrasSecondary(
       signal: controller.signal,
       headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gpt-oss-120b",
+        model: "llama3.1-8b",
         messages: [
           { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have all required fields." },
           { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}\nDo NOT include any thinking, explanation, or markdown formatting. Output raw JSON only." },
@@ -1176,17 +1205,17 @@ async function callCerebrasSecondary(
     clearTimeout(timeout);
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`[CEREBRAS-GPT-OSS] API error ${response.status}: ${errText}`);
+      console.error(`[CEREBRAS-LLAMA] API error ${response.status}: ${errText}`);
       return [];
     }
     const result = await response.json();
     
     const content = result.choices?.[0]?.message?.content;
     if (!content) {
-      console.warn("[CEREBRAS-GPT-OSS] Empty content");
+      console.warn("[CEREBRAS-LLAMA] Empty content");
       return [];
     }
-    console.log(`[CEREBRAS-GPT-OSS] Raw response (${content.length} chars): ${content.substring(0, 500)}`);
+    console.log(`[CEREBRAS-LLAMA] Raw response (${content.length} chars): ${content.substring(0, 500)}`);
     
     // Same multi-strategy parsing as primary
     try { return normalizeCerebrasPreds(JSON.parse(content).predictions || []); } catch {}
@@ -1197,11 +1226,11 @@ async function callCerebrasSecondary(
     const arrayMatch = content.match(/\[\s*\{[\s\S]*"fixture_id"[\s\S]*\}\s*\]/);
     if (arrayMatch) try { return normalizeCerebrasPreds(JSON.parse(arrayMatch[0])); } catch {}
     
-    console.error("[CEREBRAS-GPT-OSS] ❌ All parse strategies failed");
+    console.error("[CEREBRAS-LLAMA] ❌ All parse strategies failed");
     return [];
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[CEREBRAS-GPT-OSS] Error:", e);
+    console.error("[CEREBRAS-LLAMA] Error:", e);
     return [];
   }
 }
@@ -1235,7 +1264,7 @@ function mergeConsensus(
     const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
 
     if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Qwen=${gWinner}, GPT-OSS=${mWinner} → EXCLUDED`);
+      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Qwen=${gWinner}, Llama3.1-8B=${mWinner} → EXCLUDED`);
       continue;
     }
 
@@ -1244,7 +1273,7 @@ function mergeConsensus(
     const confGap = Math.abs(gConf - mConf);
 
     if (confGap > 7) {
-      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Qwen=${gConf}%, GPT-OSS=${mConf}%`);
+      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Qwen=${gConf}%, Llama3.1-8B=${mConf}%`);
       g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
       g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
       g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
@@ -1252,10 +1281,10 @@ function mergeConsensus(
       g.consensus_passed = false;
       g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
     } else {
-      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Qwen=${gConf}%, GPT-OSS=${mConf}%)`);
+      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Qwen=${gConf}%, Llama3.1-8B=${mConf}%)`);
       g.consensus_passed = true;
       g.ai_score = Math.min(g.ai_score + 3, 100);
-      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Cerebras Qwen 235B + GPT-OSS 120B)";
+      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Cerebras Qwen 235B + Llama 3.1 8B)";
     }
 
     g.anomaly_score = Math.max(g.anomaly_score, m.anomaly_score || 0);
@@ -1351,7 +1380,7 @@ function postProcessPredictions(
   return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
 }
 
-// Combined multi-model AI call: Cerebras Qwen 235B (primary) + Cerebras GPT-OSS 120B (consensus)
+// Combined multi-model AI call: Cerebras Qwen 235B (primary) + Cerebras Llama 3.1 8B (consensus)
 async function callAI(
   _apiKey: string,
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
@@ -1369,15 +1398,15 @@ async function callAI(
     return [];
   }
 
-  // Launch dual Cerebras: Qwen 235B (primary) + GPT-OSS 120B (consensus) in parallel
-  console.log(`[AI v3.2] Launching DUAL-MODEL CEREBRAS (Qwen 235B + GPT-OSS 120B) consensus...`);
+  // Launch dual Cerebras: Qwen 235B (primary) + Llama 3.1 8B (consensus) in parallel
+  console.log(`[AI v3.2] Launching DUAL-MODEL CEREBRAS (Qwen 235B + Llama 3.1 8B) consensus...`);
 
   const [qwenPreds, gptPreds] = await Promise.all([
     callCerebrasAI(cerebrasKey, userPrompt),
     callCerebrasSecondary(cerebrasKey, userPrompt),
   ]);
 
-  console.log(`[AI v3.2] Qwen 235B: ${qwenPreds.length} predictions, GPT-OSS 120B: ${gptPreds.length} predictions`);
+  console.log(`[AI v3.2] Qwen 235B: ${qwenPreds.length} predictions, Llama 3.1 8B: ${gptPreds.length} predictions`);
 
   let merged: AIPrediction[];
   if (gptPreds.length > 0 && qwenPreds.length > 0) {
@@ -1385,9 +1414,9 @@ async function callAI(
     console.log(`[AI v3.2] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
   } else if (qwenPreds.length > 0) {
     merged = qwenPreds.map(p => ({ ...p, consensus_passed: false }));
-    console.log("[AI v3.2] GPT-OSS failed — using Qwen 235B only");
+    console.log("[AI v3.2] Llama3.1-8B failed — using Qwen 235B only");
   } else if (gptPreds.length > 0) {
-    console.log("[AI v3.2] Qwen failed — using GPT-OSS 120B only");
+    console.log("[AI v3.2] Qwen failed — using Llama 3.1 8B only");
     merged = gptPreds.map(p => ({ ...p, consensus_passed: false }));
   } else {
     return [];
