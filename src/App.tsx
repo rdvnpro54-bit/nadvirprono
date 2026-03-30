@@ -28,6 +28,7 @@ import Compte from "./pages/Compte";
 import Admin from "./pages/Admin";
 import Resultats from "./pages/Resultats";
 import Success from "./pages/Success";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
