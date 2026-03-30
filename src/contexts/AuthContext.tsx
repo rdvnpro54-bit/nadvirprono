@@ -91,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${sessionToUse.access_token}` },
       });
 
+      console.log("[AUTH] check-subscription response:", { data, error });
+
       if (error) {
         console.error("Check subscription error:", error);
         setSubscription(DEFAULT_SUB);
