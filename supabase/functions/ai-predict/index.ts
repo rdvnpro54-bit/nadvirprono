@@ -1352,8 +1352,8 @@ function postProcessPredictions(
 
     if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) { p.ai_score = 0; continue; }
     const vs = computeValueScore(mainProb, odds);
-    if (vs < 0.10) { p.ai_score = 0; continue; } // v3.2: raised from 0.08
-    if (odds < 1.40) { p.ai_score = 0; continue; } // v3.2: raised from 1.35
+    if (vs < 0.03) { p.ai_score = 0; continue; } // v3.5: lowered — too many false exclusions
+    if (odds < 1.20) { p.ai_score = 0; continue; } // v3.5: lowered — international friendlies have low odds
     if (p.league_tier === 4) { p.ai_score = 0; continue; }
     if (p.league_tier === 3 && mainProb < 74) { p.ai_score = 0; continue; } // v3.2: raised from 72
     if (p.data_completeness_score < 50) { p.ai_score = 0; continue; } // v3.2: raised from 40
