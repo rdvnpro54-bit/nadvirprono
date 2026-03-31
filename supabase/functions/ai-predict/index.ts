@@ -185,7 +185,16 @@ ABSOLUTE RULES:
 - Maximum raw probability cap: 85%
 - RISQUÉ picks MUST have max probability <38%
 - Write analysis in French, 3-5 sentences
-- SCORE CONSISTENCY: predicted score MUST match predicted winner
+
+═══ CRITICAL: WINNER-FIRST SCORE GENERATION (v3.4) ═══
+1. FIRST determine the predicted winner based on probabilities (pred_home_win vs pred_away_win)
+2. THEN generate a predicted score where the WINNER has MORE goals/points
+3. NEVER generate a draw score (e.g. 2-2) when you predicted a winner
+4. If pred_home_win > pred_away_win → pred_score_home MUST be > pred_score_away
+5. If pred_away_win > pred_home_win → pred_score_away MUST be > pred_score_home
+6. If pred_home_win == pred_away_win (draw) → pred_score_home MUST equal pred_score_away
+VIOLATION OF THIS RULE = CRITICAL ERROR. The score is DERIVED from the winner, not the other way around.
+
 - Never invent data — reduce confidence when information is limited
 - Once a prediction is made, it is FINAL
 - Include value_score and data_completeness in analysis
