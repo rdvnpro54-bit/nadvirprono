@@ -707,18 +707,18 @@ function generatePRONOSIAPrediction(
   const mainProb = Math.max(predHome, predAway);
   const odds = estimateOdds(mainProb);
   
-  // P7.2: Odds range check
-  if (odds < 1.35) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED low odds (${odds}): ${match.home_team} vs ${match.away_team}`);
+  // P7.2: Odds range check — v3.5: lowered for friendlies
+  if (odds < 1.15) {
+    console.log(`[PRONOSIA v3.5] EXCLUDED low odds (${odds}): ${match.home_team} vs ${match.away_team}`);
     return null;
   }
 
   const valueScore = computeValueScore(mainProb, odds);
   const valueLabel = getValueLabel(valueScore);
 
-  // v3.1: Raised minimum value
-  if (valueScore < 0.08) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED no value (${valueScore.toFixed(3)}): ${match.home_team} vs ${match.away_team}`);
+  // v3.5: Accept most matches — only exclude truly zero-value
+  if (valueScore < 0.01) {
+    console.log(`[PRONOSIA v3.5] EXCLUDED no value (${valueScore.toFixed(3)}): ${match.home_team} vs ${match.away_team}`);
     return null;
   }
 
