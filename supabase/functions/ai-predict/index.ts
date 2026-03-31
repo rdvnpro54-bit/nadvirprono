@@ -1068,6 +1068,17 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
       p.pred_home_win = 50;
       p.pred_away_win = 50;
     }
+
+    // v3.5: Enforce score/winner coherence at normalization level
+    const hWins = p.pred_home_win > p.pred_away_win;
+    const aWins = p.pred_away_win > p.pred_home_win;
+    if (hWins && p.pred_score_home < p.pred_score_away) {
+      const tmp = p.pred_score_home; p.pred_score_home = p.pred_score_away; p.pred_score_away = tmp;
+    } else if (aWins && p.pred_score_away < p.pred_score_home) {
+      const tmp = p.pred_score_home; p.pred_score_home = p.pred_score_away; p.pred_score_away = tmp;
+    }
+    // Draw scores are OK — will be handled by smart market logic later
+
     if (p.fixture_id > 0) results.push(p as AIPrediction);
   }
   console.log(`[CEREBRAS] Normalized ${results.length} predictions`);
