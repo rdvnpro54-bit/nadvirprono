@@ -1715,25 +1715,30 @@ Deno.serve(async (req) => {
 
       const tier = getLeagueTier(m.league_name);
 
-      // ═══ FINAL ENFORCER: Score MUST match winner ═══
+      // ═══ FINAL ENFORCER v3.5: Smart score/market coherence ═══
       const homeWinsPred = pred.pred_home_win > pred.pred_away_win;
       const awayWinsPred = pred.pred_away_win > pred.pred_home_win;
-      if (homeWinsPred && pred.pred_score_home <= pred.pred_score_away) {
-        const hi = Math.max(pred.pred_score_home, pred.pred_score_away);
-        const lo = Math.min(pred.pred_score_home, pred.pred_score_away);
-        pred.pred_score_home = hi === lo ? hi + 1 : hi;
-        pred.pred_score_away = lo;
-        console.log(`[ENFORCER] Fixed ${m.home_team} vs ${m.away_team}: home wins → score ${pred.pred_score_home}-${pred.pred_score_away}`);
-      } else if (awayWinsPred && pred.pred_score_away <= pred.pred_score_home) {
-        const hi = Math.max(pred.pred_score_home, pred.pred_score_away);
-        const lo = Math.min(pred.pred_score_home, pred.pred_score_away);
-        pred.pred_score_away = hi === lo ? hi + 1 : hi;
-        pred.pred_score_home = lo;
-        console.log(`[ENFORCER] Fixed ${m.home_team} vs ${m.away_team}: away wins → score ${pred.pred_score_home}-${pred.pred_score_away}`);
-      } else if (!homeWinsPred && !awayWinsPred && pred.pred_score_home !== pred.pred_score_away) {
-        const avg = Math.round((pred.pred_score_home + pred.pred_score_away) / 2);
-        pred.pred_score_home = avg;
-        pred.pred_score_away = avg;
+      const scoreDrawPred = pred.pred_score_home === pred.pred_score_away;
+
+      if (homeWinsPred && scoreDrawPred) {
+        // Draw score + home favored → Double Chance, keep score
+        if (!(pred.pred_analysis || "").toLowerCase().includes("double chance")) {
+          pred.pred_analysis = (pred.pred_analysis || "") + `\n📌 Marché recommandé : Double Chance — ${m.home_team} ou Nul.`;
+        }
+      } else if (awayWinsPred && scoreDrawPred) {
+        // Draw score + away favored → Double Chance, keep score
+        if (!(pred.pred_analysis || "").toLowerCase().includes("double chance")) {
+          pred.pred_analysis = (pred.pred_analysis || "") + `\n📌 Marché recommandé : Double Chance — ${m.away_team} ou Nul.`;
+        }
+      } else if (homeWinsPred && pred.pred_score_home < pred.pred_score_away) {
+        // Wrong team leads → swap
+        const tmp = pred.pred_score_home;
+        pred.pred_score_home = pred.pred_score_away;
+        pred.pred_score_away = tmp;
+      } else if (awayWinsPred && pred.pred_score_away < pred.pred_score_home) {
+        const tmp = pred.pred_score_home;
+        pred.pred_score_home = pred.pred_score_away;
+        pred.pred_score_away = tmp;
       }
 
       const { error: updateError } = await supabase
