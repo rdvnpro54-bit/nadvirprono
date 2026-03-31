@@ -50,13 +50,115 @@ function normalize(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
 }
 
+// Common alternate names for teams/countries
+const TEAM_ALIASES: Record<string, string[]> = {
+  "turkey": ["turquie", "turkiye", "turc"],
+  "germany": ["allemagne", "allemand"],
+  "spain": ["espagne", "espagnol"],
+  "france": ["france", "francais"],
+  "italy": ["italie", "italien"],
+  "portugal": ["portugal", "portugais"],
+  "england": ["angleterre", "anglais"],
+  "netherlands": ["pays bas", "hollande", "neerlandais"],
+  "belgium": ["belgique", "belge"],
+  "brazil": ["bresil", "bresilien"],
+  "argentina": ["argentine", "argentin"],
+  "croatia": ["croatie", "croate"],
+  "serbia": ["serbie", "serbe"],
+  "switzerland": ["suisse"],
+  "poland": ["pologne", "polonais"],
+  "sweden": ["suede", "suedois"],
+  "denmark": ["danemark", "danois"],
+  "norway": ["norvege", "norvegien"],
+  "greece": ["grece", "grec"],
+  "czech republic": ["republique tcheque", "tcheque", "tchequie"],
+  "austria": ["autriche", "autrichien"],
+  "scotland": ["ecosse", "ecossais"],
+  "wales": ["pays de galles", "gallois"],
+  "ireland": ["irlande", "irlandais"],
+  "romania": ["roumanie", "roumain"],
+  "ukraine": ["ukraine", "ukrainien"],
+  "russia": ["russie", "russe"],
+  "japan": ["japon", "japonais"],
+  "south korea": ["coree du sud", "coreen"],
+  "mexico": ["mexique", "mexicain"],
+  "united states": ["etats unis", "usa", "americain"],
+  "canada": ["canada", "canadien"],
+  "australia": ["australie", "australien"],
+  "morocco": ["maroc", "marocain"],
+  "algeria": ["algerie", "algerien"],
+  "tunisia": ["tunisie", "tunisien"],
+  "egypt": ["egypte", "egyptien"],
+  "senegal": ["senegal", "senegalais"],
+  "cameroon": ["cameroun", "camerounais"],
+  "ivory coast": ["cote divoire", "ivoirien"],
+  "ghana": ["ghana", "ghaneen"],
+  "nigeria": ["nigeria", "nigerian"],
+  "colombia": ["colombie", "colombien"],
+  "chile": ["chili", "chilien"],
+  "uruguay": ["uruguay", "uruguayen"],
+  "paraguay": ["paraguay", "paraguayen"],
+  "peru": ["perou", "peruvien"],
+  "ecuador": ["equateur", "equatorien"],
+  "venezuela": ["venezuela", "venezuelien"],
+  "bolivia": ["bolivie", "bolivien"],
+  "china": ["chine", "chinois"],
+  "india": ["inde", "indien"],
+  "kosovo": ["kosovo", "kosovar"],
+  "albania": ["albanie", "albanais"],
+  "north macedonia": ["macedoine", "macedoine du nord"],
+  "montenegro": ["montenegro", "montenegrin"],
+  "bosnia": ["bosnie", "bosnien", "bosnie herzegovine"],
+  "slovenia": ["slovenie", "slovene"],
+  "slovakia": ["slovaquie", "slovaque"],
+  "hungary": ["hongrie", "hongrois"],
+  "bulgaria": ["bulgarie", "bulgare"],
+  "finland": ["finlande", "finlandais"],
+  "iceland": ["islande", "islandais"],
+  "luxembourg": ["luxembourg", "luxembourgeois"],
+  "cyprus": ["chypre", "chypriote"],
+  "malta": ["malte", "maltais"],
+  "georgia": ["georgie", "georgien"],
+  "armenia": ["armenie", "armenien"],
+  "azerbaijan": ["azerbaidjan", "azerbaidjanais"],
+  "belarus": ["bielorussie", "bielorusse"],
+  "moldova": ["moldavie", "moldave"],
+  "lithuania": ["lituanie", "lituanien"],
+  "latvia": ["lettonie", "letton"],
+  "estonia": ["estonie", "estonien"],
+};
+
 function findMatchInQuestion(q: string, matches: MatchData[]): MatchData | null {
   const nq = normalize(q);
+  
+  // Direct team name match
   for (const m of matches) {
     if (nq.includes(normalize(m.home_team)) || nq.includes(normalize(m.away_team))) return m;
   }
+  
+  // Check via aliases: does the question contain an alias that maps to a team?
   for (const m of matches) {
-    const words = [...normalize(m.home_team).split(" "), ...normalize(m.away_team).split(" ")].filter(w => w.length >= 3);
+    const homeNorm = normalize(m.home_team);
+    const awayNorm = normalize(m.away_team);
+    for (const [eng, aliases] of Object.entries(TEAM_ALIASES)) {
+      const engNorm = normalize(eng);
+      // Check if this alias set matches the team name
+      if (homeNorm.includes(engNorm) || engNorm.includes(homeNorm)) {
+        for (const alias of aliases) {
+          if (nq.includes(alias)) return m;
+        }
+      }
+      if (awayNorm.includes(engNorm) || engNorm.includes(awayNorm)) {
+        for (const alias of aliases) {
+          if (nq.includes(alias)) return m;
+        }
+      }
+    }
+  }
+  
+  // Word-level partial match (e.g. "arsenal" in "Arsenal FC")
+  for (const m of matches) {
+    const words = [...normalize(m.home_team).split(" "), ...normalize(m.away_team).split(" ")].filter(w => w.length >= 4);
     for (const w of words) {
       if (nq.includes(w)) return m;
     }
@@ -308,7 +410,27 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
     return `👋 Salut ! Je suis **Pronosia AI**, ton assistant pronostics.\n\n📊 Winrate global : **${wr}%** sur ${resolved.length} picks\n\n💡 Tu peux me demander :\n- 🏆 Les meilleurs matchs du jour\n- 📊 Mes stats par sport ou par confiance\n- ⚽ Le détail d'un match précis\n- 🟢 Les picks les plus sûrs\n\n_Je me base uniquement sur les données réelles de notre système IA._`;
   }
   
-  // ── 2. Detect sport in the question ──
+  // ── 2. ALWAYS try specific match lookup FIRST ──
+  // Check if the user mentions a team name — this takes priority over everything
+  const matchFromCached = findMatchInQuestion(userMsg, matches);
+  if (matchFromCached) return generateMatchResponse(matchFromCached, isPremiumPlus);
+  
+  // Also check in results history
+  for (const r of results) {
+    if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
+      let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
+      resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
+      if (r.result) {
+        const emoji = r.result === "win" ? "✅" : "❌";
+        resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
+      }
+      if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
+      resp += `\n_Données issues de notre historique de prédictions._`;
+      return resp;
+    }
+  }
+  
+  // ── 3. Detect sport in the question ──
   const SPORTS_MAP: Record<string, string[]> = {
     football: ["football", "foot", "soccer", "ligue 1", "premier league", "liga", "serie a", "bundesliga"],
     basketball: ["basketball", "basket", "nba", "euroleague"],
@@ -326,32 +448,6 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
       if (q.includes(kw)) { detectedSport = sport; break; }
     }
     if (detectedSport) break;
-  }
-  
-  // ── 3. Specific match lookup (only if no broad question detected) ──
-  const isBroadQuestion = q.includes("quel") || q.includes("meilleur") || q.includes("moins") || q.includes("plus") || 
-    q.includes("donne") || q.includes("montre") || q.includes("liste") || q.includes("tous") ||
-    q.includes("stat") || q.includes("taux") || q.includes("winrate") || q.includes("reussite") ||
-    q.includes("defaite") || q.includes("defaut") || q.includes("perte") || q.includes("victoire") ||
-    q.includes("confiance") || q.includes("safe") || q.includes("sport") || q.includes("categorie");
-  
-  if (!isBroadQuestion) {
-    const match = findMatchInQuestion(userMsg, matches);
-    if (match) return generateMatchResponse(match, isPremiumPlus);
-    
-    for (const r of results) {
-      if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
-        let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
-        resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
-        if (r.result) {
-          const emoji = r.result === "win" ? "✅" : "❌";
-          resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
-        }
-        if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
-        resp += `\n_Données issues de notre historique de prédictions._`;
-        return resp;
-      }
-    }
   }
   
   // ── 4. "Best/worst sport" or "which category" questions ──
