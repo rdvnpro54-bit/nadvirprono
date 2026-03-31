@@ -260,26 +260,34 @@ Deno.serve(async (req) => {
       let isWon = false;
       switch (betType) {
         case "double_chance":
-          // Double Chance = predicted winner OR draw = win
-          isWon = predWinner === actualWinner || actualWinner === "draw";
+          // Double Chance: predicted winner won OR draw = win
+          if (predWinner === m.home_team) {
+            isWon = actualHome >= actualAway; // home wins or draw
+          } else {
+            isWon = actualAway >= actualHome; // away wins or draw
+          }
           break;
         case "btts":
-          // BTTS = both teams scored
           isWon = actualHome > 0 && actualAway > 0;
           break;
         case "over":
-          isWon = (actualHome + actualAway) > 2.5;
+          isWon = (actualHome + actualAway) > 2;
           break;
         case "under":
-          isWon = (actualHome + actualAway) < 2.5;
+          isWon = (actualHome + actualAway) < 3;
           break;
         case "draw":
-          isWon = actualWinner === "draw";
+          isWon = actualHome === actualAway;
           break;
         default:
-          // Standard winner prediction
-          isWon = predWinner === actualWinner ||
-            (actualWinner === "draw" && m.pred_home_win === m.pred_away_win);
+          // Standard winner: predicted team must have MORE goals
+          if (predWinner === m.home_team) {
+            isWon = actualHome > actualAway;
+          } else if (predWinner === m.away_team) {
+            isWon = actualAway > actualHome;
+          } else {
+            isWon = actualHome === actualAway; // draw predicted
+          }
           break;
       }
 
