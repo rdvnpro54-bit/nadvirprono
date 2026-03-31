@@ -309,9 +309,18 @@ function generateFallbackPrediction(homeTeam: string, awayTeam: string, fixtureI
   const underdog = predHome >= predAway ? awayTeam : homeTeam;
   const analysis = `Analyse basée sur le modèle statistique. ${fav} présente un avantage face à ${underdog}. Confiance : ${confidence}.`;
 
+  // Enforce score consistency with predicted winner
+  let finalScoreHome = predScoreHome;
+  let finalScoreAway = predScoreAway;
+  if (predHome > predAway && finalScoreHome <= finalScoreAway) {
+    finalScoreHome = Math.max(finalScoreHome, finalScoreAway + 1);
+  } else if (predAway > predHome && finalScoreAway <= finalScoreHome) {
+    finalScoreAway = Math.max(finalScoreAway, finalScoreHome + 1);
+  }
+
   return {
     pred_home_win: predHome, pred_draw: predDraw, pred_away_win: predAway,
-    pred_score_home: predScoreHome, pred_score_away: predScoreAway,
+    pred_score_home: finalScoreHome, pred_score_away: finalScoreAway,
     pred_over_under: sport === "football" ? 2.5 : overLine, pred_over_prob: overProb,
     pred_btts_prob: bttsProb, pred_confidence: confidence, pred_value_bet: valueBet, pred_analysis: analysis,
   };
