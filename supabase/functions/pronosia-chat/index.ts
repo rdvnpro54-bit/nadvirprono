@@ -308,7 +308,27 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
     return `👋 Salut ! Je suis **Pronosia AI**, ton assistant pronostics.\n\n📊 Winrate global : **${wr}%** sur ${resolved.length} picks\n\n💡 Tu peux me demander :\n- 🏆 Les meilleurs matchs du jour\n- 📊 Mes stats par sport ou par confiance\n- ⚽ Le détail d'un match précis\n- 🟢 Les picks les plus sûrs\n\n_Je me base uniquement sur les données réelles de notre système IA._`;
   }
   
-  // ── 2. Detect sport in the question ──
+  // ── 2. ALWAYS try specific match lookup FIRST ──
+  // Check if the user mentions a team name — this takes priority over everything
+  const matchFromCached = findMatchInQuestion(userMsg, matches);
+  if (matchFromCached) return generateMatchResponse(matchFromCached, isPremiumPlus);
+  
+  // Also check in results history
+  for (const r of results) {
+    if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
+      let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
+      resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
+      if (r.result) {
+        const emoji = r.result === "win" ? "✅" : "❌";
+        resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
+      }
+      if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
+      resp += `\n_Données issues de notre historique de prédictions._`;
+      return resp;
+    }
+  }
+  
+  // ── 3. Detect sport in the question ──
   const SPORTS_MAP: Record<string, string[]> = {
     football: ["football", "foot", "soccer", "ligue 1", "premier league", "liga", "serie a", "bundesliga"],
     basketball: ["basketball", "basket", "nba", "euroleague"],
@@ -326,32 +346,6 @@ function generateFallbackResponse(userMsg: string, matches: MatchData[], results
       if (q.includes(kw)) { detectedSport = sport; break; }
     }
     if (detectedSport) break;
-  }
-  
-  // ── 3. Specific match lookup (only if no broad question detected) ──
-  const isBroadQuestion = q.includes("quel") || q.includes("meilleur") || q.includes("moins") || q.includes("plus") || 
-    q.includes("donne") || q.includes("montre") || q.includes("liste") || q.includes("tous") ||
-    q.includes("stat") || q.includes("taux") || q.includes("winrate") || q.includes("reussite") ||
-    q.includes("defaite") || q.includes("defaut") || q.includes("perte") || q.includes("victoire") ||
-    q.includes("confiance") || q.includes("safe") || q.includes("sport") || q.includes("categorie");
-  
-  if (!isBroadQuestion) {
-    const match = findMatchInQuestion(userMsg, matches);
-    if (match) return generateMatchResponse(match, isPremiumPlus);
-    
-    for (const r of results) {
-      if (q.includes(normalize(r.home_team)) || q.includes(normalize(r.away_team))) {
-        let resp = `📋 **${r.home_team} vs ${r.away_team}** (${r.league_name})\n\n`;
-        resp += `🏆 Prédiction : **${r.predicted_winner}** (${r.predicted_confidence}, type: ${r.bet_type || "winner"})\n`;
-        if (r.result) {
-          const emoji = r.result === "win" ? "✅" : "❌";
-          resp += `${emoji} Résultat : **${r.result.toUpperCase()}**\n`;
-        }
-        if (r.actual_home_score != null) resp += `⚽ Score final : ${r.actual_home_score} - ${r.actual_away_score}\n`;
-        resp += `\n_Données issues de notre historique de prédictions._`;
-        return resp;
-      }
-    }
   }
   
   // ── 4. "Best/worst sport" or "which category" questions ──
