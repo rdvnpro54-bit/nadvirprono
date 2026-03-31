@@ -707,18 +707,18 @@ function generatePRONOSIAPrediction(
   const mainProb = Math.max(predHome, predAway);
   const odds = estimateOdds(mainProb);
   
-  // P7.2: Odds range check
-  if (odds < 1.35) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED low odds (${odds}): ${match.home_team} vs ${match.away_team}`);
+  // P7.2: Odds range check — v3.5: lowered for friendlies
+  if (odds < 1.15) {
+    console.log(`[PRONOSIA v3.5] EXCLUDED low odds (${odds}): ${match.home_team} vs ${match.away_team}`);
     return null;
   }
 
   const valueScore = computeValueScore(mainProb, odds);
   const valueLabel = getValueLabel(valueScore);
 
-  // v3.1: Raised minimum value
-  if (valueScore < 0.08) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED no value (${valueScore.toFixed(3)}): ${match.home_team} vs ${match.away_team}`);
+  // v3.5: Accept most matches — only exclude truly zero-value
+  if (valueScore < 0.01) {
+    console.log(`[PRONOSIA v3.5] EXCLUDED no value (${valueScore.toFixed(3)}): ${match.home_team} vs ${match.away_team}`);
     return null;
   }
 
@@ -1068,6 +1068,17 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
       p.pred_home_win = 50;
       p.pred_away_win = 50;
     }
+
+    // v3.5: Enforce score/winner coherence at normalization level
+    const hWins = p.pred_home_win > p.pred_away_win;
+    const aWins = p.pred_away_win > p.pred_home_win;
+    if (hWins && p.pred_score_home < p.pred_score_away) {
+      const tmp = p.pred_score_home; p.pred_score_home = p.pred_score_away; p.pred_score_away = tmp;
+    } else if (aWins && p.pred_score_away < p.pred_score_home) {
+      const tmp = p.pred_score_home; p.pred_score_home = p.pred_score_away; p.pred_score_away = tmp;
+    }
+    // Draw scores are OK — will be handled by smart market logic later
+
     if (p.fixture_id > 0) results.push(p as AIPrediction);
   }
   console.log(`[CEREBRAS] Normalized ${results.length} predictions`);
@@ -1352,8 +1363,8 @@ function postProcessPredictions(
 
     if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) { p.ai_score = 0; continue; }
     const vs = computeValueScore(mainProb, odds);
-    if (vs < 0.10) { p.ai_score = 0; continue; } // v3.2: raised from 0.08
-    if (odds < 1.40) { p.ai_score = 0; continue; } // v3.2: raised from 1.35
+    if (vs < 0.03) { p.ai_score = 0; continue; } // v3.5: lowered — too many false exclusions
+    if (odds < 1.20) { p.ai_score = 0; continue; } // v3.5: lowered — international friendlies have low odds
     if (p.league_tier === 4) { p.ai_score = 0; continue; }
     if (p.league_tier === 3 && mainProb < 74) { p.ai_score = 0; continue; } // v3.2: raised from 72
     if (p.data_completeness_score < 50) { p.ai_score = 0; continue; } // v3.2: raised from 40
@@ -1371,23 +1382,45 @@ function postProcessPredictions(
     if (streak.level === "emergency" && p.league_tier !== 1) { p.ai_score = 0; continue; }
     if (p.anomaly_score >= 51 && p.pred_confidence === "SAFE") p.pred_confidence = "MODÉRÉ";
 
-    // v3.3: Enforce score consistency with predicted winner
+    // v3.5: SMART SCORE/MARKET COHERENCE
+    // If AI predicted a draw score (e.g. 1-1) but probabilities say a winner:
+    // → Keep the draw score (AI analyzed it) + switch to Double Chance market
+    // If AI predicted a winner score but wrong team leads:
+    // → Swap scores to match the predicted winner
     const homeWins = p.pred_home_win > p.pred_away_win;
     const awayWins = p.pred_away_win > p.pred_home_win;
-    const isDraw = !homeWins && !awayWins; // draw is most probable
+    const isDraw = !homeWins && !awayWins;
+    const scoreIsDraw = p.pred_score_home === p.pred_score_away;
 
-    if (homeWins && p.pred_score_home <= p.pred_score_away) {
-      // Home should win but score says otherwise — swap and ensure home > away
-      const high = Math.max(p.pred_score_home, p.pred_score_away);
-      const low = Math.min(p.pred_score_home, p.pred_score_away);
-      p.pred_score_home = high === low ? high + 1 : high;
-      p.pred_score_away = low;
-    } else if (awayWins && p.pred_score_away <= p.pred_score_home) {
-      // Away should win but score says otherwise — swap and ensure away > home
-      const high = Math.max(p.pred_score_home, p.pred_score_away);
-      const low = Math.min(p.pred_score_home, p.pred_score_away);
-      p.pred_score_away = high === low ? high + 1 : high;
-      p.pred_score_home = low;
+    if (homeWins && scoreIsDraw) {
+      // AI says home wins but score is a draw → Double Chance (home or draw)
+      // Keep the score as-is (AI analyzed it), switch market to Double Chance
+      const analysis = p.pred_analysis || "";
+      if (!analysis.toLowerCase().includes("double chance")) {
+        p.pred_analysis = analysis.replace(/📌 Marché recommandé\s*:[^\n]*/i, "").trim();
+        p.pred_analysis += `\n📌 Marché recommandé : Double Chance — ${matchData?.home_team || "Domicile"} ou Nul. Score serré anticipé (${p.pred_score_home}-${p.pred_score_away}).`;
+      }
+      console.log(`[SMART] ${matchData?.home_team} vs ${matchData?.away_team}: draw score ${p.pred_score_home}-${p.pred_score_away} + home favored → Double Chance`);
+    } else if (awayWins && scoreIsDraw) {
+      // AI says away wins but score is a draw → Double Chance (away or draw)
+      const analysis = p.pred_analysis || "";
+      if (!analysis.toLowerCase().includes("double chance")) {
+        p.pred_analysis = analysis.replace(/📌 Marché recommandé\s*:[^\n]*/i, "").trim();
+        p.pred_analysis += `\n📌 Marché recommandé : Double Chance — ${matchData?.away_team || "Extérieur"} ou Nul. Score serré anticipé (${p.pred_score_home}-${p.pred_score_away}).`;
+      }
+      console.log(`[SMART] ${matchData?.home_team} vs ${matchData?.away_team}: draw score ${p.pred_score_home}-${p.pred_score_away} + away favored → Double Chance`);
+    } else if (homeWins && p.pred_score_home < p.pred_score_away) {
+      // Home should win but away leads in score → swap scores
+      const tmp = p.pred_score_home;
+      p.pred_score_home = p.pred_score_away;
+      p.pred_score_away = tmp;
+      console.log(`[SMART] Swapped scores for ${matchData?.home_team}: now ${p.pred_score_home}-${p.pred_score_away}`);
+    } else if (awayWins && p.pred_score_away < p.pred_score_home) {
+      // Away should win but home leads in score → swap scores
+      const tmp = p.pred_score_home;
+      p.pred_score_home = p.pred_score_away;
+      p.pred_score_away = tmp;
+      console.log(`[SMART] Swapped scores for ${matchData?.away_team}: now ${p.pred_score_home}-${p.pred_score_away}`);
     } else if (isDraw && p.pred_score_home !== p.pred_score_away) {
       // Draw predicted — make scores equal
       const avg = Math.round((p.pred_score_home + p.pred_score_away) / 2);
@@ -1693,25 +1726,30 @@ Deno.serve(async (req) => {
 
       const tier = getLeagueTier(m.league_name);
 
-      // ═══ FINAL ENFORCER: Score MUST match winner ═══
+      // ═══ FINAL ENFORCER v3.5: Smart score/market coherence ═══
       const homeWinsPred = pred.pred_home_win > pred.pred_away_win;
       const awayWinsPred = pred.pred_away_win > pred.pred_home_win;
-      if (homeWinsPred && pred.pred_score_home <= pred.pred_score_away) {
-        const hi = Math.max(pred.pred_score_home, pred.pred_score_away);
-        const lo = Math.min(pred.pred_score_home, pred.pred_score_away);
-        pred.pred_score_home = hi === lo ? hi + 1 : hi;
-        pred.pred_score_away = lo;
-        console.log(`[ENFORCER] Fixed ${m.home_team} vs ${m.away_team}: home wins → score ${pred.pred_score_home}-${pred.pred_score_away}`);
-      } else if (awayWinsPred && pred.pred_score_away <= pred.pred_score_home) {
-        const hi = Math.max(pred.pred_score_home, pred.pred_score_away);
-        const lo = Math.min(pred.pred_score_home, pred.pred_score_away);
-        pred.pred_score_away = hi === lo ? hi + 1 : hi;
-        pred.pred_score_home = lo;
-        console.log(`[ENFORCER] Fixed ${m.home_team} vs ${m.away_team}: away wins → score ${pred.pred_score_home}-${pred.pred_score_away}`);
-      } else if (!homeWinsPred && !awayWinsPred && pred.pred_score_home !== pred.pred_score_away) {
-        const avg = Math.round((pred.pred_score_home + pred.pred_score_away) / 2);
-        pred.pred_score_home = avg;
-        pred.pred_score_away = avg;
+      const scoreDrawPred = pred.pred_score_home === pred.pred_score_away;
+
+      if (homeWinsPred && scoreDrawPred) {
+        // Draw score + home favored → Double Chance, keep score
+        if (!(pred.pred_analysis || "").toLowerCase().includes("double chance")) {
+          pred.pred_analysis = (pred.pred_analysis || "") + `\n📌 Marché recommandé : Double Chance — ${m.home_team} ou Nul.`;
+        }
+      } else if (awayWinsPred && scoreDrawPred) {
+        // Draw score + away favored → Double Chance, keep score
+        if (!(pred.pred_analysis || "").toLowerCase().includes("double chance")) {
+          pred.pred_analysis = (pred.pred_analysis || "") + `\n📌 Marché recommandé : Double Chance — ${m.away_team} ou Nul.`;
+        }
+      } else if (homeWinsPred && pred.pred_score_home < pred.pred_score_away) {
+        // Wrong team leads → swap
+        const tmp = pred.pred_score_home;
+        pred.pred_score_home = pred.pred_score_away;
+        pred.pred_score_away = tmp;
+      } else if (awayWinsPred && pred.pred_score_away < pred.pred_score_home) {
+        const tmp = pred.pred_score_home;
+        pred.pred_score_home = pred.pred_score_away;
+        pred.pred_score_away = tmp;
       }
 
       const { error: updateError } = await supabase
