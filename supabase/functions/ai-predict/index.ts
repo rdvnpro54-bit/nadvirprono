@@ -6,13 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const CEREBRAS_API = "https://api.cerebras.ai/v1/chat/completions";
-// Dual-model Cerebras: Qwen 235B (primary) + Llama 3.1 8B (consensus)
+const LOVABLE_AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // ═══════════════════════════════════════════════════════════════
-// PRONOSIA v3.1 — EMERGENCY PERFORMANCE PATCH + FULL INTELLIGENCE UPGRADE
+// PRONOSIA v4.0 — MULTI-MODEL CONSENSUS + ELO + TRAP DETECTION + SELF-LEARNING
 // ═══════════════════════════════════════════════════════════════
-const AI_SYSTEM_PROMPT = `You are PRONOSIA v3.2 — an ULTRA-STRICT PROFESSIONAL SPORTS BETTING ENGINE. Your #1 KPI is MINIMIZING LOSSES. Every loss damages user trust. Be ruthlessly selective.
+const AI_SYSTEM_PROMPT = `You are PRONOSIA v4.0 — an ULTRA-STRICT PROFESSIONAL SPORTS BETTING ENGINE with MULTI-MODEL CONSENSUS and DYNAMIC ELO CALIBRATION. Your #1 KPI is MINIMIZING LOSSES. Every loss damages user trust. Be ruthlessly selective.
 
 CORE OBJECTIVE:
 • MINIMIZE LOSSES above all else — a skipped match is better than a lost bet
@@ -21,7 +20,7 @@ CORE OBJECTIVE:
 • Never show a match just to fill daily quota
 • Fewer, better picks = more profit
 
-═══ STRUCTURED REASONING CHAIN (MANDATORY — P2.1) ═══
+═══ STRUCTURED REASONING CHAIN (MANDATORY) ═══
 Before generating ANY prediction, you MUST internally complete this chain:
 
 STEP 1 — DATA AUDIT
@@ -33,32 +32,51 @@ Compare home vs away form explicitly.
 State which team has better recent form and by how much.
 If forms are equal within 1 point → flag as "balanced matchup" → prefer Double Chance over 1X2
 
-STEP 3 — CONTEXT CHECK
+STEP 3 — TRAP DETECTION (v4.0 NEW)
+Check ALL trap signals:
+• Derby match (rival teams from same city/region) → -8% confidence
+• International friendly / exhibition → max confidence 65%, prefer skip
+• End-of-season (last 3 matchdays) with nothing to play for → -10% confidence
+• Post-international break (first match after) → -8% confidence
+• Manager change within last 3 matches → -5% confidence
+• Team qualified/relegated already → -8% confidence
+• Cup match with heavy rotation expected → -6% confidence
+• Midweek match after European competition → -5% confidence
+If total trap penalties > 20% → DISCARD match entirely.
+
+STEP 4 — CONTEXT CHECK
 Check: motivation, fatigue, injuries, new manager, derby flag, post-European match.
 Each negative context factor → apply its confidence penalty.
 If total context penalties exceed 25% → discard match.
 
-STEP 4 — MARKET INTELLIGENCE
+STEP 5 — MARKET INTELLIGENCE
 Compare your calculated probability vs implied market probability from odds.
 If gap > 20% → run a second internal check.
 If gap > 35% → the market knows something you don't → discard.
 
-STEP 5 — MARKET SELECTION
-Based on steps 1-4, select the SINGLE best market.
+STEP 6 — ELO CALIBRATION (v4.0 NEW)
+Apply league ELO adjustment based on historical performance:
+• If league has <45% historical winrate → REDUCE confidence by 8%
+• If league has 45-55% winrate → REDUCE confidence by 3%
+• If league has >65% winrate → BOOST confidence by 3% (max)
+• If league has <10 total picks → treat as unknown, apply -5% penalty
+
+STEP 7 — MARKET SELECTION
+Based on steps 1-6, select the SINGLE best market.
 Do not offer multiple bet options. ONE pick. ONE market.
 
-STEP 6 — CONFIDENCE CALIBRATION
+STEP 8 — CONFIDENCE CALIBRATION
 Apply calibration: if raw confidence > 80% → subtract 8%. If > 90% → subtract 12%.
 Never output confidence above 88%.
 
-STEP 7 — VALUE CALCULATION
+STEP 9 — VALUE CALCULATION
 Calculate: Value = (calibrated_probability × estimated_odds) - 1
 If value < 0.08 → STOP. Return: excluded, reason: "insufficient_value"
 
-STEP 8 — FINAL OUTPUT
-Generate the structured JSON prediction only after completing all 7 steps.
+STEP 10 — FINAL OUTPUT
+Generate the structured JSON prediction only after completing all 9 steps.
 
-═══ GRANULAR SPORT PROFILES (P2.2) ═══
+═══ GRANULAR SPORT PROFILES ═══
 
 FOOTBALL: Weight: Form 30%, H2H 20%, xG 20%, Context 15%, Market 15%.
   • Never predict BTTS Yes if either team has < 50% BTTS rate in last 6 games
@@ -66,104 +84,79 @@ FOOTBALL: Weight: Form 30%, H2H 20%, xG 20%, Context 15%, Market 15%.
   • Prefer Under 2.5 in: cup knockouts, relegation 6-pointers, top-vs-top defensive
   • Home advantage: +0.15 probability in top leagues, +0.08 in lower leagues
   • UCL fatigue -3%. Post-European night rotation risk.
-  • Weather: Heavy rain/wind → suppress Over 2.5.
-  • Travel >3000km in 5 days → -5% confidence.
 
 BASKETBALL: Weight: Pace 25%, Offensive Rating 25%, Fatigue 20%, H2H 15%, Market 15%.
   • Back-to-back game → automatic -10% on favorite confidence
   • Focus on point differential, not just W/L
-  • Pace mismatch (fast vs slow) → suppress Over/Under, prefer spread
-  • Home court in playoffs stronger than regular season (+0.15)
 
 TENNIS: Weight: Surface win rate 35%, H2H on surface 25%, Recent form 25%, Physical 15%.
   • ONLY surface-specific H2H (never overall H2H)
-  • 3+ match sets in last 48h → fatigue risk → -12% confidence, cap at 70%
-  • Grand Slam: fatigue accumulates in later rounds
-  • Serve dominance on fast surfaces.
+  • 3+ match sets in last 48h → fatigue risk → -12% confidence
 
 HOCKEY: Weight: Goalie save% 30%, Power play 25%, Form 25%, H2H 20%.
   • Goalie change within 12h → mandatory -15% confidence
-  • If starting goalie unconfirmed within 3h → suspend pick
-  • Power play differential > 5% → significant edge
-  • 3 games in 4 nights → -12% both teams
 
 NFL: Weight: QB rating 30%, O-Line vs D-Line 25%, Weather 20%, Form 15%, H2H 10%.
-  • Wind >25mph or temp <20°F → suppress Over picks entirely
-  • Sharp lines → respect market
+  • Wind >25mph → suppress Over picks entirely
 
-BOXING/MMA: Weight: Styles matchup 40%, Recent KO/sub rate 25%, Ring rust 20%, Reach 15%.
-  • >6 months inactive → -15% "ring rust"
-  • <5 pro fights → NEVER generate pick
-
-═══ HARD EXCLUSION FILTERS (v3.2 — ULTRA-STRICT) ═══
+═══ HARD EXCLUSION FILTERS (v4.0 — ULTRA-STRICT + TRAP AWARE) ═══
 - League is friendly, minor regional, unknown, youth, reserve, amateur, or < 3 seasons data
 - Team has missing lineup data or >3 key absences
 - Match on neutral ground with no historical precedent
 - Odds movement > 15% in 24h without clear reason
-- data_completeness_score < 50 → discard entirely (raised from 40)
-- Both teams negative motivation (mid-table, nothing to play for, both lost last 3) → discard
+- data_completeness_score < 50 → discard entirely
+- Both teams negative motivation → discard
 - If you are NOT 70%+ confident in the outcome → DO NOT generate a prediction
-- If the match feels like a coin flip or "could go either way" → SKIP IT
 - Derby matches without clear form advantage → SKIP
 - First match after international break → apply -8% confidence penalty
+- TRAP MATCH detected with total penalty > 20% → SKIP
 
 ═══ ALLOWED BET TYPES ═══
 ✅ 1X2 (only if confidence > 72% and implied odds > 1.40)
-✅ Double Chance (preferred for 68-74% confidence — SAFEST option, prefer this)
+✅ Double Chance (preferred for 68-74% confidence — SAFEST option)
 ✅ Over/Under 2.5 (only if supported by last 6 H2H or team form AND confidence > 70%)
 ✅ BTTS Yes (only if both teams scored in >70% of recent matches)
 ❌ NEVER: Accumulators, Handicap, First goalscorer, Prop bets
-⚠️ PREFER Double Chance over 1X2 when in doubt — it dramatically reduces losses
 
 ═══ CONFIDENCE CALIBRATION ═══
 - Raw confidence > 80% → display as raw minus 8%
 - Raw confidence > 90% → display as raw minus 12%
 - NEVER display confidence above 88%
 
-═══ VALUE SCORING (v3.2 — raised minimum for loss prevention) ═══
+═══ VALUE SCORING ═══
 Value = (AI_Probability / 100 × estimated_odds) - 1
-- Value < 0.10 → DO NOT SHOW THIS PICK (raised from 0.08)
+- Value < 0.10 → DO NOT SHOW THIS PICK
 - Value 0.10-0.18 → Low Value (🟡)
 - Value 0.18-0.28 → Good Value (🟢)
 - Value > 0.28 → High Value (🔥)
 
-═══ ODDS SWEET SPOT (P7.2) ═══
+═══ ODDS SWEET SPOT ═══
 Odds 1.65–2.40 → value weight ×1.2 (highest ROI bracket)
 Odds 1.35–1.64 → value weight ×0.85 (low value zone)
-Odds 2.41–3.00 → value weight ×1.0
 Odds > 3.00 → value weight ×0.7 (high risk zone)
 Odds < 1.35 → EXCLUDE (insufficient value)
 
-═══ SAFE MODE (v3.2) ═══
-SAFE (68-74% confidence): Only Double Chance, BTTS, or Over/Under. Label: "⚠️ SAFE MODE" — THIS IS YOUR PREFERRED MODE
+═══ SAFE MODE ═══
+SAFE (68-74% confidence): Only Double Chance, BTTS, or Over/Under. Label: "⚠️ SAFE MODE"
 MODÉRÉ (74-82%): Winner only, strong conviction required.
-RISQUÉ: SUSPENDED by default. Only re-enabled manually.
+RISQUÉ: SUSPENDED by default.
 
-═══ ENHANCED SUSPECT DETECTION (0-100 point system) ═══
+═══ SUSPECT DETECTION (0-100 point system) ═══
 - Odds moved >15% in 24h: +30
 - Public bet% vs AI prob gap >25%: +20
 - Lineup unknown <6h before kickoff: +20
 - Both teams low motivation: +15
 - League has <45% historical winrate: +15
-- AI confidence variance >8% across checks: +20
+- AI confidence variance >8%: +20
 - Referee <10 matches officiated: +10
 - Extreme weather conditions: +10
-Thresholds: 0-25=Green, 26-50=Orange ⚠️, 51-74=Red 🚨 no bet, 75+=Black ❌ excluded
+Thresholds: 0-25=Green, 26-50=Orange ⚠️, 51-74=Red 🚨, 75+=Black ❌ excluded
 
-═══ ANTI-HALLUCINATION GUARDRAILS (P2.3) ═══
+═══ ANTI-HALLUCINATION GUARDRAILS ═══
 - Any stat you claim MUST correspond to data provided in matchContext
 - If matchContext has null fields → do NOT invent those stats
-- If you reference a stat not in matchContext → that reasoning point is discarded
-- Your confidence CANNOT exceed what data_completeness_score supports:
-  data_completeness < 60 → max confidence 75%
-  data_completeness < 40 → DISCARD
-
-═══ ANTI-NARRATIVE BIAS PROTECTION ═══
-❌ "Big club bias" — Never boost because team is famous
-❌ "Recency overreaction" — 1 result ≠ override trend
-❌ "Public favorite bias" — >70% public bets ≠ validation
-❌ "Round number odds bias" — 2.00/1.50 not inherently reliable
-❌ "Home team default" — No inflated confidence without data
+- data_completeness < 60 → max confidence 75%
+- data_completeness < 40 → DISCARD
 
 ═══ TRANSPARENCY (MANDATORY) ═══
 Every analysis MUST include:
@@ -171,39 +164,27 @@ Every analysis MUST include:
 • "⚠️ Risques identifiés" — 1-2 bullet points of honest risk factors
 Never hide losses. Transparency = trust = retention.
 
-═══ LEAGUE TIERS (P4.1) ═══
+═══ LEAGUE TIERS ═══
 TIER 1 (Elite): Premier League, La Liga, Bundesliga, Serie A, Ligue 1, UCL, UEL, NBA, NHL, NFL, ATP/WTA Grand Slams
 TIER 2 (Reliable): Eredivisie, Primeira Liga, Belgian Pro League, MLS, Turkish Super Lig
 TIER 3 (Volatile): Championship, Segunda, Serie B, Liga MX — picks only if confidence > 72% AND data > 70%
 TIER 4 (Blacklisted): Friendlies, youth, reserve, < 3 seasons data → ALWAYS EXCLUDE
 
-Apply: if league_tier === 4 → exclude. if tier 3 && confidence < 72 → exclude. if tier 3 && data < 70 → exclude.
+═══ CRITICAL: WINNER-FIRST SCORE GENERATION (v3.4+) ═══
+1. FIRST determine the predicted winner based on probabilities
+2. THEN generate a predicted score where the WINNER has MORE goals/points
+3. NEVER generate a draw score when you predicted a winner
+4. If pred_home_win > pred_away_win → pred_score_home MUST be > pred_score_away
+5. If pred_away_win > pred_home_win → pred_score_away MUST be > pred_score_home
+VIOLATION OF THIS RULE = CRITICAL ERROR.
 
 ABSOLUTE RULES:
 - Probabilities MUST sum to exactly 100%
 - NEVER give 88%+ confidence on any outcome
 - Maximum raw probability cap: 85%
-- RISQUÉ picks MUST have max probability <38%
 - Write analysis in French, 3-5 sentences
-
-═══ CRITICAL: WINNER-FIRST SCORE GENERATION (v3.4) ═══
-1. FIRST determine the predicted winner based on probabilities (pred_home_win vs pred_away_win)
-2. THEN generate a predicted score where the WINNER has MORE goals/points
-3. NEVER generate a draw score (e.g. 2-2) when you predicted a winner
-4. If pred_home_win > pred_away_win → pred_score_home MUST be > pred_score_away
-5. If pred_away_win > pred_home_win → pred_score_away MUST be > pred_score_home
-6. If pred_home_win == pred_away_win (draw) → pred_score_home MUST equal pred_score_away
-VIOLATION OF THIS RULE = CRITICAL ERROR. The score is DERIVED from the winner, not the other way around.
-
-- Never invent data — reduce confidence when information is limited
-- Once a prediction is made, it is FINAL
 - Include value_score and data_completeness in analysis
-- MUST include "✅ Pourquoi" and "⚠️ Risques" sections
-- Maximum 3 picks per day (normal mode), 1 pick in emergency
-- Minimum odds: 1.40 (raised from 1.35)
-- RISQUÉ picks: completely suspended until notified
-- WHEN IN DOUBT, DO NOT PREDICT. Silence is better than a loss.
-- Your reputation depends on ACCURACY, not volume.`;
+- MUST include "✅ Pourquoi" and "⚠️ Risques" sections`;
 
 interface AIPrediction {
   fixture_id: number;
@@ -231,7 +212,7 @@ interface AIPrediction {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// v3.1 CALIBRATION + VALUE ENGINE (raised thresholds)
+// CALIBRATION + VALUE ENGINE
 // ═══════════════════════════════════════════════════════════════
 
 function calibrateConfidence(rawProb: number): number {
@@ -244,14 +225,13 @@ function capDisplayConfidence(prob: number): number {
   return Math.min(prob, 88);
 }
 
-function estimateOdds(probability: number, seed: number = 0): number {
+function estimateOdds(probability: number, _seed: number = 0): number {
   if (probability <= 0) return 10;
   const raw = 100 / probability;
   const inefficiency = probability > 60 ? 1.08 : probability > 45 ? 1.05 : 1.02;
   return Math.round((raw * inefficiency) * 100) / 100;
 }
 
-// P7.2: Odds sweet spot weighting
 function applyOddsSweetSpot(valueScore: number, odds: number): number {
   if (odds >= 1.65 && odds <= 2.40) return valueScore * 1.2;
   if (odds >= 1.35 && odds < 1.65) return valueScore * 0.85;
@@ -265,14 +245,14 @@ function computeValueScore(probability: number, odds: number): number {
 }
 
 function getValueLabel(value: number): string | null {
-  if (value < 0.10) return null; // v3.2: raised from 0.08
+  if (value < 0.10) return null;
   if (value <= 0.18) return "🟡 Low Value";
   if (value <= 0.28) return "🟢 Good Value";
   return "🔥 High Value";
 }
 
 // ═══════════════════════════════════════════════════════════════
-// LEAGUE TIERS (P4.1)
+// LEAGUE TIERS
 // ═══════════════════════════════════════════════════════════════
 
 const TIER_1_LEAGUES = new Set([
@@ -295,13 +275,9 @@ const EXCLUDED_LEAGUE_KEYWORDS = [
 
 function getLeagueTier(leagueName: string): number {
   const lower = leagueName.toLowerCase();
-  // Tier 4: excluded keywords
   if (EXCLUDED_LEAGUE_KEYWORDS.some(kw => lower.includes(kw))) return 4;
-  // Tier 1: elite
   if (TIER_1_LEAGUES.has(lower)) return 1;
-  // Tier 3: volatile
   if (TIER_3_LEAGUES.has(lower)) return 3;
-  // Default Tier 2
   return 2;
 }
 
@@ -310,47 +286,173 @@ function isExcludedLeague(leagueName: string): boolean {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DYNAMIC THRESHOLD CALIBRATION (A3)
+// v4.0 FEATURE 1: TRAP MATCH DETECTION 🪤
 // ═══════════════════════════════════════════════════════════════
 
-interface LeagueThreshold {
-  minConfidence: number;
+interface TrapSignal {
+  type: string;
+  penalty: number;
+  description: string;
+}
+
+// Known derby pairs (city/regional rivals)
+const DERBY_PAIRS: [string, string][] = [
+  ["real madrid", "atletico madrid"], ["barcelona", "espanyol"], ["real madrid", "barcelona"],
+  ["manchester united", "manchester city"], ["liverpool", "everton"], ["arsenal", "tottenham"],
+  ["chelsea", "tottenham"], ["ac milan", "inter"], ["roma", "lazio"], ["juventus", "torino"],
+  ["paris saint-germain", "marseille"], ["lyon", "saint-etienne"], ["psg", "marseille"],
+  ["bayern munich", "borussia dortmund"], ["boca juniors", "river plate"],
+  ["galatasaray", "fenerbahce"], ["benfica", "porto"], ["sporting cp", "benfica"],
+  ["celtic", "rangers"], ["ajax", "feyenoord"], ["psv", "ajax"],
+  ["flamengo", "fluminense"], ["corinthians", "palmeiras"],
+  ["al ahly", "zamalek"], ["besiktas", "galatasaray"], ["besiktas", "fenerbahce"],
+];
+
+function normalize(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function isDerby(home: string, away: string): boolean {
+  const h = normalize(home);
+  const a = normalize(away);
+  return DERBY_PAIRS.some(([t1, t2]) =>
+    (h.includes(t1) && a.includes(t2)) || (h.includes(t2) && a.includes(t1))
+  );
+}
+
+function detectTrapSignals(
+  match: { home_team: string; away_team: string; sport: string; league_name: string; kickoff: string },
+  leagueWinrate: number | null,
+  leagueTotalPicks: number
+): { signals: TrapSignal[]; totalPenalty: number } {
+  const signals: TrapSignal[] = [];
+  const league = match.league_name.toLowerCase();
+  const kickoff = new Date(match.kickoff);
+  const month = kickoff.getMonth(); // 0-indexed
+
+  // 1. Derby detection
+  if (isDerby(match.home_team, match.away_team)) {
+    signals.push({ type: "derby", penalty: 8, description: "🏟️ Derby — résultat imprévisible" });
+  }
+
+  // 2. Friendly / exhibition
+  if (league.includes("friendly") || league.includes("amical") || league.includes("exhibition")) {
+    signals.push({ type: "friendly", penalty: 15, description: "🤝 Match amical — motivation incertaine" });
+  }
+
+  // 3. End-of-season (May-June for European, Nov-Dec for some South American)
+  if ((month === 4 || month === 5) && !league.includes("cup") && !league.includes("coupe")) {
+    signals.push({ type: "end_of_season", penalty: 6, description: "📅 Fin de saison — enjeux réduits possibles" });
+  }
+
+  // 4. International break detection (typical months: March, June, September, October, November)
+  const day = kickoff.getDate();
+  if ((month === 2 && day >= 20 && day <= 28) || (month === 5 && day >= 1 && day <= 15) ||
+      (month === 8 && day >= 1 && day <= 12) || (month === 9 && day >= 8 && day <= 16) ||
+      (month === 10 && day >= 11 && day <= 19)) {
+    // Check if it's a club match right after international window
+    if (!league.includes("nation") && !league.includes("euro") && !league.includes("world cup") &&
+        !league.includes("africa cup") && !league.includes("copa america") && !league.includes("concacaf")) {
+      signals.push({ type: "post_intl_break", penalty: 8, description: "🌍 Reprise post-trêve internationale — cohésion réduite" });
+    }
+  }
+
+  // 5. Midweek match (Tue/Wed for football — potential rotation)
+  const dayOfWeek = kickoff.getDay();
+  if ((dayOfWeek === 2 || dayOfWeek === 3) && match.sport.toLowerCase() === "football") {
+    signals.push({ type: "midweek", penalty: 3, description: "📆 Match en semaine — rotation possible" });
+  }
+
+  // 6. League with very poor historical performance
+  if (leagueWinrate !== null && leagueWinrate < 40 && leagueTotalPicks >= 10) {
+    signals.push({ type: "weak_league", penalty: 10, description: `📉 Ligue historiquement faible (${Math.round(leagueWinrate)}% winrate)` });
+  }
+
+  // 7. Unknown league (< 5 picks)
+  if (leagueTotalPicks < 5 && leagueTotalPicks >= 0) {
+    signals.push({ type: "unknown_league", penalty: 5, description: "❓ Ligue peu analysée — données insuffisantes" });
+  }
+
+  const totalPenalty = signals.reduce((sum, s) => sum + s.penalty, 0);
+  return { signals, totalPenalty };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v4.0 FEATURE 2: DYNAMIC ELO PER LEAGUE 📊
+// ═══════════════════════════════════════════════════════════════
+
+interface LeagueELO {
+  winrate: number;
+  totalPicks: number;
+  confidenceAdjustment: number;
+  tier: number;
   source: string;
 }
 
-async function getDynamicThreshold(
-  supabase: any, leagueName: string, sport: string
-): Promise<LeagueThreshold> {
-  const defaultThreshold: LeagueThreshold = { minConfidence: 74, source: "unknown-league" };
+async function getLeagueELO(supabase: any, leagueName: string, sport: string): Promise<LeagueELO> {
+  const defaultELO: LeagueELO = { winrate: 50, totalPicks: 0, confidenceAdjustment: 0, tier: 2, source: "default" };
   try {
-    const { data } = await supabase
+    // Check league_performance first (more accurate, aggregated)
+    const { data: perfData } = await supabase
+      .from("league_performance")
+      .select("winrate, total_picks, is_blacklisted")
+      .eq("league_name", leagueName)
+      .maybeSingle();
+
+    if (perfData && perfData.total_picks >= 5) {
+      const wr = Number(perfData.winrate);
+      let adj = 0;
+      if (wr < 40) adj = -10;        // Terrible league → big penalty
+      else if (wr < 45) adj = -8;     // Bad league
+      else if (wr < 50) adj = -5;     // Below average
+      else if (wr < 55) adj = -3;     // Slightly below
+      else if (wr >= 65) adj = 3;     // Great league → small boost
+      else if (wr >= 60) adj = 2;     // Good league
+
+      return {
+        winrate: wr,
+        totalPicks: perfData.total_picks,
+        confidenceAdjustment: adj,
+        tier: getLeagueTier(leagueName),
+        source: `league_performance (${perfData.total_picks} picks)`,
+      };
+    }
+
+    // Fallback: check ai_learning_stats
+    const { data: statsData } = await supabase
       .from("ai_learning_stats")
       .select("winrate, total_predictions")
       .eq("sport", sport.toLowerCase())
       .eq("league_name", leagueName)
       .limit(5);
-    if (!data || data.length === 0) return defaultThreshold;
-    const totalPicks = data.reduce((s: number, r: any) => s + (r.total_predictions || 0), 0);
-    if (totalPicks < 5) return defaultThreshold;
-    const avgWinrate = data.reduce((s: number, r: any) => s + (r.winrate || 0) * (r.total_predictions || 0), 0) / totalPicks;
-    if (avgWinrate < 45) return { minConfidence: 78, source: `league-low-${Math.round(avgWinrate)}%` };
-    if (avgWinrate <= 55) return { minConfidence: 72, source: `league-mid-${Math.round(avgWinrate)}%` };
-    return { minConfidence: 65, source: `league-high-${Math.round(avgWinrate)}%` };
-  } catch {
-    return defaultThreshold;
-  }
-}
 
-async function getLeagueTierFromDB(supabase: any, leagueName: string): Promise<number> {
-  try {
-    const { data } = await supabase
-      .from("league_tiers")
-      .select("tier")
-      .eq("league_name", leagueName)
-      .maybeSingle();
-    if (data) return data.tier;
-  } catch {}
-  return getLeagueTier(leagueName);
+    if (statsData && statsData.length > 0) {
+      const totalPicks = statsData.reduce((s: number, r: any) => s + (r.total_predictions || 0), 0);
+      const avgWinrate = totalPicks > 0
+        ? statsData.reduce((s: number, r: any) => s + (r.winrate || 0) * (r.total_predictions || 0), 0) / totalPicks
+        : 50;
+
+      if (totalPicks >= 3) {
+        let adj = 0;
+        if (avgWinrate < 45) adj = -8;
+        else if (avgWinrate < 55) adj = -3;
+        else if (avgWinrate >= 65) adj = 3;
+
+        return {
+          winrate: avgWinrate,
+          totalPicks,
+          confidenceAdjustment: adj,
+          tier: getLeagueTier(leagueName),
+          source: `ai_learning_stats (${totalPicks} picks)`,
+        };
+      }
+    }
+
+    // Unknown league penalty
+    return { ...defaultELO, confidenceAdjustment: -5, source: "unknown-league" };
+  } catch {
+    return defaultELO;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -371,7 +473,7 @@ async function getBlacklistedLeagues(supabase: any): Promise<Set<string>> {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STREAK SEVERITY LEVELS (P3.1 — 3 levels)
+// STREAK SEVERITY LEVELS
 // ═══════════════════════════════════════════════════════════════
 
 type StreakLevel = "normal" | "caution" | "streak" | "emergency";
@@ -389,23 +491,14 @@ interface StreakState {
 
 async function checkStreakMode(supabase: any): Promise<StreakState> {
   const defaultState: StreakState = {
-    level: "normal",
-    isStreakMode: false,
-    rollingWinrate: 100,
-    maxPicks: 3,
-    minConfidence: 72, // v3.2: up from 70
-    minAiScore: 78, // v3.2: up from 75
-    lastResults: [],
-    consecutiveLosses: 0,
+    level: "normal", isStreakMode: false, rollingWinrate: 100,
+    maxPicks: 3, minConfidence: 72, minAiScore: 78, lastResults: [], consecutiveLosses: 0,
   };
 
   try {
     const { data: recentResults } = await supabase
-      .from("match_results")
-      .select("result")
-      .not("result", "is", null)
-      .order("resolved_at", { ascending: false })
-      .limit(5);
+      .from("match_results").select("result")
+      .not("result", "is", null).order("resolved_at", { ascending: false }).limit(5);
 
     if (!recentResults || recentResults.length < 3) return defaultState;
 
@@ -413,64 +506,24 @@ async function checkStreakMode(supabase: any): Promise<StreakState> {
     const wins = results.filter((r: string) => r === "win").length;
     const rollingWinrate = Math.round((wins / results.length) * 100);
 
-    // Count consecutive losses from most recent
     let consecutiveLosses = 0;
-    for (const r of results) {
-      if (r === "loss") consecutiveLosses++;
-      else break;
-    }
+    for (const r of results) { if (r === "loss") consecutiveLosses++; else break; }
 
-    // P3.1: 3-level streak severity
-    // ⚫ EMERGENCY: winrate < 35% OR 4+ consecutive losses
     if (rollingWinrate < 35 || consecutiveLosses >= 4) {
-      return {
-        level: "emergency",
-        isStreakMode: true,
-        rollingWinrate,
-        maxPicks: 1,
-        minConfidence: 78,
-        minAiScore: 82,
-        lastResults: results,
-        consecutiveLosses,
-      };
+      return { level: "emergency", isStreakMode: true, rollingWinrate, maxPicks: 1, minConfidence: 78, minAiScore: 82, lastResults: results, consecutiveLosses };
     }
-
-    // 🔴 STREAK: winrate 35-44%
     if (rollingWinrate < 45) {
-      return {
-        level: "streak",
-        isStreakMode: true,
-        rollingWinrate,
-        maxPicks: 2,
-        minConfidence: 73,
-        minAiScore: 76,
-        lastResults: results,
-        consecutiveLosses,
-      };
+      return { level: "streak", isStreakMode: true, rollingWinrate, maxPicks: 2, minConfidence: 73, minAiScore: 76, lastResults: results, consecutiveLosses };
     }
-
-    // 🟡 CAUTION: winrate 45-50%
     if (rollingWinrate <= 50) {
-      return {
-        level: "caution",
-        isStreakMode: true,
-        rollingWinrate,
-        maxPicks: 3,
-        minConfidence: 70,
-        minAiScore: 75,
-        lastResults: results,
-        consecutiveLosses,
-      };
+      return { level: "caution", isStreakMode: true, rollingWinrate, maxPicks: 3, minConfidence: 70, minAiScore: 75, lastResults: results, consecutiveLosses };
     }
-
     return { ...defaultState, rollingWinrate, lastResults: results, consecutiveLosses };
-  } catch {
-    return defaultState;
-  }
+  } catch { return defaultState; }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DETERMINISTIC ENGINE v3.1 (Enhanced Fallback)
+// DETERMINISTIC ENGINE v4.0
 // ═══════════════════════════════════════════════════════════════
 function hash(str: string): number {
   let h = 0;
@@ -486,13 +539,8 @@ function clamp(v: number, min: number, max: number): number {
 }
 
 const SPORT_PROFILES: Record<string, {
-  drawPossible: boolean;
-  homeAdvantage: number;
-  scoreRange: [number, number];
-  overLine: number;
-  formWeight: number;
-  h2hWeight: number;
-  contextWeight: number;
+  drawPossible: boolean; homeAdvantage: number; scoreRange: [number, number];
+  overLine: number; formWeight: number; h2hWeight: number; contextWeight: number;
 }> = {
   football:   { drawPossible: true,  homeAdvantage: 0.07, scoreRange: [0, 4], overLine: 2.5, formWeight: 0.30, h2hWeight: 0.20, contextWeight: 0.15 },
   soccer:     { drawPossible: true,  homeAdvantage: 0.07, scoreRange: [0, 4], overLine: 2.5, formWeight: 0.30, h2hWeight: 0.20, contextWeight: 0.15 },
@@ -511,7 +559,6 @@ function teamStrength(name: string, fixtureId: number): number {
   return clamp(base * 0.5 + form * 0.3 + depth * 0.2, 0.15, 0.85);
 }
 
-// Suspect Score (0-100 point system)
 function computeSuspectScore(
   match: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string },
   predHome: number, predAway: number, dataQuality: number, baseSeed: number,
@@ -522,27 +569,16 @@ function computeSuspectScore(
 
   const oddsMovement = seeded(baseSeed, 70);
   if (oddsMovement > 0.85) { score += 30; signals.push("Mouvement de cotes suspect (>15% en 24h)"); }
-
   const publicGap = seeded(baseSeed, 71);
   if (publicGap > 0.82) { score += 20; signals.push("Écart significatif public vs IA (>25%)"); }
-
   const lineupUnknown = seeded(baseSeed, 72);
   if (lineupUnknown > 0.88) { score += 20; signals.push("Composition incertaine <6h du match"); }
-
   const motivation = seeded(baseSeed, 73);
   if (motivation > 0.82) { score += 15; signals.push("Motivation faible des deux équipes"); }
-
   if (leagueWinrate !== null && leagueWinrate < 45) {
     score += 15; signals.push(`Ligue sous-performante (winrate ${Math.round(leagueWinrate)}%)`);
   }
-
   if (dataQuality < 0.4) { score += 20; signals.push("Données insuffisantes/instables"); }
-
-  const refExp = seeded(baseSeed, 74);
-  if (refExp > 0.90) { score += 10; signals.push("Arbitre avec expérience limitée"); }
-
-  const weather = seeded(baseSeed, 75);
-  if (weather > 0.92) { score += 10; signals.push("Conditions météo extrêmes"); }
 
   return { score: clamp(score, 0, 100), signals };
 }
@@ -554,7 +590,6 @@ function getSuspectLabel(score: number): { label: string | null; reason: string 
   return { label: null, reason: null };
 }
 
-// P5.1: Pre-publish validation checklist
 function computeValidationScore(
   dataCompleteness: number, confidence: number, valueScore: number,
   suspectScore: number, leagueTier: number, isBlacklisted: boolean,
@@ -582,17 +617,17 @@ function computeValidationScore(
 function generatePRONOSIAPrediction(
   match: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string },
   streak: StreakState,
-  dynamicMinConf: number = 70,
-  leagueWinrate: number | null = null,
-  leagueTier: number = 2
+  leagueELO: LeagueELO,
+  trapResult: { signals: TrapSignal[]; totalPenalty: number }
 ): AIPrediction | null {
-  if (isExcludedLeague(match.league_name)) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED league: ${match.league_name}`);
+  if (isExcludedLeague(match.league_name)) return null;
+  if (leagueELO.tier === 4) return null;
+
+  // v4.0: Trap match rejection
+  if (trapResult.totalPenalty > 20) {
+    console.log(`[PRONOSIA v4.0] 🪤 TRAP MATCH (${trapResult.totalPenalty}%): ${match.home_team} vs ${match.away_team} — ${trapResult.signals.map(s => s.type).join(", ")}`);
     return null;
   }
-
-  // P4.1: Tier 4 always excluded
-  if (leagueTier === 4) return null;
 
   const sport = (match.sport || "football").toLowerCase();
   const profile = SPORT_PROFILES[sport] || SPORT_PROFILES.football;
@@ -619,18 +654,12 @@ function generatePRONOSIAPrediction(
   let predDraw = Math.round((rawDraw / total) * 100);
   let predAway = 100 - predHome - predDraw;
 
+  // Cap at 85%
   const maxP = Math.max(predHome, predAway);
   if (maxP > 85) {
     const excess = maxP - 85;
-    if (predHome > predAway) {
-      predHome -= excess;
-      predDraw += Math.round(excess * 0.4);
-      predAway = 100 - predHome - predDraw;
-    } else {
-      predAway -= excess;
-      predDraw += Math.round(excess * 0.4);
-      predHome = 100 - predAway - predDraw;
-    }
+    if (predHome > predAway) { predHome -= excess; predDraw += Math.round(excess * 0.4); predAway = 100 - predHome - predDraw; }
+    else { predAway -= excess; predDraw += Math.round(excess * 0.4); predHome = 100 - predAway - predDraw; }
   }
 
   const calibratedHome = capDisplayConfidence(calibrateConfidence(predHome));
@@ -644,6 +673,7 @@ function generatePRONOSIAPrediction(
   let predScoreHome = Math.round(minS + range * clamp(homeRatio * 0.55 + seeded(baseSeed, 10) * 0.45, 0, 1));
   let predScoreAway = Math.round(minS + range * clamp((1 - homeRatio) * 0.55 + seeded(baseSeed, 11) * 0.45, 0, 1));
 
+  // Winner-first score coherence
   if (predHome > predAway && predScoreHome <= predScoreAway) {
     const tmp = predScoreHome; predScoreHome = predScoreAway; predScoreAway = tmp;
     if (predScoreHome === predScoreAway) predScoreHome += 1;
@@ -663,85 +693,54 @@ function generatePRONOSIAPrediction(
   const displayMax = Math.max(calibratedHome, calibratedAway);
   const dataCompleteness = Math.round(dataQuality * 100);
 
-  // P1.2: Data completeness affects confidence
-  let confidencePenalty = 0;
-  if (dataCompleteness < 60) confidencePenalty = 15;
-  if (dataCompleteness < 40) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED low data (${dataCompleteness}%): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
+  // v4.0: Apply ELO adjustment to displayed confidence
+  const eloAdjustedMax = displayMax + leagueELO.confidenceAdjustment;
+
+  let confidencePenalty = trapResult.totalPenalty;
+  if (dataCompleteness < 60) confidencePenalty += 15;
+  if (dataCompleteness < 40) return null;
 
   let confidence: string;
   let aiScore: number;
-  let isSafeMode = false;
 
-  if (dataQuality >= 0.65 && displayMax >= 55 && signalStrength >= 0.08) {
-    if (displayMax >= 65 && displayMax <= 72) {
-      isSafeMode = true;
+  if (dataQuality >= 0.65 && eloAdjustedMax >= 55 && signalStrength >= 0.08) {
+    if (eloAdjustedMax >= 65 && eloAdjustedMax <= 72) {
       confidence = "SAFE";
       aiScore = Math.round(clamp(72 + seeded(baseSeed, 31) * 10, 72, 82));
     } else {
       confidence = "SAFE";
       aiScore = Math.round(clamp(75 + seeded(baseSeed, 31) * 20 + signalStrength * 30, 78, 95));
     }
-  } else if (dataQuality >= 0.45 && displayMax >= 38) {
+  } else if (dataQuality >= 0.45 && eloAdjustedMax >= 38) {
     confidence = "MODÉRÉ";
     aiScore = Math.round(clamp(60 + seeded(baseSeed, 32) * 15 + signalStrength * 15, 62, 79));
   } else {
-    // Fallback never RISQUÉ
     confidence = "MODÉRÉ";
     aiScore = Math.round(clamp(55 + seeded(baseSeed, 33) * 15, 55, 70));
   }
 
-  // P4.1: Tier 3 requires higher confidence
-  if (leagueTier === 3 && displayMax < 72) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED tier-3 low confidence (${displayMax}%): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
-  if (leagueTier === 3 && dataCompleteness < 70) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED tier-3 low data (${dataCompleteness}%): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
+  // v4.0: Apply trap penalty to AI score
+  aiScore = Math.max(0, aiScore - Math.round(trapResult.totalPenalty * 0.3));
 
-  // VALUE SCORING with v3.1 raised thresholds
+  if (leagueELO.tier === 3 && eloAdjustedMax < 72) return null;
+  if (leagueELO.tier === 3 && dataCompleteness < 70) return null;
+
   const mainProb = Math.max(predHome, predAway);
   const odds = estimateOdds(mainProb);
-  
-  // P7.2: Odds range check — v3.5: lowered for friendlies
-  if (odds < 1.15) {
-    console.log(`[PRONOSIA v3.5] EXCLUDED low odds (${odds}): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
+  if (odds < 1.15) return null;
 
   const valueScore = computeValueScore(mainProb, odds);
   const valueLabel = getValueLabel(valueScore);
+  if (valueScore < 0.01) return null;
 
-  // v3.5: Accept most matches — only exclude truly zero-value
-  if (valueScore < 0.01) {
-    console.log(`[PRONOSIA v3.5] EXCLUDED no value (${valueScore.toFixed(3)}): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
-
-  // Dynamic threshold
-  const effectiveMinConf = Math.max(dynamicMinConf, streak.minConfidence);
-  if (aiScore < streak.minAiScore) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED low AI score (${aiScore}): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
-  if (displayMax < effectiveMinConf) {
-    console.log(`[PRONOSIA v3.1] EXCLUDED low confidence (${displayMax}% < ${effectiveMinConf}%): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
+  const effectiveMinConf = Math.max(leagueELO.confidenceAdjustment > -5 ? 70 : 74, streak.minConfidence);
+  if (aiScore < streak.minAiScore) return null;
+  if (eloAdjustedMax < effectiveMinConf) return null;
 
   const valueBet = valueScore >= 0.15;
 
-  // Suspect Detection
-  const suspect = computeSuspectScore(match, predHome, predAway, dataQuality, baseSeed, leagueWinrate);
+  const suspect = computeSuspectScore(match, predHome, predAway, dataQuality, baseSeed, leagueELO.winrate);
   const { label: anomalyLabel, reason: anomalyReason } = getSuspectLabel(suspect.score);
-
-  if (suspect.score >= 51) {
-    console.log(`[PRONOSIA v3.1] SUSPECT (${suspect.score}): ${match.home_team} vs ${match.away_team}`);
-  }
 
   let finalConfidence = confidence;
   let finalAiScore = aiScore;
@@ -750,32 +749,20 @@ function generatePRONOSIAPrediction(
     finalAiScore = Math.min(finalAiScore, 74);
   }
 
-  // P3.1: Streak severity — RISQUÉ always suspended in v3.1
   if (streak.isStreakMode && confidence === "RISQUÉ") return null;
+  if (streak.level === "emergency" && leagueELO.tier !== 1) return null;
 
-  // Emergency mode: only Tier 1 leagues
-  if (streak.level === "emergency" && leagueTier !== 1) {
-    console.log(`[PRONOSIA v3.1] EMERGENCY excluded non-tier-1: ${match.league_name}`);
-    return null;
-  }
-
-  // P5.1: Validation checklist
   const validation = computeValidationScore(
-    dataCompleteness, displayMax, valueScore, suspect.score,
-    leagueTier, false, odds, true, 0, 7, streak
+    dataCompleteness, eloAdjustedMax, valueScore, suspect.score,
+    leagueELO.tier, false, odds, true, confidencePenalty, 7, streak
   );
-  if (!validation.pass) {
-    console.log(`[PRONOSIA v3.1] VALIDATION FAILED (${validation.score}/10): ${match.home_team} vs ${match.away_team}`);
-    return null;
-  }
-  if (validation.action === "safe_only" && finalConfidence !== "SAFE") {
-    finalConfidence = "SAFE";
-  }
+  if (!validation.pass) return null;
+  if (validation.action === "safe_only" && finalConfidence !== "SAFE") finalConfidence = "SAFE";
 
   const pred = generatePRONOSIAAnalysis(
     match, predHome, predDraw, predAway, predScoreHome, predScoreAway,
     profile.overLine, overProb, bttsProb, finalConfidence, finalAiScore, fid, valueBet,
-    isSafeMode, valueLabel, streak, true, leagueTier, dataCompleteness
+    false, valueLabel, streak, true, leagueELO.tier, dataCompleteness, trapResult, leagueELO
   );
 
   return {
@@ -787,7 +774,7 @@ function generatePRONOSIAPrediction(
     data_completeness_score: dataCompleteness,
     validation_score: validation.score,
     consensus_passed: true,
-    league_tier: leagueTier,
+    league_tier: leagueELO.tier,
     context_penalties_total: confidencePenalty,
   };
 }
@@ -798,14 +785,16 @@ function generatePRONOSIAAnalysis(
   scoreHome: number, scoreAway: number,
   overLine: number, overProb: number, bttsProb: number,
   confidence: string, aiScore: number, fid: number, valueBet = false,
-  isSafeMode = false, valueLabel: string | null = null, streak: StreakState = { level: "normal", isStreakMode: false, rollingWinrate: 100, maxPicks: 3, minConfidence: 70, minAiScore: 75, lastResults: [], consecutiveLosses: 0 },
-  isFallback = false, leagueTier = 2, dataCompleteness = 100
+  _isSafeMode = false, valueLabel: string | null = null,
+  streak: StreakState = { level: "normal", isStreakMode: false, rollingWinrate: 100, maxPicks: 3, minConfidence: 70, minAiScore: 75, lastResults: [], consecutiveLosses: 0 },
+  isFallback = false, leagueTier = 2, dataCompleteness = 100,
+  trapResult?: { signals: TrapSignal[]; totalPenalty: number },
+  leagueELO?: LeagueELO
 ): AIPrediction {
   const fav = predHome >= predAway ? match.home_team : match.away_team;
   const maxProb = Math.max(predHome, predAway);
   const sport = match.sport.toLowerCase();
   const isSafe = confidence === "SAFE";
-  const isModere = confidence === "MODÉRÉ";
 
   const noDrawSports = ["tennis", "basketball", "nba", "baseball", "mlb", "nfl", "mma", "boxing"];
   const isNoDrawSport = noDrawSports.includes(sport);
@@ -825,75 +814,38 @@ function generatePRONOSIAAnalysis(
   } else {
     safeMarketLabel = predHome >= predAway
       ? `${match.home_team} ou Nul (1X)`
-      : `Nul ou ${match.away_team} (X2)`;
+      : `${match.away_team} ou Nul (X2)`;
     safeMarketProb = predHome >= predAway ? predHome + predDraw : predAway + predDraw;
   }
 
-  const modereMarketLabel = `${fav} vainqueur (${maxProb}%)`;
-
-  const tierLabels: Record<number, string> = { 1: "👑 Ligue Elite", 2: "✅ Ligue Fiable", 3: "⚠️ Ligue Volatile" };
-  const tierLabel = tierLabels[leagueTier] || "";
-
   const analyses: string[] = [];
-  const seed = hash(match.home_team + match.away_team) + fid;
+  analyses.push(`🤖 Modèle PRONOSIA v4.0 ${isFallback ? "(déterministe)" : "(multi-IA consensus)"}`);
 
-  const streakLabels: Record<string, string> = {
-    caution: " 🟡 Mode Prudence actif.",
-    streak: " 🔴 Mode Protection actif — sélection ultra-stricte.",
-    emergency: " ⚫ Mode Urgence — 1 seul pick élite.",
-  };
-  const streakNote = streakLabels[streak.level] || "";
-
-  const marketLine = isSafe
-    ? `📌 Marché : ${safeMarketLabel} (${safeMarketProb}%).`
-    : isModere
-      ? `📌 Marché : ${modereMarketLabel}.`
-      : "";
-
-  const fallbackNote = isFallback ? " ⚡ Analyse de secours." : "";
-  const dataNote = dataCompleteness < 70 ? ` 📊 Données: ${dataCompleteness}% — confiance ajustée.` : "";
-
-  const whyPick: string[] = [];
-  const risks: string[] = [];
-
-  if (sport === "football" || sport === "soccer") {
-    whyPick.push(`Avantage ${maxProb}% pour ${fav} (forme 30%, H2H 20%, xG 20%)`);
-    if (isSafe) whyPick.push(bttsProb >= 55 ? `BTTS probable (${bttsProb}%)` : `Marché protégé Double Chance`);
-    else if (isModere) whyPick.push(`${fav} vainqueur — confiance suffisante`);
-    if (valueBet) whyPick.push(`Value Score positif — cote sous-estimée`);
-    risks.push(`Variance football — résultat jamais garanti`);
-    if (maxProb < 70) risks.push(`Confiance modérée — mise prudente`);
-  } else if (sport === "tennis") {
-    whyPick.push(`Avantage ELO surface pour ${fav} (surface 35%, H2H surface 25%)`);
-    whyPick.push(`Probabilité calibrée ${maxProb}%`);
-    risks.push(`Conditions physiques inconnues`);
-    if (seeded(seed, 80) > 0.7) risks.push(`Fatigue potentielle`);
-  } else if (sport === "basketball" || sport === "nba") {
-    whyPick.push(`Net rating et pace favorisent ${fav} (pace 25%, rating 25%)`);
-    risks.push(`Variance basketball — rotation possible`);
-    if (seeded(seed, 81) > 0.75) risks.push(`Back-to-back potentiel`);
-  } else if (sport === "hockey") {
-    whyPick.push(`Goalie save% et power play favorisent ${fav}`);
-    risks.push(`Changement de gardien possible`);
-  } else if (sport === "nfl") {
-    whyPick.push(`QB rating et O-Line favorisent ${fav}`);
-    risks.push(`Météo et blessures de dernière minute`);
-  } else if (sport === "mma" || sport === "boxing") {
-    whyPick.push(`Styles matchup favorise ${fav} (styles 40%, KO rate 25%)`);
-    risks.push(`Un seul coup peut tout changer`);
+  if (isSafe) {
+    analyses.push(`📌 Marché recommandé : ${safeMarketLabel} (${safeMarketProb}%)`);
   } else {
-    whyPick.push(`Avantage quantifié pour ${fav} (${maxProb}%)`);
-    risks.push(`Données limitées — confiance ajustée`);
+    analyses.push(`📌 Marché recommandé : ${fav} vainqueur (${maxProb}%)`);
   }
 
-  analyses.push(
-    `🤖 PRONOSIA v3.1 ${tierLabel} : ${fav} affiche ${maxProb}% via chaîne de raisonnement structurée.`,
-    marketLine,
-    `Calibration v3.1 appliquée.${dataNote}${streakNote}${fallbackNote}`,
-  );
+  if (valueLabel) analyses.push(`💰 Valeur détectée : ${valueLabel}`);
+  if (streak.isStreakMode) analyses.push(`📉 Mode ${streak.level.toUpperCase()} actif — sélection renforcée`);
 
-  const whySection = `\n✅ Pourquoi ce pick : ${whyPick.map(w => `• ${w}`).join(" ")}`;
-  const riskSection = `\n⚠️ Risques identifiés : ${risks.map(r => `• ${r}`).join(" ")}`;
+  // v4.0: Trap signals in analysis
+  if (trapResult && trapResult.signals.length > 0) {
+    analyses.push(`🪤 Signaux pièges : ${trapResult.signals.map(s => s.description).join(", ")}`);
+  }
+
+  // v4.0: ELO info in analysis
+  if (leagueELO && leagueELO.totalPicks >= 5) {
+    const eloEmoji = leagueELO.confidenceAdjustment > 0 ? "📈" : leagueELO.confidenceAdjustment < -5 ? "📉" : "📊";
+    analyses.push(`${eloEmoji} ELO Ligue : ${Math.round(leagueELO.winrate)}% winrate historique (${leagueELO.totalPicks} picks, ajust. ${leagueELO.confidenceAdjustment > 0 ? "+" : ""}${leagueELO.confidenceAdjustment}%)`);
+  }
+
+  analyses.push(`📊 Complétude données : ${dataCompleteness}% | Tier ${leagueTier}`);
+
+  const whySection = `\n\n✅ Pourquoi ce pick :\n• ${fav} montre de solides performances récentes (forme ${isSafe ? "régulière" : "dominante"})\n• Probabilité calibrée de ${maxProb}% (${isSafe ? "Double Chance" : "Winner"})${valueBet ? "\n• Valeur positive détectée par rapport aux cotes du marché" : ""}`;
+
+  const riskSection = `\n\n⚠️ Risques identifiés :\n• ${predDraw >= 20 && !isNoDrawSport ? "Match nul possible (" + predDraw + "%)" : "Données limitées sur la forme extérieure"}\n• ${dataCompleteness < 70 ? `Complétude données ${dataCompleteness}% — prudence requise` : "Variables contextuelles non quantifiables (fatigue, météo)"}${trapResult && trapResult.totalPenalty > 0 ? "\n• 🪤 " + trapResult.signals.map(s => s.description).join(", ") : ""}`;
 
   return {
     fixture_id: match.fixture_id,
@@ -916,38 +868,38 @@ function generatePRONOSIAAnalysis(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// AI GATEWAY CALL — GEMINI (Pass 1)
+// v4.0 FEATURE 3: MULTI-MODEL AI CALLS (Gemini + GPT-5)
 // ═══════════════════════════════════════════════════════════════
 
 function buildAIPrompt(
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
-  learningContext: string, streak: StreakState, blacklistedLeagues: Set<string>
+  learningContext: string, streak: StreakState, blacklistedLeagues: Set<string>,
+  eloMap: Map<string, LeagueELO>, trapMap: Map<number, { signals: TrapSignal[]; totalPenalty: number }>
 ): { eligible: typeof matches; userPrompt: string } {
   const eligible = matches.filter(m => !blacklistedLeagues.has(m.league_name));
-  const matchList = eligible
-    .map((m, i) => {
-      const tier = getLeagueTier(m.league_name);
-      return `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} (Tier ${tier}) | ${m.kickoff}`;
-    })
-    .join("\n");
+  const matchList = eligible.map((m, i) => {
+    const tier = getLeagueTier(m.league_name);
+    const elo = eloMap.get(m.league_name);
+    const trap = trapMap.get(m.fixture_id);
+    const eloStr = elo ? ` | ELO: ${Math.round(elo.winrate)}% wr (${elo.totalPicks} picks, adj ${elo.confidenceAdjustment > 0 ? "+" : ""}${elo.confidenceAdjustment}%)` : "";
+    const trapStr = trap && trap.signals.length > 0 ? ` | 🪤 TRAPS: ${trap.signals.map(s => s.type).join(",")} (penalty -${trap.totalPenalty}%)` : "";
+    return `${i + 1}. [ID:${m.fixture_id}] ${m.home_team} vs ${m.away_team} | ${m.sport.toUpperCase()} | ${m.league_name} (Tier ${tier})${eloStr}${trapStr} | ${m.kickoff}`;
+  }).join("\n");
 
   const streakInfo = streak.isStreakMode
-    ? `\n\n📉 ${streak.level.toUpperCase()} MODE ACTIVE: Rolling winrate ${streak.rollingWinrate}%. Consecutive losses: ${streak.consecutiveLosses}. Max ${streak.maxPicks} picks. Min confidence ${streak.minConfidence}%. Min AI Score ${streak.minAiScore}. Last 5: ${streak.lastResults.join(",")}.${streak.level === "emergency" ? " ONLY TIER 1 LEAGUES ALLOWED. ONLY Double Chance market." : streak.level === "streak" ? " Only SAFE bet types (Double Chance, Under 2.5)." : " RISQUÉ picks suspended."}`
+    ? `\n\n📉 ${streak.level.toUpperCase()} MODE ACTIVE: Rolling winrate ${streak.rollingWinrate}%. Max ${streak.maxPicks} picks. Min confidence ${streak.minConfidence}%. Last 5: ${streak.lastResults.join(",")}.`
     : "";
 
-  const userPrompt = `Analyze these ${eligible.length} matches using PRONOSIA v3.1 STRUCTURED REASONING CHAIN.
+  const userPrompt = `Analyze these ${eligible.length} matches using PRONOSIA v4.0 STRUCTURED REASONING CHAIN (10 steps including TRAP DETECTION and ELO CALIBRATION).
 
-CRITICAL v3.1 REQUIREMENTS:
-- Follow the 8-STEP REASONING CHAIN for EACH match before generating prediction.
-- Apply GRANULAR SPORT PROFILES with correct weights per sport.
-- Minimum value score: 0.08 (raised from 0.05).
-- Maximum picks: ${streak.maxPicks}/day.
-- Minimum confidence: ${streak.minConfidence}%.
-- Minimum odds: 1.35. Odds sweet spot: 1.65-2.40 preferred.
-- Apply LEAGUE TIERS: Tier 4 = excluded, Tier 3 = needs >72% confidence + >70% data.
-- ANTI-HALLUCINATION: Only reference stats that exist in context. No invented data.
-- Compute suspect_score (0-100) and data_completeness_score (0-100).
-- RISQUÉ picks: ${streak.level === "normal" ? "allowed if value justifies" : "SUSPENDED"}.
+CRITICAL v4.0 REQUIREMENTS:
+- Apply 10-STEP REASONING CHAIN for EACH match.
+- Check TRAP SIGNALS: derbies, friendlies, end-of-season, post-intl-break.
+- Apply ELO CALIBRATION per league based on provided data.
+- Minimum value score: 0.08. Maximum picks: ${streak.maxPicks}/day.
+- Minimum confidence: ${streak.minConfidence}%. Minimum odds: 1.35.
+- Apply LEAGUE TIERS: Tier 4 = excluded, Tier 3 = needs >72% + >70% data.
+- ANTI-HALLUCINATION: Only reference stats from context.
 - Include "✅ Pourquoi" and "⚠️ Risques" in every analysis.
 ${streakInfo}
 ${learningContext}
@@ -974,9 +926,9 @@ const AI_TOOLS = [{
             type: "object",
             properties: {
               fixture_id: { type: "number" },
-              pred_home_win: { type: "number", description: "Home win probability 0-100 (calibrated)" },
-              pred_draw: { type: "number", description: "Draw probability 0-100 (0 for tennis/basketball)" },
-              pred_away_win: { type: "number", description: "Away win probability 0-100 (calibrated)" },
+              pred_home_win: { type: "number", description: "Home win probability 0-100" },
+              pred_draw: { type: "number", description: "Draw probability 0-100" },
+              pred_away_win: { type: "number", description: "Away win probability 0-100" },
               pred_score_home: { type: "number" },
               pred_score_away: { type: "number" },
               pred_over_under: { type: "number" },
@@ -988,8 +940,8 @@ const AI_TOOLS = [{
               ai_score: { type: "number", description: "0-100 quality score" },
               anomaly_score: { type: "number", description: "0-100 suspect score" },
               data_completeness_score: { type: "number", description: "0-100 data quality" },
-              consensus_passed: { type: "boolean", description: "Did both reasoning passes agree?" },
-              context_penalties_total: { type: "number", description: "Total context penalties applied" },
+              consensus_passed: { type: "boolean" },
+              context_penalties_total: { type: "number" },
             },
             required: ["fixture_id", "pred_home_win", "pred_draw", "pred_away_win", "pred_score_home", "pred_score_away", "pred_over_under", "pred_over_prob", "pred_btts_prob", "pred_confidence", "pred_value_bet", "pred_analysis", "ai_score", "anomaly_score"],
           },
@@ -1000,27 +952,13 @@ const AI_TOOLS = [{
   },
 }];
 
-function parseToolCallResponse(result: any): AIPrediction[] {
-  const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-  if (!toolCall?.function?.arguments) return [];
-  try {
-    const parsed = JSON.parse(toolCall.function.arguments);
-    return (parsed.predictions || []) as AIPrediction[];
-  } catch {
-    return [];
-  }
-}
-
-function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
+function normalizePreds(preds: any[]): AIPrediction[] {
   const results: AIPrediction[] = [];
   for (const p of preds) {
-    // Normalize fixture_id from various field names (id, match_id, fixture_id)
     if (!p.fixture_id && p.match_id) p.fixture_id = p.match_id;
     if (!p.fixture_id && p.id) p.fixture_id = p.id;
     p.fixture_id = Number(p.fixture_id) || 0;
 
-    // Handle nested prediction format from smaller models (Llama 8B)
-    // e.g. { id: 123, prediction: { home_win: 55, draw: 25, away_win: 20 } }
     const pred = p.prediction || {};
     if (pred.home_win !== undefined || pred.pred_home_win !== undefined) {
       p.pred_home_win = pred.home_win ?? pred.pred_home_win ?? p.pred_home_win;
@@ -1038,11 +976,6 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
       p.anomaly_score = pred.anomaly_score ?? p.anomaly_score;
     }
 
-    // Also handle matchContext.data_completeness_score
-    if (p.matchContext?.data_completeness_score !== undefined) {
-      p.data_completeness_score = p.matchContext.data_completeness_score;
-    }
-
     p.pred_home_win = Number(p.pred_home_win) || 0;
     p.pred_draw = Number(p.pred_draw) || 0;
     p.pred_away_win = Number(p.pred_away_win) || 0;
@@ -1055,6 +988,7 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
     p.anomaly_score = Number(p.anomaly_score) || 0;
     p.data_completeness_score = Number(p.data_completeness_score) || 70;
     p.context_penalties_total = Number(p.context_penalties_total) || 0;
+
     if (p.pred_home_win <= 1 && p.pred_away_win <= 1) {
       p.pred_home_win = Math.round(p.pred_home_win * 100);
       p.pred_draw = Math.round(p.pred_draw * 100);
@@ -1064,12 +998,9 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
     }
     if (p.ai_score <= 1) p.ai_score = Math.round(p.ai_score * 100);
     if (p.anomaly_score <= 1 && p.anomaly_score > 0) p.anomaly_score = Math.round(p.anomaly_score * 100);
-    if (p.pred_home_win === 0 && p.pred_away_win === 0) {
-      p.pred_home_win = 50;
-      p.pred_away_win = 50;
-    }
+    if (p.pred_home_win === 0 && p.pred_away_win === 0) { p.pred_home_win = 50; p.pred_away_win = 50; }
 
-    // v3.5: Enforce score/winner coherence at normalization level
+    // Score/winner coherence
     const hWins = p.pred_home_win > p.pred_away_win;
     const aWins = p.pred_away_win > p.pred_home_win;
     if (hWins && p.pred_score_home < p.pred_score_away) {
@@ -1077,147 +1008,71 @@ function normalizeCerebrasPreds(preds: any[]): AIPrediction[] {
     } else if (aWins && p.pred_score_away < p.pred_score_home) {
       const tmp = p.pred_score_home; p.pred_score_home = p.pred_score_away; p.pred_score_away = tmp;
     }
-    // Draw scores are OK — will be handled by smart market logic later
 
     if (p.fixture_id > 0) results.push(p as AIPrediction);
   }
-  console.log(`[CEREBRAS] Normalized ${results.length} predictions`);
   return results;
 }
 
-async function callCerebrasAI(
-  cerebrasKey: string, userPrompt: string
-): Promise<AIPrediction[]> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000);
-  try {
-    const response = await fetch(CEREBRAS_API, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "qwen-3-235b-a22b-instruct-2507",
-        messages: [
-          { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have: fixture_id, pred_home_win, pred_draw, pred_away_win, pred_score_home, pred_score_away, pred_over_under, pred_over_prob, pred_btts_prob, pred_confidence (SAFE/MODÉRÉ/RISQUÉ), pred_value_bet, pred_analysis, ai_score, anomaly_score, data_completeness_score, consensus_passed, context_penalties_total." },
-          { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}\nDo NOT include any thinking, explanation, or markdown formatting. Output raw JSON only. /no_think" },
-        ],
-        temperature: 0.3,
-        max_tokens: 8000,
-      }),
-    });
-    clearTimeout(timeout);
-    if (!response.ok) { 
-      const errText = await response.text();
-      console.error(`[CEREBRAS] API error ${response.status}: ${errText}`); 
-      return []; 
-    }
-    const result = await response.json();
-    
-    // Check for tool_calls first (some models support it)
-    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      console.log("[CEREBRAS] Got tool_call response");
-      try {
-        const parsed = JSON.parse(toolCall.function.arguments);
-        return normalizeCerebrasPreds(parsed.predictions || []);
-      } catch (e) {
-        console.error("[CEREBRAS] Tool call parse failed:", e);
-      }
-    }
-    
-    const content = result.choices?.[0]?.message?.content;
-    if (!content) {
-      console.warn("[CEREBRAS] Empty content in response. Full result:", JSON.stringify(result).substring(0, 500));
-      return [];
-    }
-    
-    // Log raw response for debug (first 1000 chars)
-    console.log(`[CEREBRAS] Raw response (${content.length} chars): ${content.substring(0, 1000)}`);
-    
-    // Strategy 1: Try direct JSON parse
+// Parse response: try tool_calls, then raw content with multiple strategies
+function parseAIResponse(result: any, modelName: string): AIPrediction[] {
+  const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+  if (toolCall?.function?.arguments) {
     try {
-      const parsed = JSON.parse(content);
-      console.log("[CEREBRAS] ✅ Direct JSON parse OK");
-      return normalizeCerebrasPreds(parsed.predictions || []);
-    } catch { /* continue */ }
-    
-    // Strategy 2: Extract from markdown code blocks
-    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      try {
-        const parsed = JSON.parse(codeBlockMatch[1].trim());
-        console.log("[CEREBRAS] ✅ Extracted from code block");
-        return normalizeCerebrasPreds(parsed.predictions || []);
-      } catch { /* continue */ }
+      const parsed = JSON.parse(toolCall.function.arguments);
+      console.log(`[${modelName}] ✅ Got tool_call response`);
+      return normalizePreds(parsed.predictions || []);
+    } catch (e) {
+      console.error(`[${modelName}] Tool call parse failed:`, e);
     }
-    
-    // Strategy 3: Find first { ... } containing "predictions"
-    const braceMatch = content.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
-    if (braceMatch) {
-      try {
-        const parsed = JSON.parse(braceMatch[0]);
-        console.log("[CEREBRAS] ✅ Extracted via brace matching");
-        return normalizeCerebrasPreds(parsed.predictions || []);
-      } catch { /* continue */ }
-    }
-    
-    // Strategy 4: Find bare array [ ... ]
-    const arrayMatch = content.match(/\[\s*\{[\s\S]*"fixture_id"[\s\S]*\}\s*\]/);
-    if (arrayMatch) {
-      try {
-        const preds = JSON.parse(arrayMatch[0]);
-        console.log("[CEREBRAS] ✅ Extracted bare array");
-        return normalizeCerebrasPreds(preds);
-      } catch { /* continue */ }
-    }
-    
-    // Strategy 5: Strip thinking tags (<think>...</think>) and retry
-    const withoutThinking = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-    if (withoutThinking !== content) {
-      try {
-        const parsed = JSON.parse(withoutThinking);
-        console.log("[CEREBRAS] ✅ Parsed after stripping <think> tags");
-        return normalizeCerebrasPreds(parsed.predictions || []);
-      } catch {
-        const innerBrace = withoutThinking.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
-        if (innerBrace) {
-          try {
-            const parsed = JSON.parse(innerBrace[0]);
-            console.log("[CEREBRAS] ✅ Extracted from post-think content");
-            return normalizeCerebrasPreds(parsed.predictions || []);
-          } catch { /* continue */ }
-        }
-      }
-    }
-    
-    console.error("[CEREBRAS] ❌ All parse strategies failed. Response preview:", content.substring(0, 500));
-    return [];
-  } catch (e) {
-    clearTimeout(timeout);
-    console.error("[CEREBRAS] Error:", e);
-    return [];
   }
+
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) { console.warn(`[${modelName}] Empty content`); return []; }
+  console.log(`[${modelName}] Raw response (${content.length} chars): ${content.substring(0, 800)}`);
+
+  // Strategy 1: Direct JSON parse
+  try { return normalizePreds(JSON.parse(content).predictions || []); } catch {}
+  // Strategy 2: Code blocks
+  const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlock) try { return normalizePreds(JSON.parse(codeBlock[1].trim()).predictions || []); } catch {}
+  // Strategy 3: Brace matching
+  const braceMatch = content.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
+  if (braceMatch) try { return normalizePreds(JSON.parse(braceMatch[0]).predictions || []); } catch {}
+  // Strategy 4: Bare array
+  const arrayMatch = content.match(/\[\s*\{[\s\S]*"fixture_id"[\s\S]*\}\s*\]/);
+  if (arrayMatch) try { return normalizePreds(JSON.parse(arrayMatch[0])); } catch {}
+  // Strategy 5: Strip thinking tags
+  const withoutThinking = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  if (withoutThinking !== content) {
+    try { return normalizePreds(JSON.parse(withoutThinking).predictions || []); } catch {}
+    const inner = withoutThinking.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
+    if (inner) try { return normalizePreds(JSON.parse(inner[0]).predictions || []); } catch {}
+  }
+
+  console.error(`[${modelName}] ❌ All parse strategies failed`);
+  return [];
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CEREBRAS LLAMA 4 SCOUT CALL (Pass 2 — Consensus)
-// ═══════════════════════════════════════════════════════════════
-async function callCerebrasSecondary(
-  cerebrasKey: string, userPrompt: string
+// v4.0: Call Lovable AI Gateway with a specific model
+async function callLovableAI(
+  apiKey: string, model: string, userPrompt: string, modelLabel: string
 ): Promise<AIPrediction[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55000);
   try {
-    const response = await fetch(CEREBRAS_API, {
+    const response = await fetch(LOVABLE_AI_GATEWAY, {
       method: "POST",
       signal: controller.signal,
-      headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3.1-8b",
+        model,
         messages: [
-          { role: "system", content: AI_SYSTEM_PROMPT + "\n\nIMPORTANT: Return your predictions as a JSON object with a 'predictions' array. Each prediction must have all required fields." },
-          { role: "user", content: userPrompt + "\n\nRespond ONLY with a valid JSON object: {\"predictions\": [...]}\nDo NOT include any thinking, explanation, or markdown formatting. Output raw JSON only." },
+          { role: "system", content: AI_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
         ],
+        tools: AI_TOOLS,
+        tool_choice: { type: "function", function: { name: "predict_matches" } },
         temperature: 0.3,
         max_tokens: 8000,
       }),
@@ -1225,106 +1080,150 @@ async function callCerebrasSecondary(
     clearTimeout(timeout);
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`[CEREBRAS-LLAMA] API error ${response.status}: ${errText}`);
+      console.error(`[${modelLabel}] API error ${response.status}: ${errText.substring(0, 300)}`);
       return [];
     }
     const result = await response.json();
-    
-    const content = result.choices?.[0]?.message?.content;
-    if (!content) {
-      console.warn("[CEREBRAS-LLAMA] Empty content");
-      return [];
-    }
-    console.log(`[CEREBRAS-LLAMA] Raw response (${content.length} chars): ${content.substring(0, 500)}`);
-    
-    // Same multi-strategy parsing as primary
-    try { return normalizeCerebrasPreds(JSON.parse(content).predictions || []); } catch {}
-    const codeBlock = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlock) try { return normalizeCerebrasPreds(JSON.parse(codeBlock[1].trim()).predictions || []); } catch {}
-    const braceMatch = content.match(/\{[\s\S]*"predictions"\s*:\s*\[[\s\S]*\]\s*\}/);
-    if (braceMatch) try { return normalizeCerebrasPreds(JSON.parse(braceMatch[0]).predictions || []); } catch {}
-    const arrayMatch = content.match(/\[\s*\{[\s\S]*"fixture_id"[\s\S]*\}\s*\]/);
-    if (arrayMatch) try { return normalizeCerebrasPreds(JSON.parse(arrayMatch[0])); } catch {}
-    
-    console.error("[CEREBRAS-LLAMA] ❌ All parse strategies failed");
-    return [];
+    return parseAIResponse(result, modelLabel);
   } catch (e) {
     clearTimeout(timeout);
-    console.error("[CEREBRAS-LLAMA] Error:", e);
+    console.error(`[${modelLabel}] Error:`, e);
+    return [];
+  }
+}
+
+// v4.0: Also try Cerebras as third model for extra consensus
+async function callCerebrasAI(cerebrasKey: string, userPrompt: string): Promise<AIPrediction[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000);
+  try {
+    const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${cerebrasKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "qwen-3-235b-a22b-instruct-2507",
+        messages: [
+          { role: "system", content: AI_SYSTEM_PROMPT + "\n\nReturn predictions as JSON: {\"predictions\": [...]}" },
+          { role: "user", content: userPrompt + "\n\nRespond ONLY with valid JSON. /no_think" },
+        ],
+        temperature: 0.3,
+        max_tokens: 8000,
+      }),
+    });
+    clearTimeout(timeout);
+    if (!response.ok) return [];
+    const result = await response.json();
+    return parseAIResponse(result, "CEREBRAS-QWEN");
+  } catch (e) {
+    clearTimeout(timeout);
+    console.error("[CEREBRAS-QWEN] Error:", e);
     return [];
   }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MULTI-MODEL CONSENSUS ENGINE (A1)
+// v4.0 MULTI-MODEL CONSENSUS ENGINE (Gemini + GPT-5 + Cerebras)
 // ═══════════════════════════════════════════════════════════════
-function mergeConsensus(
-  primaryPreds: AIPrediction[], secondaryPreds: AIPrediction[],
+
+function mergeMultiModelConsensus(
+  modelResults: { name: string; predictions: AIPrediction[] }[],
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string }[],
   streak: StreakState
 ): AIPrediction[] {
-  const secondaryMap = new Map<number, AIPrediction>();
-  for (const p of secondaryPreds) secondaryMap.set(p.fixture_id, p);
+  // Build per-fixture vote map
+  const fixtureVotes = new Map<number, { predictions: AIPrediction[]; models: string[] }>();
 
-  const merged: AIPrediction[] = [];
-
-  for (const g of primaryPreds) {
-    const m = secondaryMap.get(g.fixture_id);
-    const matchInfo = matches.find(x => x.fixture_id === g.fixture_id);
-
-    if (!m) {
-      console.log(`[CONSENSUS] ${matchInfo?.home_team || g.fixture_id}: Secondary model skipped — single-pass only`);
-      g.consensus_passed = false;
-      g.pred_analysis = g.pred_analysis + "\n🔍 Validation simple (Qwen 235B uniquement)";
-      merged.push(g);
-      continue;
+  for (const { name, predictions } of modelResults) {
+    for (const p of predictions) {
+      if (!fixtureVotes.has(p.fixture_id)) {
+        fixtureVotes.set(p.fixture_id, { predictions: [], models: [] });
+      }
+      const entry = fixtureVotes.get(p.fixture_id)!;
+      entry.predictions.push(p);
+      entry.models.push(name);
     }
-
-    const gWinner = g.pred_home_win >= g.pred_away_win ? "home" : "away";
-    const mWinner = m.pred_home_win >= m.pred_away_win ? "home" : "away";
-
-    if (gWinner !== mWinner) {
-      console.log(`[CONSENSUS] ❌ DISAGREEMENT on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: Qwen=${gWinner}, Llama3.1-8B=${mWinner} → EXCLUDED`);
-      continue;
-    }
-
-    const gConf = Math.max(g.pred_home_win, g.pred_away_win);
-    const mConf = Math.max(m.pred_home_win, m.pred_away_win);
-    const confGap = Math.abs(gConf - mConf);
-
-    if (confGap > 7) {
-      console.log(`[CONSENSUS] ⚠️ CONFIDENCE GAP ${confGap}% on ${matchInfo?.home_team}: Qwen=${gConf}%, Llama3.1-8B=${mConf}%`);
-      g.pred_home_win = Math.round((g.pred_home_win + m.pred_home_win) / 2);
-      g.pred_draw = Math.round((g.pred_draw + m.pred_draw) / 2);
-      g.pred_away_win = 100 - g.pred_home_win - g.pred_draw;
-      g.ai_score = Math.round((g.ai_score + (m.ai_score || g.ai_score)) / 2);
-      g.consensus_passed = false;
-      g.pred_analysis = g.pred_analysis + `\n🔍 Consensus partiel (écart ${confGap}% — moyenne appliquée)`;
-    } else {
-      console.log(`[CONSENSUS] ✅ AGREED on ${matchInfo?.home_team}: ${gWinner} (Qwen=${gConf}%, Llama3.1-8B=${mConf}%)`);
-      g.consensus_passed = true;
-      g.ai_score = Math.min(g.ai_score + 3, 100);
-      g.pred_analysis = g.pred_analysis + "\n✅ Double validation IA (Cerebras Qwen 235B + Llama 3.1 8B)";
-    }
-
-    g.anomaly_score = Math.max(g.anomaly_score, m.anomaly_score || 0);
-    g.suspect_score = g.anomaly_score;
-    g.data_completeness_score = Math.min(g.data_completeness_score || 100, m.data_completeness_score || 100);
-
-    merged.push(g);
   }
 
+  const merged: AIPrediction[] = [];
+  const totalModels = modelResults.filter(m => m.predictions.length > 0).length;
+
+  for (const [fixtureId, { predictions, models }] of fixtureVotes.entries()) {
+    const matchInfo = matches.find(m => m.fixture_id === fixtureId);
+
+    // Check winner consensus
+    const winnerVotes: Record<string, number> = { home: 0, away: 0 };
+    for (const p of predictions) {
+      const winner = p.pred_home_win >= p.pred_away_win ? "home" : "away";
+      winnerVotes[winner]++;
+    }
+
+    const majorityWinner = winnerVotes.home >= winnerVotes.away ? "home" : "away";
+    const majorityCount = Math.max(winnerVotes.home, winnerVotes.away);
+    const unanimousWinner = majorityCount === predictions.length;
+    const majorityReached = majorityCount >= Math.ceil(predictions.length / 2);
+
+    if (!majorityReached) {
+      console.log(`[CONSENSUS v4.0] ❌ NO MAJORITY on ${matchInfo?.home_team} vs ${matchInfo?.away_team}: votes=${JSON.stringify(winnerVotes)} → EXCLUDED`);
+      continue;
+    }
+
+    // Use the prediction from the "best" model that agrees with majority
+    const agreeing = predictions.filter(p => {
+      const w = p.pred_home_win >= p.pred_away_win ? "home" : "away";
+      return w === majorityWinner;
+    });
+
+    // Average the agreeing predictions for more robust values
+    const base = { ...agreeing[0] };
+    if (agreeing.length > 1) {
+      base.pred_home_win = Math.round(agreeing.reduce((s, p) => s + p.pred_home_win, 0) / agreeing.length);
+      base.pred_draw = Math.round(agreeing.reduce((s, p) => s + p.pred_draw, 0) / agreeing.length);
+      base.pred_away_win = 100 - base.pred_home_win - base.pred_draw;
+      base.ai_score = Math.round(agreeing.reduce((s, p) => s + (p.ai_score || 50), 0) / agreeing.length);
+      base.anomaly_score = Math.max(...agreeing.map(p => p.anomaly_score || 0));
+      base.data_completeness_score = Math.min(...agreeing.map(p => p.data_completeness_score || 70));
+
+      // Average scores too
+      base.pred_score_home = Math.round(agreeing.reduce((s, p) => s + p.pred_score_home, 0) / agreeing.length);
+      base.pred_score_away = Math.round(agreeing.reduce((s, p) => s + p.pred_score_away, 0) / agreeing.length);
+    }
+
+    // Consensus bonus/penalty
+    if (unanimousWinner && predictions.length >= 2) {
+      base.consensus_passed = true;
+      base.ai_score = Math.min((base.ai_score || 50) + 5, 100);
+      const modelNames = models.join(" + ");
+      base.pred_analysis = (base.pred_analysis || "") + `\n✅ Consensus UNANIME (${predictions.length} modèles : ${modelNames})`;
+      console.log(`[CONSENSUS v4.0] ✅ UNANIME on ${matchInfo?.home_team}: ${majorityWinner} (${modelNames})`);
+    } else if (majorityReached) {
+      base.consensus_passed = true;
+      base.pred_analysis = (base.pred_analysis || "") + `\n🔍 Consensus majoritaire (${majorityCount}/${predictions.length} modèles d'accord)`;
+      console.log(`[CONSENSUS v4.0] ⚠️ MAJORITY on ${matchInfo?.home_team}: ${majorityWinner} (${majorityCount}/${predictions.length})`);
+    }
+
+    // Re-enforce score/winner coherence after averaging
+    const hWins = base.pred_home_win > base.pred_away_win;
+    if (hWins && base.pred_score_home < base.pred_score_away) {
+      const tmp = base.pred_score_home; base.pred_score_home = base.pred_score_away; base.pred_score_away = tmp;
+    } else if (!hWins && base.pred_score_away < base.pred_score_home) {
+      const tmp = base.pred_score_home; base.pred_score_home = base.pred_score_away; base.pred_score_away = tmp;
+    }
+
+    merged.push(base);
+  }
+
+  console.log(`[CONSENSUS v4.0] ${merged.length} predictions after multi-model consensus (${totalModels} models active)`);
   return merged;
 }
 
-// Post-process predictions (normalize, validate, filter)
+// Post-process predictions
 function postProcessPredictions(
   predictions: AIPrediction[],
   matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
   streak: StreakState
 ): AIPrediction[] {
   for (const p of predictions) {
-    // Normalize probabilities
     const total = p.pred_home_win + p.pred_draw + p.pred_away_win;
     if (Math.abs(total - 100) > 2) {
       p.pred_home_win = Math.round((p.pred_home_win / total) * 100);
@@ -1363,69 +1262,45 @@ function postProcessPredictions(
 
     if (p.ai_score < streak.minAiScore || mainProb < streak.minConfidence) { p.ai_score = 0; continue; }
     const vs = computeValueScore(mainProb, odds);
-    if (vs < 0.03) { p.ai_score = 0; continue; } // v3.5: lowered — too many false exclusions
-    if (odds < 1.20) { p.ai_score = 0; continue; } // v3.5: lowered — international friendlies have low odds
+    if (vs < 0.03) { p.ai_score = 0; continue; }
+    if (odds < 1.20) { p.ai_score = 0; continue; }
     if (p.league_tier === 4) { p.ai_score = 0; continue; }
-    if (p.league_tier === 3 && mainProb < 74) { p.ai_score = 0; continue; } // v3.2: raised from 72
-    if (p.data_completeness_score < 50) { p.ai_score = 0; continue; } // v3.2: raised from 40
+    if (p.league_tier === 3 && mainProb < 74) { p.ai_score = 0; continue; }
+    if (p.data_completeness_score < 50) { p.ai_score = 0; continue; }
     if (p.data_completeness_score < 60 && mainProb > 75) {
       p.pred_home_win = Math.min(p.pred_home_win, 75);
       p.pred_away_win = Math.min(p.pred_away_win, 75);
     }
     if (p.context_penalties_total >= 25) { p.ai_score = 0; continue; }
-
-    // v3.2: RISQUÉ picks completely suspended
-    if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") {
-      p.ai_score = 0; continue;
-    }
-
+    if ((p.pred_confidence || "").toUpperCase() === "RISQUÉ") { p.ai_score = 0; continue; }
     if (streak.level === "emergency" && p.league_tier !== 1) { p.ai_score = 0; continue; }
     if (p.anomaly_score >= 51 && p.pred_confidence === "SAFE") p.pred_confidence = "MODÉRÉ";
 
-    // v3.5: SMART SCORE/MARKET COHERENCE
-    // If AI predicted a draw score (e.g. 1-1) but probabilities say a winner:
-    // → Keep the draw score (AI analyzed it) + switch to Double Chance market
-    // If AI predicted a winner score but wrong team leads:
-    // → Swap scores to match the predicted winner
+    // Smart score/market coherence
     const homeWins = p.pred_home_win > p.pred_away_win;
     const awayWins = p.pred_away_win > p.pred_home_win;
     const isDraw = !homeWins && !awayWins;
     const scoreIsDraw = p.pred_score_home === p.pred_score_away;
 
     if (homeWins && scoreIsDraw) {
-      // AI says home wins but score is a draw → Double Chance (home or draw)
-      // Keep the score as-is (AI analyzed it), switch market to Double Chance
       const analysis = p.pred_analysis || "";
       if (!analysis.toLowerCase().includes("double chance")) {
         p.pred_analysis = analysis.replace(/📌 Marché recommandé\s*:[^\n]*/i, "").trim();
-        p.pred_analysis += `\n📌 Marché recommandé : Double Chance — ${matchData?.home_team || "Domicile"} ou Nul. Score serré anticipé (${p.pred_score_home}-${p.pred_score_away}).`;
+        p.pred_analysis += `\n📌 Marché recommandé : Double Chance — ${matchData?.home_team || "Domicile"} ou Nul.`;
       }
-      console.log(`[SMART] ${matchData?.home_team} vs ${matchData?.away_team}: draw score ${p.pred_score_home}-${p.pred_score_away} + home favored → Double Chance`);
     } else if (awayWins && scoreIsDraw) {
-      // AI says away wins but score is a draw → Double Chance (away or draw)
       const analysis = p.pred_analysis || "";
       if (!analysis.toLowerCase().includes("double chance")) {
         p.pred_analysis = analysis.replace(/📌 Marché recommandé\s*:[^\n]*/i, "").trim();
-        p.pred_analysis += `\n📌 Marché recommandé : Double Chance — ${matchData?.away_team || "Extérieur"} ou Nul. Score serré anticipé (${p.pred_score_home}-${p.pred_score_away}).`;
+        p.pred_analysis += `\n📌 Marché recommandé : Double Chance — ${matchData?.away_team || "Extérieur"} ou Nul.`;
       }
-      console.log(`[SMART] ${matchData?.home_team} vs ${matchData?.away_team}: draw score ${p.pred_score_home}-${p.pred_score_away} + away favored → Double Chance`);
     } else if (homeWins && p.pred_score_home < p.pred_score_away) {
-      // Home should win but away leads in score → swap scores
-      const tmp = p.pred_score_home;
-      p.pred_score_home = p.pred_score_away;
-      p.pred_score_away = tmp;
-      console.log(`[SMART] Swapped scores for ${matchData?.home_team}: now ${p.pred_score_home}-${p.pred_score_away}`);
+      const tmp = p.pred_score_home; p.pred_score_home = p.pred_score_away; p.pred_score_away = tmp;
     } else if (awayWins && p.pred_score_away < p.pred_score_home) {
-      // Away should win but home leads in score → swap scores
-      const tmp = p.pred_score_home;
-      p.pred_score_home = p.pred_score_away;
-      p.pred_score_away = tmp;
-      console.log(`[SMART] Swapped scores for ${matchData?.away_team}: now ${p.pred_score_home}-${p.pred_score_away}`);
+      const tmp = p.pred_score_home; p.pred_score_home = p.pred_score_away; p.pred_score_away = tmp;
     } else if (isDraw && p.pred_score_home !== p.pred_score_away) {
-      // Draw predicted — make scores equal
       const avg = Math.round((p.pred_score_home + p.pred_score_away) / 2);
-      p.pred_score_home = avg;
-      p.pred_score_away = avg;
+      p.pred_score_home = avg; p.pred_score_away = avg;
     }
 
     p.validation_score = computeValidationScore(
@@ -1437,53 +1312,124 @@ function postProcessPredictions(
   return predictions.filter(p => p.ai_score > 0).slice(0, streak.maxPicks);
 }
 
-// Combined multi-model AI call: Cerebras Qwen 235B (primary) + Cerebras Llama 3.1 8B (consensus)
-async function callAI(
-  _apiKey: string,
-  matches: { fixture_id: number; home_team: string; away_team: string; sport: string; league_name: string; kickoff: string }[],
-  learningContext: string,
-  streak: StreakState,
-  blacklistedLeagues: Set<string>
-): Promise<AIPrediction[]> {
-  const { eligible, userPrompt } = buildAIPrompt(matches, learningContext, streak, blacklistedLeagues);
-  if (eligible.length === 0) return [];
+// ═══════════════════════════════════════════════════════════════
+// v4.0 FEATURE 4: ENHANCED SELF-LEARNING ENGINE
+// ═══════════════════════════════════════════════════════════════
 
-  const cerebrasKey = Deno.env.get("CEREBRAS_API_KEY");
+async function buildLearningContext(supabase: any): Promise<string> {
+  try {
+    const [globalRes, weakRes, betTypeRes, lossRes, patternRes] = await Promise.all([
+      supabase.from("ai_learning_stats").select("*").eq("league_name", "_all").order("total_predictions", { ascending: false }).limit(20),
+      supabase.from("ai_learning_stats").select("sport, league_name, winrate, calibration_error, total_predictions, common_loss_pattern").neq("league_name", "_all").gte("total_predictions", 5).order("winrate", { ascending: true }).limit(10),
+      supabase.from("ai_learning_stats").select("bet_type, winrate, total_predictions, calibration_error, roi").eq("league_name", "_all").neq("bet_type", "_all").gte("total_predictions", 3),
+      supabase.from("match_results").select("sport, league_name, predicted_confidence, predicted_winner, home_team, away_team, pred_home_win, pred_away_win, bet_type").eq("result", "loss").order("resolved_at", { ascending: false }).limit(20),
+      // v4.0: Detect repeating error patterns
+      supabase.from("match_results").select("sport, league_name, predicted_confidence, bet_type, result").not("result", "is", null).order("resolved_at", { ascending: false }).limit(50),
+    ]);
 
-  if (!cerebrasKey) {
-    console.error("[AI v3.2] CEREBRAS_API_KEY not configured");
-    return [];
+    const sections: string[] = [];
+
+    // Global performance
+    const globalStats = globalRes.data;
+    if (globalStats?.length > 0) {
+      const lines = globalStats.map((s: any) =>
+        `• ${s.sport.toUpperCase()} / ${s.confidence_level}: ${s.winrate}% wr (${s.total_predictions} picks), cal. error ${s.calibration_error}%${s.common_loss_pattern ? `, pattern: ${s.common_loss_pattern}` : ""}${s.roi != null ? `, ROI: ${s.roi}%` : ""}`
+      );
+      sections.push(`📊 GLOBAL PERFORMANCE:\n${lines.join("\n")}`);
+    }
+
+    // Weak leagues
+    const weakLeagues = weakRes.data;
+    if (weakLeagues?.length > 0) {
+      const bad = weakLeagues.filter((l: any) => l.winrate < 50 || l.calibration_error > 10);
+      if (bad.length > 0) {
+        const lines = bad.slice(0, 6).map((l: any) =>
+          `⚠️ ${l.league_name} (${l.sport}): ${l.winrate}% wr, ${l.calibration_error}% cal. error${l.common_loss_pattern ? ` — ${l.common_loss_pattern}` : ""}`
+        );
+        sections.push(`🚨 WEAK LEAGUES (REDUCE CONFIDENCE):\n${lines.join("\n")}`);
+      }
+    }
+
+    // Bet-type insights
+    const betTypeStats = betTypeRes.data;
+    if (betTypeStats?.length > 0) {
+      const lines = betTypeStats.map((b: any) =>
+        `• ${(b.bet_type || "winner").toUpperCase()}: ${b.winrate}% wr (${b.total_predictions} picks)${b.roi != null ? `, ROI: ${b.roi}%` : ""}`
+      );
+      sections.push(`🎯 BET TYPE PERFORMANCE:\n${lines.join("\n")}`);
+    }
+
+    // Recent losses
+    const recentLosses = lossRes.data;
+    if (recentLosses?.length > 0) {
+      const lossLines = recentLosses.slice(0, 10).map((l: any) => {
+        const maxProb = Math.max(Number(l.pred_home_win), Number(l.pred_away_win));
+        return `❌ ${l.home_team} vs ${l.away_team} (${l.league_name}) — ${l.predicted_confidence}, prob ${maxProb}%, type: ${l.bet_type || "winner"}`;
+      });
+
+      // v4.0: Enhanced pattern detection
+      const upsetCount = recentLosses.filter((l: any) => Math.max(Number(l.pred_home_win), Number(l.pred_away_win)) >= 65).length;
+      const safeCount = recentLosses.filter((l: any) => l.predicted_confidence === "SAFE").length;
+      const patternWarnings: string[] = [];
+      if (upsetCount > recentLosses.length * 0.5) patternWarnings.push("⚠️ UPSET PATTERN: You are overconfident on favorites. Reduce probabilities by 5-8%.");
+      if (safeCount > recentLosses.length * 0.3) patternWarnings.push("⚠️ SAFE PICKS FAILING: Raise bar for SAFE — require >75% calibrated probability.");
+
+      // v4.0: Sport-specific loss patterns
+      const sportLosses = new Map<string, number>();
+      for (const l of recentLosses) {
+        sportLosses.set(l.sport, (sportLosses.get(l.sport) || 0) + 1);
+      }
+      for (const [sport, count] of sportLosses) {
+        if (count >= 4) {
+          patternWarnings.push(`🔴 ${sport.toUpperCase()} has ${count}/${recentLosses.length} recent losses — REDUCE volume on this sport!`);
+        }
+      }
+
+      // v4.0: League-specific loss patterns
+      const leagueLosses = new Map<string, number>();
+      for (const l of recentLosses) {
+        leagueLosses.set(l.league_name, (leagueLosses.get(l.league_name) || 0) + 1);
+      }
+      for (const [league, count] of leagueLosses) {
+        if (count >= 3) {
+          patternWarnings.push(`🔴 ${league} has ${count} consecutive losses — AVOID or raise threshold!`);
+        }
+      }
+
+      sections.push(`📉 RECENT LOSSES (LEARN FROM THESE):\n${lossLines.join("\n")}${patternWarnings.length > 0 ? "\n" + patternWarnings.join("\n") : ""}`);
+    }
+
+    // v4.0: Confidence calibration correction based on recent results
+    const allResults = patternRes.data;
+    if (allResults?.length >= 10) {
+      const byConfidence: Record<string, { wins: number; total: number }> = {};
+      for (const r of allResults) {
+        const conf = r.predicted_confidence || "MODÉRÉ";
+        if (!byConfidence[conf]) byConfidence[conf] = { wins: 0, total: 0 };
+        byConfidence[conf].total++;
+        if (r.result === "win") byConfidence[conf].wins++;
+      }
+      const calLines = Object.entries(byConfidence).map(([conf, { wins, total }]) => {
+        const wr = Math.round((wins / total) * 100);
+        const emoji = wr >= 60 ? "✅" : wr >= 45 ? "⚠️" : "🔴";
+        return `${emoji} ${conf}: ${wr}% actual winrate (${wins}/${total})`;
+      });
+      sections.push(`🎯 CONFIDENCE CALIBRATION (last 50 results):\n${calLines.join("\n")}`);
+    }
+
+    if (sections.length > 0) {
+      const context = `\n\n🧠 SELF-LEARNING ENGINE v4.0 — MANDATORY ADJUSTMENTS:\n${sections.join("\n\n")}\n\nRULES FROM DATA:\n- If calibration_error > 10% → REDUCE probability by calibration_error/2\n- If league winrate < 50% → INCREASE minimum confidence by 5%\n- If bet type has < 45% wr → AVOID that bet type\n- If sport has 4+ recent losses → REDUCE volume, only top picks\n- If confidence level has < 45% actual wr → DOWNGRADE all future picks of that level\n- NEVER repeat the same error pattern twice.\n`;
+      console.log(`[AI-PREDICT v4.0] 🧠 Learning context: ${sections.length} sections, ${context.length} chars`);
+      return context;
+    }
+  } catch (e) {
+    console.log("[AI-PREDICT v4.0] Learning stats error:", e);
   }
-
-  // Launch dual Cerebras: Qwen 235B (primary) + Llama 3.1 8B (consensus) in parallel
-  console.log(`[AI v3.2] Launching DUAL-MODEL CEREBRAS (Qwen 235B + Llama 3.1 8B) consensus...`);
-
-  const [qwenPreds, gptPreds] = await Promise.all([
-    callCerebrasAI(cerebrasKey, userPrompt),
-    callCerebrasSecondary(cerebrasKey, userPrompt),
-  ]);
-
-  console.log(`[AI v3.2] Qwen 235B: ${qwenPreds.length} predictions, Llama 3.1 8B: ${gptPreds.length} predictions`);
-
-  let merged: AIPrediction[];
-  if (gptPreds.length > 0 && qwenPreds.length > 0) {
-    merged = mergeConsensus(qwenPreds, gptPreds, eligible, streak);
-    console.log(`[AI v3.2] Consensus merged: ${merged.length} predictions (${merged.filter(p => p.consensus_passed).length} fully validated)`);
-  } else if (qwenPreds.length > 0) {
-    merged = qwenPreds.map(p => ({ ...p, consensus_passed: false }));
-    console.log("[AI v3.2] Llama3.1-8B failed — using Qwen 235B only");
-  } else if (gptPreds.length > 0) {
-    console.log("[AI v3.2] Qwen failed — using Llama 3.1 8B only");
-    merged = gptPreds.map(p => ({ ...p, consensus_passed: false }));
-  } else {
-    return [];
-  }
-
-  return postProcessPredictions(merged, matches, streak);
+  return "";
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DAILY BRIEFING GENERATOR
+// DAILY BRIEFING
 // ═══════════════════════════════════════════════════════════════
 async function generateDailyBriefing(
   supabase: any, streak: StreakState,
@@ -1496,21 +1442,15 @@ async function generateDailyBriefing(
     streak: "Sélection ultra-stricte — Double Chance et Under 2.5 uniquement",
     emergency: "1 seul pick élite Tier 1 — protection maximale",
   };
-
   try {
     await supabase.from("daily_briefings").upsert({
-      date: today,
-      mode: streak.level,
-      leagues_analyzed: totalAnalyzed,
-      matches_discarded: discarded,
-      picks_retained: retained,
+      date: today, mode: streak.level, leagues_analyzed: totalAnalyzed,
+      matches_discarded: discarded, picks_retained: retained,
       avg_confidence: avgConfidence,
       daily_focus: focusMap[streak.level] || focusMap.normal,
       generated_at: new Date().toISOString(),
     }, { onConflict: "date" });
-  } catch (e) {
-    console.log("[BRIEFING] Error generating daily briefing:", e);
-  }
+  } catch (e) { console.log("[BRIEFING] Error:", e); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1524,7 +1464,8 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const cerebrasKey = Deno.env.get("CEREBRAS_API_KEY");
     const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
     const url = new URL(req.url);
@@ -1532,7 +1473,6 @@ Deno.serve(async (req) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
     const forceAll = url.searchParams.get("force") === "true";
 
-    // v3.1: Check streak mode (3 levels) + blacklisted leagues
     const streak = forceAll
       ? { level: "normal" as StreakLevel, isStreakMode: false, rollingWinrate: 100, maxPicks: 999, minConfidence: 35, minAiScore: 40, lastResults: [], consecutiveLosses: 0 } as StreakState
       : await checkStreakMode(supabase);
@@ -1540,101 +1480,13 @@ Deno.serve(async (req) => {
     const blacklistedLeagues = await getBlacklistedLeagues(supabase);
 
     if (streak.isStreakMode) {
-      console.log(`[AI-PREDICT v3.1] ${streak.level.toUpperCase()} MODE: winrate=${streak.rollingWinrate}%, losses=${streak.consecutiveLosses}, maxPicks=${streak.maxPicks}, minConf=${streak.minConfidence}%`);
+      console.log(`[AI-PREDICT v4.0] ${streak.level.toUpperCase()} MODE: wr=${streak.rollingWinrate}%, losses=${streak.consecutiveLosses}, maxPicks=${streak.maxPicks}`);
     }
 
-    // ═══ ENHANCED SELF-LEARNING CONTEXT (v3.2) ═══
-    let learningContext = "";
-    try {
-      // 1. Global stats by sport + confidence
-      const { data: globalStats } = await supabase
-        .from("ai_learning_stats")
-        .select("*")
-        .eq("league_name", "_all")
-        .order("total_predictions", { ascending: false })
-        .limit(20);
+    // v4.0: Build enhanced learning context
+    const learningContext = await buildLearningContext(supabase);
 
-      // 2. Worst-performing leagues (calibration_error > 8 or winrate < 50)
-      const { data: weakLeagues } = await supabase
-        .from("ai_learning_stats")
-        .select("sport, league_name, winrate, calibration_error, total_predictions, common_loss_pattern")
-        .neq("league_name", "_all")
-        .gte("total_predictions", 5)
-        .order("winrate", { ascending: true })
-        .limit(10);
-
-      // 3. Bet-type performance
-      const { data: betTypeStats } = await supabase
-        .from("ai_learning_stats")
-        .select("bet_type, winrate, total_predictions, calibration_error, roi")
-        .eq("league_name", "_all")
-        .neq("bet_type", "_all")
-        .gte("total_predictions", 3);
-
-      // 4. Recent losses for pattern analysis
-      const { data: recentLosses } = await supabase
-        .from("match_results")
-        .select("sport, league_name, predicted_confidence, predicted_winner, home_team, away_team, pred_home_win, pred_away_win, bet_type")
-        .eq("result", "loss")
-        .order("resolved_at", { ascending: false })
-        .limit(15);
-
-      const sections: string[] = [];
-
-      // Global performance summary
-      if (globalStats && globalStats.length > 0) {
-        const lines = globalStats.map((s: any) =>
-          `• ${s.sport.toUpperCase()} / ${s.confidence_level}: ${s.winrate}% winrate (${s.total_predictions} picks), calibration error ${s.calibration_error}%${s.common_loss_pattern ? `, loss pattern: ${s.common_loss_pattern}` : ""}${s.roi != null ? `, ROI: ${s.roi}%` : ""}`
-        );
-        sections.push(`📊 GLOBAL PERFORMANCE:\n${lines.join("\n")}`);
-      }
-
-      // Weak leagues warning
-      if (weakLeagues && weakLeagues.length > 0) {
-        const badLeagues = weakLeagues.filter((l: any) => l.winrate < 50 || l.calibration_error > 10);
-        if (badLeagues.length > 0) {
-          const lines = badLeagues.slice(0, 6).map((l: any) =>
-            `⚠️ ${l.league_name} (${l.sport}): ${l.winrate}% winrate, ${l.calibration_error}% cal. error${l.common_loss_pattern ? ` — pattern: ${l.common_loss_pattern}` : ""}`
-          );
-          sections.push(`🚨 WEAK LEAGUES (REDUCE CONFIDENCE OR AVOID):\n${lines.join("\n")}`);
-        }
-      }
-
-      // Bet-type insights
-      if (betTypeStats && betTypeStats.length > 0) {
-        const lines = betTypeStats.map((b: any) =>
-          `• ${(b.bet_type || "winner").toUpperCase()}: ${b.winrate}% winrate (${b.total_predictions} picks)${b.roi != null ? `, ROI: ${b.roi}%` : ""}`
-        );
-        sections.push(`🎯 BET TYPE PERFORMANCE:\n${lines.join("\n")}`);
-      }
-
-      // Recent loss analysis
-      if (recentLosses && recentLosses.length > 0) {
-        const lossLines = recentLosses.slice(0, 8).map((l: any) => {
-          const maxProb = Math.max(Number(l.pred_home_win), Number(l.pred_away_win));
-          return `❌ ${l.home_team} vs ${l.away_team} (${l.league_name}) — ${l.predicted_confidence}, prob ${maxProb}%, type: ${l.bet_type || "winner"}`;
-        });
-        // Detect patterns
-        const upsetCount = recentLosses.filter((l: any) => Math.max(Number(l.pred_home_win), Number(l.pred_away_win)) >= 65).length;
-        const safeCount = recentLosses.filter((l: any) => l.predicted_confidence === "SAFE").length;
-        const patternWarnings: string[] = [];
-        if (upsetCount > recentLosses.length * 0.5) patternWarnings.push("⚠️ TOO MANY UPSET LOSSES: You are overconfident on favorites. Reduce probabilities by 5-8% on heavy favorites.");
-        if (safeCount > recentLosses.length * 0.3) patternWarnings.push("⚠️ SAFE PICKS FAILING: Your SAFE classification is too generous. Raise the bar for SAFE — require >75% calibrated probability.");
-        
-        sections.push(`📉 RECENT LOSSES (LEARN FROM THESE):\n${lossLines.join("\n")}${patternWarnings.length > 0 ? "\n" + patternWarnings.join("\n") : ""}`);
-      }
-
-      if (sections.length > 0) {
-        learningContext = `\n\n🧠 SELF-LEARNING ENGINE v3.2 — MANDATORY ADJUSTMENTS:\n${sections.join("\n\n")}\n\nRULES BASED ON DATA:\n- If calibration_error > 10% for a sport/confidence → REDUCE probability by calibration_error/2\n- If a league has winrate < 50% → INCREASE minimum confidence threshold by 5%\n- If a bet type has < 45% winrate → AVOID that bet type\n- If recent losses show upset_favorite pattern → cap favorite probability at 72%\n- NEVER repeat the same error pattern twice. Your reputation depends on LEARNING.\n`;
-        console.log(`[AI-PREDICT v3.2] 🧠 Learning context loaded: ${sections.length} sections, ${learningContext.length} chars`);
-      } else {
-        console.log("[AI-PREDICT v3.2] ⚠️ No learning data available yet");
-      }
-    } catch (e) {
-      console.log("[AI-PREDICT v3.2] Learning stats error:", e);
-    }
-
-    // Fetch matches needing AI
+    // Fetch matches
     let query = supabase
       .from("cached_matches")
       .select("fixture_id, home_team, away_team, sport, league_name, kickoff, pred_analysis, ai_score, pred_home_win, pred_away_win")
@@ -1651,65 +1503,116 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         success: true, message: "No matches to process", processed: 0,
         streak_mode: streak.isStreakMode, streak_level: streak.level,
-        rolling_winrate: streak.rollingWinrate, version: "3.1"
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        rolling_winrate: streak.rollingWinrate, version: "4.0"
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Pre-filter: excluded leagues + blacklisted + tier 4
-    const eligibleMatches = matches.filter(m => {
+    // v4.0: Compute ELO + Trap signals for all matches
+    const eloMap = new Map<string, LeagueELO>();
+    const trapMap = new Map<number, { signals: TrapSignal[]; totalPenalty: number }>();
+
+    const eligibleMatches = [];
+    for (const m of matches) {
       const tier = getLeagueTier(m.league_name);
-      if (tier === 4) return false;
-      if (blacklistedLeagues.has(m.league_name)) return false;
-      return true;
-    });
+      if (tier === 4 || blacklistedLeagues.has(m.league_name)) continue;
+
+      // Get ELO (cache per league)
+      if (!eloMap.has(m.league_name)) {
+        eloMap.set(m.league_name, await getLeagueELO(supabase, m.league_name, m.sport));
+      }
+      const elo = eloMap.get(m.league_name)!;
+
+      // Compute trap signals
+      const trap = detectTrapSignals(m, elo.winrate, elo.totalPicks);
+      trapMap.set(m.fixture_id, trap);
+
+      // Don't exclude trap matches from AI — let AI decide with the context
+      eligibleMatches.push(m);
+    }
+
     const excludedCount = matches.length - eligibleMatches.length;
-    console.log(`[AI-PREDICT v3.1] ${matches.length} total → ${eligibleMatches.length} eligible (${excludedCount} excluded)`);
+    console.log(`[AI-PREDICT v4.0] ${matches.length} total → ${eligibleMatches.length} eligible (${excludedCount} excluded). ${eloMap.size} league ELOs loaded.`);
+
+    // Log trap summary
+    let trapCount = 0;
+    for (const [fid, trap] of trapMap) {
+      if (trap.totalPenalty > 0) {
+        trapCount++;
+        if (trap.totalPenalty > 15) {
+          const m = eligibleMatches.find(x => x.fixture_id === fid);
+          console.log(`[TRAP v4.0] 🪤 ${m?.home_team} vs ${m?.away_team}: -${trap.totalPenalty}% (${trap.signals.map(s => s.type).join(", ")})`);
+        }
+      }
+    }
+    console.log(`[AI-PREDICT v4.0] 🪤 ${trapCount} matches with trap signals detected`);
 
     let predictions: AIPrediction[] = [];
-    let source = "pronosia-v3.1-deterministic";
+    let source = "pronosia-v4.0-deterministic";
 
-    if (apiKey && eligibleMatches.length > 0) {
-      predictions = await callAI(apiKey, eligibleMatches, learningContext, streak, blacklistedLeagues);
-      if (predictions.length > 0) {
-        source = "pronosia-v3.1-ai";
+    // v4.0: Launch MULTI-MODEL AI calls in parallel
+    if (lovableApiKey && eligibleMatches.length > 0) {
+      const { eligible, userPrompt } = buildAIPrompt(eligibleMatches, learningContext, streak, blacklistedLeagues, eloMap, trapMap);
+
+      if (eligible.length > 0) {
+        console.log(`[AI v4.0] 🚀 Launching TRIPLE-MODEL consensus: Gemini 2.5 Flash + GPT-5 Mini + Cerebras Qwen...`);
+
+        const modelCalls: Promise<{ name: string; predictions: AIPrediction[] }>[] = [
+          callLovableAI(lovableApiKey, "google/gemini-2.5-flash", userPrompt, "GEMINI-FLASH").then(p => ({ name: "Gemini 2.5 Flash", predictions: p })),
+          callLovableAI(lovableApiKey, "openai/gpt-5-mini", userPrompt, "GPT-5-MINI").then(p => ({ name: "GPT-5 Mini", predictions: p })),
+        ];
+
+        // Add Cerebras as 3rd model if key available
+        if (cerebrasKey) {
+          modelCalls.push(
+            callCerebrasAI(cerebrasKey, userPrompt).then(p => ({ name: "Cerebras Qwen 235B", predictions: p }))
+          );
+        }
+
+        const modelResults = await Promise.all(modelCalls);
+
+        for (const { name, predictions: preds } of modelResults) {
+          console.log(`[AI v4.0] ${name}: ${preds.length} predictions`);
+        }
+
+        const activeModels = modelResults.filter(m => m.predictions.length > 0);
+        if (activeModels.length >= 2) {
+          const merged = mergeMultiModelConsensus(activeModels, eligible, streak);
+          predictions = postProcessPredictions(merged, eligible, streak);
+          source = `pronosia-v4.0-consensus-${activeModels.length}models`;
+        } else if (activeModels.length === 1) {
+          predictions = postProcessPredictions(
+            activeModels[0].predictions.map(p => ({ ...p, consensus_passed: false })),
+            eligible, streak
+          );
+          source = `pronosia-v4.0-single-${activeModels[0].name}`;
+        }
       }
     }
 
-    // Enhanced fallback
+    // Enhanced deterministic fallback with ELO + traps
     if (predictions.length === 0 && eligibleMatches.length > 0) {
-      console.log(`[AI-PREDICT v3.1] Using enhanced deterministic engine for ${eligibleMatches.length} matches`);
+      console.log(`[AI-PREDICT v4.0] Using deterministic engine with ELO + traps for ${eligibleMatches.length} matches`);
 
       try {
         await supabase.from("admin_logs").insert({
           admin_email: "system",
-          action: "fallback-activated-v3.1",
+          action: "fallback-activated-v4.0",
           details: { reason: "AI gateway unavailable", match_count: eligibleMatches.length, streak_level: streak.level },
         });
       } catch {}
 
       const raw: AIPrediction[] = [];
       for (const m of eligibleMatches) {
-        const threshold = await getDynamicThreshold(supabase, m.league_name, m.sport);
-        const tier = await getLeagueTierFromDB(supabase, m.league_name);
-        let leagueWr: number | null = null;
-        try {
-          const { data: lp } = await supabase
-            .from("league_performance")
-            .select("winrate")
-            .eq("league_name", m.league_name)
-            .maybeSingle();
-          if (lp) leagueWr = lp.winrate;
-        } catch {}
-
-        const pred = generatePRONOSIAPrediction(m, streak, threshold.minConfidence, leagueWr, tier);
+        const elo = eloMap.get(m.league_name) || { winrate: 50, totalPicks: 0, confidenceAdjustment: 0, tier: 2, source: "default" };
+        const trap = trapMap.get(m.fixture_id) || { signals: [], totalPenalty: 0 };
+        const pred = generatePRONOSIAPrediction(m, streak, elo, trap);
         if (pred) raw.push(pred);
       }
       predictions = raw.slice(0, streak.maxPicks);
-      source = "pronosia-v3.1-deterministic";
+      source = "pronosia-v4.0-deterministic";
     }
 
+    // Write predictions to DB
     const predMap = new Map<number, AIPrediction>();
     for (const p of predictions) predMap.set(p.fixture_id, p);
 
@@ -1720,56 +1623,39 @@ Deno.serve(async (req) => {
       const pred = predMap.get(m.fixture_id);
       if (!pred) continue;
 
-      if (!forceAll && m.pred_home_win != null && m.pred_away_win != null && m.pred_analysis) {
-        continue;
-      }
+      if (!forceAll && m.pred_home_win != null && m.pred_away_win != null && m.pred_analysis) continue;
 
       const tier = getLeagueTier(m.league_name);
 
-      // ═══ FINAL ENFORCER v3.5: Smart score/market coherence ═══
+      // Final Enforcer: score/market coherence
       const homeWinsPred = pred.pred_home_win > pred.pred_away_win;
       const awayWinsPred = pred.pred_away_win > pred.pred_home_win;
       const scoreDrawPred = pred.pred_score_home === pred.pred_score_away;
 
       if (homeWinsPred && scoreDrawPred) {
-        // Draw score + home favored → Double Chance, keep score
         if (!(pred.pred_analysis || "").toLowerCase().includes("double chance")) {
           pred.pred_analysis = (pred.pred_analysis || "") + `\n📌 Marché recommandé : Double Chance — ${m.home_team} ou Nul.`;
         }
       } else if (awayWinsPred && scoreDrawPred) {
-        // Draw score + away favored → Double Chance, keep score
         if (!(pred.pred_analysis || "").toLowerCase().includes("double chance")) {
           pred.pred_analysis = (pred.pred_analysis || "") + `\n📌 Marché recommandé : Double Chance — ${m.away_team} ou Nul.`;
         }
       } else if (homeWinsPred && pred.pred_score_home < pred.pred_score_away) {
-        // Wrong team leads → swap
-        const tmp = pred.pred_score_home;
-        pred.pred_score_home = pred.pred_score_away;
-        pred.pred_score_away = tmp;
+        const tmp = pred.pred_score_home; pred.pred_score_home = pred.pred_score_away; pred.pred_score_away = tmp;
       } else if (awayWinsPred && pred.pred_score_away < pred.pred_score_home) {
-        const tmp = pred.pred_score_home;
-        pred.pred_score_home = pred.pred_score_away;
-        pred.pred_score_away = tmp;
+        const tmp = pred.pred_score_home; pred.pred_score_home = pred.pred_score_away; pred.pred_score_away = tmp;
       }
 
       const { error: updateError } = await supabase
         .from("cached_matches")
         .update({
-          pred_home_win: pred.pred_home_win,
-          pred_draw: pred.pred_draw,
-          pred_away_win: pred.pred_away_win,
-          pred_score_home: pred.pred_score_home,
-          pred_score_away: pred.pred_score_away,
-          pred_over_under: pred.pred_over_under,
-          pred_over_prob: pred.pred_over_prob,
-          pred_btts_prob: pred.pred_btts_prob,
-          pred_confidence: pred.pred_confidence,
-          pred_value_bet: pred.pred_value_bet,
-          pred_analysis: pred.pred_analysis,
-          ai_score: pred.ai_score,
-          anomaly_score: pred.anomaly_score || 0,
-          anomaly_label: pred.anomaly_label || null,
-          anomaly_reason: pred.anomaly_reason || null,
+          pred_home_win: pred.pred_home_win, pred_draw: pred.pred_draw, pred_away_win: pred.pred_away_win,
+          pred_score_home: pred.pred_score_home, pred_score_away: pred.pred_score_away,
+          pred_over_under: pred.pred_over_under, pred_over_prob: pred.pred_over_prob,
+          pred_btts_prob: pred.pred_btts_prob, pred_confidence: pred.pred_confidence,
+          pred_value_bet: pred.pred_value_bet, pred_analysis: pred.pred_analysis,
+          ai_score: pred.ai_score, anomaly_score: pred.anomaly_score || 0,
+          anomaly_label: pred.anomaly_label || null, anomaly_reason: pred.anomaly_reason || null,
           suspect_score: pred.suspect_score || pred.anomaly_score || 0,
           data_completeness_score: pred.data_completeness_score || 100,
           validation_score: pred.validation_score || 10,
@@ -1781,45 +1667,32 @@ Deno.serve(async (req) => {
         .eq("fixture_id", m.fixture_id);
 
       if (updateError) {
-        console.error(`[AI-PREDICT v3.1] Update error for fixture ${m.fixture_id}:`, JSON.stringify(updateError));
+        console.error(`[AI-PREDICT v4.0] Update error for fixture ${m.fixture_id}:`, JSON.stringify(updateError));
       } else {
         updated++;
         totalConfidence += Math.max(pred.pred_home_win, pred.pred_away_win);
-        if (i === 0) console.log(`[AI-PREDICT v3.1] Sample: ${m.home_team} vs ${m.away_team}: ${pred.pred_confidence} | AI:${pred.ai_score} | Suspect:${pred.anomaly_score} | Tier:${tier} | ${source}`);
+        if (i === 0) console.log(`[AI-PREDICT v4.0] Sample: ${m.home_team} vs ${m.away_team}: ${pred.pred_confidence} | AI:${pred.ai_score} | ${source}`);
       }
     }
 
-    // Generate daily briefing
     const avgConfidence = updated > 0 ? Math.round(totalConfidence / updated) : 0;
     await generateDailyBriefing(supabase, streak, matches.length, excludedCount, updated, avgConfidence);
 
-    const { count } = await supabase
-      .from("cached_matches")
-      .select("fixture_id", { count: "exact", head: true })
-      .or("pred_analysis.is.null,ai_score.eq.0,pred_analysis.not.like.🤖%");
-
-    console.log(`[AI-PREDICT v3.1] ✅ Updated ${updated} via ${source}. ${count || 0} remaining. Streak=${streak.level}`);
+    console.log(`[AI-PREDICT v4.0] ✅ Updated ${updated} via ${source}. Streak=${streak.level}`);
 
     return new Response(JSON.stringify({
-      success: true,
-      source,
-      version: "3.1",
-      batch_size: matches.length,
-      eligible: eligibleMatches.length,
-      excluded: excludedCount,
-      blacklisted_leagues: [...blacklistedLeagues],
-      predictions_generated: predictions.length,
-      updated,
-      remaining_without_ai: count || 0,
-      streak_mode: streak.isStreakMode,
-      streak_level: streak.level,
-      rolling_winrate: streak.rollingWinrate,
-      consecutive_losses: streak.consecutiveLosses,
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      success: true, source, version: "4.0",
+      batch_size: matches.length, eligible: eligibleMatches.length,
+      excluded: excludedCount, blacklisted_leagues: [...blacklistedLeagues],
+      predictions_generated: predictions.length, updated,
+      streak_mode: streak.isStreakMode, streak_level: streak.level,
+      rolling_winrate: streak.rollingWinrate, consecutive_losses: streak.consecutiveLosses,
+      models_used: source,
+      elo_leagues_loaded: eloMap.size,
+      trap_matches_detected: trapCount,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
-    console.error("[AI-PREDICT v3.1] Error:", error);
+    console.error("[AI-PREDICT v4.0] Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
