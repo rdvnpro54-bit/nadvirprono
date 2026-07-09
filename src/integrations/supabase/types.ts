@@ -159,16 +159,21 @@ export type Database = {
           odds: Json | null
           odds_updated_at: string | null
           pred_analysis: string | null
+          pred_auto_healed: boolean
           pred_away_win: number
           pred_btts_prob: number
           pred_confidence: string
           pred_draw: number
+          pred_engine_version: string | null
           pred_home_win: number
+          pred_label: string
+          pred_market: string
           pred_over_prob: number
           pred_over_under: number
           pred_score_away: number
           pred_score_home: number
           pred_value_bet: boolean
+          pred_winner: string
           sport: string
           status: string
           streak_mode_level: string | null
@@ -208,16 +213,21 @@ export type Database = {
           odds?: Json | null
           odds_updated_at?: string | null
           pred_analysis?: string | null
+          pred_auto_healed?: boolean
           pred_away_win?: number
           pred_btts_prob?: number
           pred_confidence?: string
           pred_draw?: number
+          pred_engine_version?: string | null
           pred_home_win?: number
+          pred_label?: string
+          pred_market?: string
           pred_over_prob?: number
           pred_over_under?: number
           pred_score_away?: number
           pred_score_home?: number
           pred_value_bet?: boolean
+          pred_winner?: string
           sport?: string
           status?: string
           streak_mode_level?: string | null
@@ -257,16 +267,21 @@ export type Database = {
           odds?: Json | null
           odds_updated_at?: string | null
           pred_analysis?: string | null
+          pred_auto_healed?: boolean
           pred_away_win?: number
           pred_btts_prob?: number
           pred_confidence?: string
           pred_draw?: number
+          pred_engine_version?: string | null
           pred_home_win?: number
+          pred_label?: string
+          pred_market?: string
           pred_over_prob?: number
           pred_over_under?: number
           pred_score_away?: number
           pred_score_home?: number
           pred_value_bet?: boolean
+          pred_winner?: string
           sport?: string
           status?: string
           streak_mode_level?: string | null
@@ -470,6 +485,51 @@ export type Database = {
           resolved_at?: string | null
           result?: string | null
           sport?: string
+        }
+        Relationships: []
+      }
+      prediction_audit_log: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          corrections: Json | null
+          created_at: string
+          engine_version: string
+          id: string
+          match_id: string
+          model_version: string | null
+          prediction_id: string | null
+          reason: string | null
+          severity: string
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          corrections?: Json | null
+          created_at?: string
+          engine_version: string
+          id?: string
+          match_id: string
+          model_version?: string | null
+          prediction_id?: string | null
+          reason?: string | null
+          severity?: string
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          corrections?: Json | null
+          created_at?: string
+          engine_version?: string
+          id?: string
+          match_id?: string
+          model_version?: string | null
+          prediction_id?: string | null
+          reason?: string | null
+          severity?: string
         }
         Relationships: []
       }
