@@ -473,6 +473,51 @@ export type Database = {
         }
         Relationships: []
       }
+      prediction_audit_log: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          corrections: Json | null
+          created_at: string
+          engine_version: string
+          id: string
+          match_id: string
+          model_version: string | null
+          prediction_id: string | null
+          reason: string | null
+          severity: string
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          corrections?: Json | null
+          created_at?: string
+          engine_version: string
+          id?: string
+          match_id: string
+          model_version?: string | null
+          prediction_id?: string | null
+          reason?: string | null
+          severity?: string
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          corrections?: Json | null
+          created_at?: string
+          engine_version?: string
+          id?: string
+          match_id?: string
+          model_version?: string | null
+          prediction_id?: string | null
+          reason?: string | null
+          severity?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           activated_by: string | null
