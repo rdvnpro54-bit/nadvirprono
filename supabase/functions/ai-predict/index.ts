@@ -1623,7 +1623,24 @@ Deno.serve(async (req) => {
       const pred = predMap.get(m.fixture_id);
       if (!pred) continue;
 
-      if (!forceAll && m.pred_home_win != null && m.pred_away_win != null && m.pred_analysis) continue;
+      // Self-healing pass on already-locked predictions:
+      // if the stored score contradicts the stored winner, swap the score in place
+      // without overwriting the rest of the (locked) prediction.
+      if (!forceAll && m.pred_home_win != null && m.pred_away_win != null && m.pred_analysis) {
+        const lockedHomeWins = (m.pred_home_win || 0) > (m.pred_away_win || 0);
+        const lockedAwayWins = (m.pred_away_win || 0) > (m.pred_home_win || 0);
+        const sh = Number(m.pred_score_home) || 0;
+        const sa = Number(m.pred_score_away) || 0;
+        const mismatch = (lockedHomeWins && sh < sa) || (lockedAwayWins && sa < sh);
+        if (mismatch) {
+          await supabase
+            .from("cached_matches")
+            .update({ pred_score_home: sa, pred_score_away: sh })
+            .eq("fixture_id", m.fixture_id);
+          console.log(`[AI-PREDICT v4.0] 🔧 Self-heal score swap for ${m.home_team} vs ${m.away_team}`);
+        }
+        continue;
+      }
 
       const tier = getLeagueTier(m.league_name);
 
