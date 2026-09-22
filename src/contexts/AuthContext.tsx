@@ -181,11 +181,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSubscription(DEFAULT_SUB);
   };
 
-  const isPremium = subscription.subscribed;
+  // When the paywall is disabled, everyone gets full access.
+  // The real subscription state stays available through `subscription`.
+  const isPremium = !PAYWALL_ENABLED || subscription.subscribed;
   const isMonthlyPremium = subscription.subscribed && subscription.productId === STRIPE_PLANS.monthly.productId;
-  const isPremiumPlus = subscription.subscribed && (
+  const isPremiumPlus = !PAYWALL_ENABLED || (subscription.subscribed && (
     PREMIUM_PLUS_PRODUCT_IDS.includes(subscription.productId as any) || subscription.isAdmin
-  );
+  ));
   const isAdmin = subscription.isAdmin;
 
   return (
