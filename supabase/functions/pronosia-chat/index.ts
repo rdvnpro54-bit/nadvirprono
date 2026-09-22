@@ -705,11 +705,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Paywall flag — when disabled the chat is open to every signed-in user.
+    const paywallEnabled = (Deno.env.get("PAYWALL_ENABLED") ?? "false").toLowerCase() === "true";
+
     // Check premium + premium+ status
     const { data: sub } = await supabase.from("subscriptions").select("is_premium, plan, expires_at").eq("user_id", user.id).single();
     const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     const isAdmin = !!role;
-    const isPremium = isAdmin || (sub?.is_premium && (!sub.expires_at || new Date(sub.expires_at) > new Date()));
+    const isPremium = !paywallEnabled || isAdmin || (sub?.is_premium && (!sub.expires_at || new Date(sub.expires_at) > new Date()));
 
     if (!isPremium) {
       return new Response(JSON.stringify({ error: "Premium required" }), {
@@ -718,13 +721,13 @@ Deno.serve(async (req) => {
     }
 
     // Detect Premium+ tier
-    const isPremiumPlus = isAdmin || (sub?.plan && (
+    const isPremiumPlus = !paywallEnabled || isAdmin || (sub?.plan && (
       sub.plan.includes("premium_plus") || PREMIUM_PLUS_PRODUCTS.includes(sub.plan)
     ));
 
     // Also check Stripe for Premium+ product
     let isPremiumPlusStripe = false;
-    if (!isPremiumPlus && user.email) {
+    if (paywallEnabled && !isPremiumPlus && user.email) {
       try {
         const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
         if (stripeKey) {
