@@ -211,11 +211,15 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    let isPremium = false;
-    let isPremiumPlus = false;
+    // Paywall flag — when disabled, every visitor (even anonymous) gets
+    // the full payload. Set PAYWALL_ENABLED=true to restore restrictions.
+    const paywallEnabled = (Deno.env.get("PAYWALL_ENABLED") ?? "false").toLowerCase() === "true";
+
+    let isPremium = !paywallEnabled;
+    let isPremiumPlus = !paywallEnabled;
 
     const authHeader = req.headers.get("Authorization");
-    if (authHeader?.startsWith("Bearer ")) {
+    if (paywallEnabled && authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
       const authClient = createClient(supabaseUrl, serviceKey, {
         auth: { persistSession: false },
