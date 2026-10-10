@@ -428,6 +428,42 @@ export type Database = {
         }
         Relationships: []
       }
+      leagues: {
+        Row: {
+          actif: boolean
+          api_league_id: number
+          id: string
+          nom: string
+          pays: string
+          priorite: number
+          saison_courante: number | null
+          sport: string
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          api_league_id: number
+          id?: string
+          nom: string
+          pays: string
+          priorite?: number
+          saison_courante?: number | null
+          sport?: string
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          api_league_id?: number
+          id?: string
+          nom?: string
+          pays?: string
+          priorite?: number
+          saison_courante?: number | null
+          sport?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       match_results: {
         Row: {
           actual_away_score: number | null
@@ -533,6 +569,24 @@ export type Database = {
         }
         Relationships: []
       }
+      pronosia_config: {
+        Row: {
+          cle: string
+          updated_at: string
+          valeur: Json
+        }
+        Insert: {
+          cle: string
+          updated_at?: string
+          valeur: Json
+        }
+        Update: {
+          cle?: string
+          updated_at?: string
+          valeur?: Json
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           activated_by: string | null
@@ -566,6 +620,42 @@ export type Database = {
           plan?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      sync_logs: {
+        Row: {
+          credits_api_restants: number | null
+          debut: string
+          erreur: string | null
+          fin: string | null
+          id: string
+          job: string
+          nb_lignes: number
+          source: string
+          statut: string
+        }
+        Insert: {
+          credits_api_restants?: number | null
+          debut?: string
+          erreur?: string | null
+          fin?: string | null
+          id?: string
+          job: string
+          nb_lignes?: number
+          source: string
+          statut?: string
+        }
+        Update: {
+          credits_api_restants?: number | null
+          debut?: string
+          erreur?: string | null
+          fin?: string | null
+          id?: string
+          job?: string
+          nb_lignes?: number
+          source?: string
+          statut?: string
         }
         Relationships: []
       }
