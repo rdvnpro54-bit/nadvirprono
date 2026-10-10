@@ -7,12 +7,17 @@ const json = (b: unknown, status = 200) =>
 
 type ApiRes = { body: any; errors: unknown; results: number; remaining: number | null; limit: number | null };
 
+let viaRapid = false;
+const RAPID = "https://api-football-v1.p.rapidapi.com/v3";
 async function apiGet(path: string, key: string, tries = 3): Promise<ApiRes> {
   let last = "";
   for (let i = 0; i < tries; i++) {
-    const r = await fetch(API + path, { headers: { "x-apisports-key": key } });
+    const r = viaRapid
+      ? await fetch(RAPID + path, { headers: { "x-rapidapi-key": key, "x-rapidapi-host": "api-football-v1.p.rapidapi.com" } })
+      : await fetch(API + path, { headers: { "x-apisports-key": key } });
     if (r.ok) {
       const body = await r.json();
+      if (!viaRapid && body?.errors?.token) { viaRapid = true; i--; continue; }
       const n = (h: string) => (r.headers.get(h) ? Number(r.headers.get(h)) : null);
       return {
         body,
