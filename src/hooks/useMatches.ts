@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -313,6 +313,10 @@ function saveToLocalStorage(matches: MatchWithFlags[]) {
 }
 
 function getFallbackMatches(): MatchWithFlags[] {
+  // Honest empty state: never show test matches.
+  return [];
+}
+function _unusedFallback(): MatchWithFlags[] {
   return normalizeMatches(FALLBACK_MATCHES.map((match, index) => ({
     ...match,
     id: `fallback-${index + 1}`,
@@ -472,7 +476,9 @@ export function useMatches() {
 }
 
 export function useMatch(id: string) {
+  const qc = useQueryClient();
   return useQuery({
+    initialData: () => qc.getQueryData<MatchWithFlags[]>(["cached-matches"])?.find((m) => m.id === id),
     queryKey: ["cached-match", id],
     queryFn: async () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
