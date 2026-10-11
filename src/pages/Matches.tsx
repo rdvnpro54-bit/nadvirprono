@@ -1,656 +1,224 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, memo } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Search, Flame, TrendingUp, ShieldCheck, Radio, CalendarX2, RefreshCw } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
-import { MatchCard } from "@/components/matches/MatchCard";
-import { useMatches, useTriggerFetch, type CachedMatch } from "@/hooks/useMatches";
-import { TrendingUp, Search, Loader2, AlertCircle, Zap, Lock, Sparkles, Brain, Flame } from "lucide-react";
-import { FilteredMatchesSection } from "@/components/matches/FilteredMatchesSection";
-import { Elite5Section } from "@/components/matches/Elite5Section";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/contexts/AuthContext";
-import { CooldownTimer } from "@/components/matches/CooldownTimer";
-import { LiveUpdateBanner } from "@/components/home/LiveUpdateBanner";
-import { supabase } from "@/integrations/supabase/client";
+import { useMatches, type MatchWithFlags } from "@/hooks/useMatches";
+import { cn } from "@/lib/utils";
 
-const AI_LOADING_MESSAGES = [
-  "Analyse des données en cours...",
-  "Traitement IA...",
-  "Calcul des probabilités...",
-  "Synthèse des prédictions...",
-  "Évaluation des performances...",
+type Filter = "all" | "live" | "value" | "safe" | "top";
+const LIVE = ["1H", "2H", "HT", "ET", "BT", "P", "LIVE", "INPLAY"];
+
+const FILTERS: { id: Filter; label: string; icon: typeof Flame }[] = [
+  { id: "all", label: "Tous", icon: Flame },
+  { id: "live", label: "En direct", icon: Radio },
+  { id: "value", label: "Value Bet", icon: TrendingUp },
+  { id: "safe", label: "Confiance haute", icon: ShieldCheck },
+  { id: "top", label: "Top IA", icon: Flame },
 ];
 
-function RotatingLoader() {
-  const [msgIndex, setMsgIndex] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => setMsgIndex(i => (i + 1) % AI_LOADING_MESSAGES.length), 2500);
-    return () => clearInterval(interval);
-  }, []);
+const dayKey = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date(iso));
+
+function dayLabel(key: string) {
+  const today = dayKey(new Date().toISOString());
+  const tomorrow = dayKey(new Date(Date.now() + 86400000).toISOString());
+  if (key === today) return "Aujourd'hui";
+  if (key === tomorrow) return "Demain";
+  return new Date(key + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+}
+
+export function marketLabel(m: MatchWithFlags) {
+  if (m.pred_label) return m.pred_label;
+  const map: Record<string, string> = {
+    "1": `Victoire ${m.home_team}`, "2": `Victoire ${m.away_team}`, X: "Match nul",
+    "1X": `${m.home_team} ou nul`, X2: `${m.away_team} ou nul`, "12": "Pas de nul", NO_BET: "Pas de pari conseillé",
+  };
+  return map[m.pred_market] ?? "Pas de pari conseillé";
+}
+
+export const isLive = (m: MatchWithFlags) => LIVE.includes(m.status);
+
+function Team({ name, logo }: { name: string; logo: string | null }) {
   return (
-    <div className="flex items-center gap-2">
-      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={msgIndex}
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -5 }}
-          className="text-[10px] sm:text-xs text-muted-foreground"
-        >
-          {AI_LOADING_MESSAGES[msgIndex]}
-        </motion.span>
-      </AnimatePresence>
+    <div className="flex items-center gap-2 min-w-0">
+      {logo ? (
+        <img src={logo} alt="" loading="lazy" className="h-5 w-5 shrink-0 object-contain" />
+      ) : (
+        <div className="h-5 w-5 shrink-0 rounded-full bg-muted text-[9px] font-bold grid place-items-center text-muted-foreground">
+          {name.slice(0, 1)}
+        </div>
+      )}
+      <span className="truncate text-sm font-medium">{name}</span>
     </div>
   );
 }
 
-type Confidence = "SAFE" | "MODÉRÉ" | "RISQUÉ";
-type AiTier = "ELITE" | "STRONG" | "ALL";
+const MatchRow = memo(function MatchRow({ m }: { m: MatchWithFlags }) {
+  const live = isLive(m);
+  const time = new Date(m.kickoff).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+  const best = Math.max(Number(m.pred_home_win), Number(m.pred_draw), Number(m.pred_away_win));
+  return (
+    <Link
+      to={`/match/${m.id}`}
+      className="group block rounded-2xl border border-border/60 bg-card p-3 transition-all hover:border-primary/40 hover:shadow-md active:scale-[0.99]"
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-11 shrink-0 text-center">
+          {live ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-destructive">
+              <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" /> LIVE
+            </span>
+          ) : (
+            <span className="text-xs font-semibold tabular-nums text-muted-foreground">{time}</span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <Team name={m.home_team} logo={m.home_logo} />
+          <Team name={m.away_team} logo={m.away_logo} />
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{live ? "Score" : "Prédit"}</div>
+          <div className="font-display text-lg font-bold tabular-nums leading-tight">
+            {live ? `${m.home_score ?? 0}-${m.away_score ?? 0}` : `${m.pred_score_home}-${m.pred_score_away}`}
+          </div>
+        </div>
+      </div>
+      <div className="mt-2.5 flex items-center gap-2 border-t border-border/50 pt-2">
+        <span className="truncate rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+          {marketLabel(m)}
+        </span>
+        {m.pred_value_bet && (
+          <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">VALUE</span>
+        )}
+        <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">{Math.round(best)}%</span>
+      </div>
+    </Link>
+  );
+});
 
-const sportFilters = [
-  { value: "all", label: "Tous", emoji: "🏆" },
-  { value: "football", label: "Football", emoji: "⚽" },
-  { value: "tennis", label: "Tennis", emoji: "🎾" },
-  { value: "basketball", label: "Basket", emoji: "🏀" },
-  { value: "hockey", label: "Hockey", emoji: "🏒" },
-  { value: "baseball", label: "Baseball", emoji: "⚾" },
-  { value: "nfl", label: "NFL", emoji: "🏈" },
-  { value: "mma", label: "MMA", emoji: "🥊" },
-  { value: "f1", label: "F1", emoji: "🏎️" },
-  { value: "afl", label: "AFL", emoji: "🏉" },
-  { value: "rugby", label: "Rugby", emoji: "🏉" },
-];
-
-const confidenceFilters: { value: Confidence | "all"; label: string }[] = [
-  { value: "all", label: "Tous" },
-  { value: "SAFE", label: "SAFE" },
-  { value: "MODÉRÉ", label: "MODÉRÉ" },
-  { value: "RISQUÉ", label: "RISQUÉ" },
-];
-
-const aiTierFilters: { value: AiTier; label: string; icon: typeof Sparkles }[] = [
-  { value: "ELITE", label: "ELITE", icon: Sparkles },
-  { value: "STRONG", label: "STRONG", icon: Zap },
-  { value: "ALL", label: "Tous", icon: Brain },
-];
-
-const staggerContainer = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.04 } },
-};
-
-const staggerItem = {
-  hidden: { opacity: 0, y: 20, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: "easeOut" } },
-};
+function SkeletonList() {
+  return (
+    <div className="space-y-2.5">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-border/60 bg-card p-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-4 w-10" />
+            <div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/5" /><Skeleton className="h-4 w-1/2" /></div>
+            <Skeleton className="h-7 w-10" />
+          </div>
+          <Skeleton className="mt-3 h-4 w-32" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Matches() {
-  const { data: matches, isLoading, error, refetch, dataUpdatedAt } = useMatches();
-  const { data: triggerData } = useTriggerFetch();
-  const { isPremium, isPremiumPlus, isAdmin, user } = useAuth();
+  const { data, isLoading, refetch, isFetching } = useMatches();
+  const [filter, setFilter] = useState<Filter>("all");
+  const [q, setQ] = useState("");
+  const [day, setDay] = useState<string | null>(null);
 
-  const [sport, setSport] = useState("all");
-  const [confidence, setConfidence] = useState<Confidence | "all">("all");
-  const [aiTier, setAiTier] = useState<AiTier>("ALL");
-  const [valueBetsOnly, setValueBetsOnly] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [visibleCount, setVisibleCount] = useState(30);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const visible = useMemo(() => (data ?? []).filter((m) => !m.ai_hidden), [data]);
+  const days = useMemo(() => Array.from(new Set(visible.map((m) => dayKey(m.kickoff)))).sort(), [visible]);
+  const activeDay = day && days.includes(day) ? day : days[0];
 
-  const freePicksUsed = useMemo(() => {
-    if (!matches) return 0;
-    return matches.filter(m => m.is_free).length;
-  }, [matches]);
-  const freePicksLeft = Math.max(3 - freePicksUsed, 0);
-
-  const filtered = useMemo(() => {
-    if (!matches) return [];
-    return matches.filter(m => {
-      if (sport !== "all" && m.sport !== sport) return false;
-      if (confidence !== "all" && m.pred_confidence !== confidence) return false;
-      if (valueBetsOnly && !m.pred_value_bet) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        if (!m.home_team.toLowerCase().includes(q) &&
-          !m.away_team.toLowerCase().includes(q) &&
-          !m.league_name.toLowerCase().includes(q)) return false;
-      }
-      const score = m.ai_score || 0;
-      if (aiTier === "ELITE" && score < 80) return false;
-      if (aiTier === "STRONG" && (score >= 80 || score < 65)) return false;
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return visible.filter((m) => {
+      if (s) return `${m.home_team} ${m.away_team} ${m.league_name}`.toLowerCase().includes(s);
+      if (dayKey(m.kickoff) !== activeDay) return false;
+      if (filter === "live") return isLive(m);
+      if (filter === "value") return m.pred_value_bet;
+      if (filter === "safe") return m.pred_confidence === "SAFE" || m.pred_confidence === "ÉLEVÉ";
+      if (filter === "top") return (m.ai_score ?? 0) >= 80;
       return true;
     });
-  }, [matches, sport, confidence, valueBetsOnly, searchQuery, aiTier]);
+  }, [visible, q, filter, activeDay]);
 
-  // Auto-trigger AI for LOCKED matches
-  const triggerAIPredictions = useCallback(async () => {
-    if (!matches) return;
-    const lockedCount = matches.filter(m => m.pred_confidence === "LOCKED").length;
-    if (lockedCount === 0) return;
-    console.log(`[AI-TRIGGER] ${lockedCount} LOCKED matches, triggering ai-predict...`);
-    try {
-      await supabase.functions.invoke("ai-predict", { body: { batch: 10 } });
-      // Refetch matches after AI processes them
-      setTimeout(() => refetch(), 5000);
-    } catch (e) {
-      console.warn("[AI-TRIGGER] Failed:", e);
-    }
-  }, [matches, refetch]);
-
-  // Auto-trigger on load and retry every 60s
-  useEffect(() => {
-    triggerAIPredictions();
-    const interval = setInterval(triggerAIPredictions, 60_000);
-    return () => clearInterval(interval);
-  }, [triggerAIPredictions]);
-
-  const trendingMatches = useMemo(() => {
-    if (!filtered || filtered.length === 0) return [];
-    return filtered
-      .filter(m => (m.ai_score || 0) >= 80 && !["FT", "FINISHED"].includes(m.status.toUpperCase()))
-      .sort((a, b) => {
-        const aLive = new Date(a.kickoff).getTime() <= Date.now() ? 1 : 0;
-        const bLive = new Date(b.kickoff).getTime() <= Date.now() ? 1 : 0;
-        if (aLive !== bLive) return bLive - aLive;
-        if ((b.ai_score || 0) !== (a.ai_score || 0)) return (b.ai_score || 0) - (a.ai_score || 0);
-        return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
-      })
-      .slice(0, 4);
-  }, [filtered]);
-
-  // Reset visible count when filters change
-  useEffect(() => {
-    setVisibleCount(30);
-  }, [sport, confidence, aiTier, valueBetsOnly, searchQuery]);
-
-  // Intersection Observer for auto-load-more
-  useEffect(() => {
-    const el = loadMoreRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisibleCount(prev => prev + 30);
-        }
-      },
-      { rootMargin: "200px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [filtered.length]);
-
-  const grouped = useMemo(() => {
-    const now = Date.now();
-    const FINISHED_STATUSES = ["FT", "AET", "PEN", "AWD", "WO", "CANC", "ABD", "FINISHED", "COMPLETED", "ENDED"];
-    
-    const getStatus = (m: CachedMatch) => {
-      const statusUp = m.status.toUpperCase();
-      if (FINISHED_STATUSES.includes(statusUp)) return "finished";
-      if (m.home_score !== null && m.away_score !== null) return "finished";
-      const kickoff = new Date(m.kickoff).getTime();
-      if (now >= kickoff) return "live";
-      return "upcoming";
-    };
-
-    const sortedFiltered = [...filtered].sort((a, b) => {
-      const statusA = getStatus(a);
-      const statusB = getStatus(b);
-      const order: Record<string, number> = { live: 0, upcoming: 1, finished: 2 };
-      if (order[statusA] !== order[statusB]) return order[statusA] - order[statusB];
-      if (statusA === "finished") return new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime();
-      return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
-    });
-
-    // Progressive loading: only process first N matches
-    const limited = sortedFiltered.slice(0, visibleCount);
-
-    const groups: Record<string, CachedMatch[]> = {};
-    limited.forEach(m => {
-      const date = new Date(m.kickoff).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-      if (!groups[date]) groups[date] = [];
-      groups[date].push(m);
-    });
-    return groups;
-  }, [filtered, visibleCount]);
-
-  const hasMore = filtered.length > visibleCount;
-  const freeMatches = filtered.filter(m => m.is_free).sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0));
-
-  // Elite 5: top 5 highest-confidence matches tagged by server (Premium+ only)
-  const elite5Matches = useMemo(() => {
-    if (!isPremiumPlus && !isAdmin) return [];
-    if (!matches) return [];
-    return matches
-      .filter(m => m.is_elite5 === true)
-      .sort((a, b) => (b.ai_score || 0) - (a.ai_score || 0))
-      .slice(0, 5);
-  }, [matches, isPremiumPlus, isAdmin]);
+  const byLeague = useMemo(() => {
+    const g = new Map<string, MatchWithFlags[]>();
+    for (const m of list) g.set(m.league_name, [...(g.get(m.league_name) ?? []), m]);
+    return Array.from(g.entries());
+  }, [list]);
 
   return (
-    <div className="min-h-screen pb-20 overflow-x-hidden">
+    <div className="min-h-screen pb-28 md:pb-10">
       <Navbar />
-      <div className="container pt-20 pb-16 overflow-x-hidden px-3 sm:px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="font-display text-xl sm:text-2xl font-bold">
-                Analyse <span className="gradient-text">IA</span>
-              </h1>
-              <motion.p
-                className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-              >
-                {filtered.length} matchs affichés
-                {sport !== "all" && ` • ${sportFilters.find(f => f.value === sport)?.label || sport}`}
-                {sport === "all" && " • Tous les sports"}
-              </motion.p>
-            </div>
-            <CooldownTimer lastUpdate={dataUpdatedAt} intervalMs={3 * 60 * 1000} />
+      <main className="container max-w-3xl pt-[calc(4.5rem+env(safe-area-inset-top))]">
+        <div className="flex items-end justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight">Pronostics</h1>
+            <p className="text-xs text-muted-foreground">
+              {isLoading ? "Chargement…" : `${visible.length} matchs analysés par l'IA`}
+            </p>
           </div>
-        </motion.div>
+          <button onClick={() => refetch()} aria-label="Actualiser" className="rounded-full p-2 text-muted-foreground hover:bg-muted">
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+          </button>
+        </div>
 
-        {/* v3.1: Streak Severity Banner */}
-        {(() => {
-          const streakData = (window as any).__pronosia_streak;
-          if (!streakData?.streakMode) return null;
-          const level = streakData.level || "streak";
-          const winrate = streakData.rollingWinrate ?? 0;
-          const lastResults = streakData.lastResults || [];
-
-          const config: Record<string, { emoji: string; title: string; desc: string; border: string; bg: string; titleColor: string }> = {
-            caution: {
-              emoji: "🟡", title: "Mode Prudence — Sélection renforcée",
-              desc: `Max 3 picks/jour • Confiance min 70%`,
-              border: "border-yellow-500/30", bg: "bg-yellow-500/10", titleColor: "text-yellow-600",
-            },
-            streak: {
-              emoji: "🔴", title: "Mode Protection — Picks ultra-sélectifs",
-              desc: `Max 2 picks/jour • Double Chance et Under uniquement`,
-              border: "border-destructive/30", bg: "bg-destructive/10", titleColor: "text-destructive",
-            },
-            emergency: {
-              emoji: "⚫", title: "Mode Urgence — 1 seul pick élite",
-              desc: `Ligues Tier 1 uniquement • Double Chance obligatoire`,
-              border: "border-foreground/30", bg: "bg-foreground/10", titleColor: "text-foreground",
-            },
-          };
-          const c = config[level] || config.streak;
-
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`mt-3 rounded-xl border ${c.border} ${c.bg} p-3`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-base">{c.emoji}</span>
-                <p className={`text-xs font-bold ${c.titleColor}`}>{c.title}</p>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                Winrate récent : {winrate}% • {c.desc}
-              </p>
-              {lastResults.length > 0 && (
-                <div className="flex items-center gap-1 mt-1.5">
-                  <span className="text-[9px] text-muted-foreground">Derniers :</span>
-                  {lastResults.map((r: string, i: number) => (
-                    <span key={i} className={`text-[10px] font-bold ${r === "win" ? "text-green-500" : "text-destructive"}`}>
-                      {r === "win" ? "✅" : "❌"}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          );
-        })()}
-
-        {/* Premium banner */}
-        {!isPremium && !isLoading && (
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
-            className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4 flex items-center gap-3"
-          >
-            <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-              <Lock className="h-5 w-5 text-primary shrink-0" />
-            </motion.div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] sm:text-sm font-semibold text-foreground">
-                🔓 Accès limité — Passe Premium pour toutes les prédictions
-              </p>
-              <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
-                ⚡ Seulement {freePicksLeft > 0 ? freePicksLeft : "0"} pronostic{freePicksLeft !== 1 ? "s" : ""} gratuit{freePicksLeft !== 1 ? "s" : ""} restant{freePicksLeft !== 1 ? "s" : ""} aujourd'hui
-              </p>
-            </div>
-            <Link to="/pricing">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button size="sm" className="shrink-0 text-[10px] sm:text-xs gap-1 btn-shimmer">
-                  <Zap className="h-3 w-3" /> Premium
-                </Button>
-              </motion.div>
-            </Link>
-          </motion.div>
-        )}
-
-        <motion.div
-          className="mt-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          <LiveUpdateBanner lastUpdate={dataUpdatedAt} matchCount={matches?.length || 0} />
-        </motion.div>
-
-        {/* Elite 5 — Premium+ & Admin only */}
-        {!isLoading && !error && elite5Matches.length > 0 && (
-          <Elite5Section matches={elite5Matches} />
-        )}
-
-        {/* Search */}
-        <motion.div
-          className="mt-3 sm:mt-4 relative"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-        >
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher équipe, compétition..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9 bg-[rgba(255,255,255,0.03)] border-[rgba(255,215,0,0.1)] h-8 sm:h-9 text-xs sm:text-sm rounded-xl backdrop-blur-lg focus:border-primary/30"
+        <div className="relative mt-4">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Équipe, ligue…"
+            className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-base outline-none focus:border-primary"
           />
-        </motion.div>
+        </div>
 
-        {/* Filters */}
-        <motion.div
-          className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <div className="flex gap-0.5 rounded-xl border border-primary/15 bg-primary/[0.04] p-0.5 backdrop-blur-lg">
-            {aiTierFilters.map(f => {
-              const Icon = f.icon;
-              const isActive = aiTier === f.value;
-              return (
-                <motion.button
-                  key={f.value}
-                  onClick={() => setAiTier(f.value)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={cn(
-                    "rounded-lg px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold transition-all flex items-center gap-1",
-                    isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="h-3 w-3" /> {f.label}
-                </motion.button>
-              );
-            })}
-          </div>
-          <div className="flex gap-0.5 rounded-xl border border-[rgba(255,215,0,0.08)] bg-[rgba(255,255,255,0.02)] p-0.5 overflow-x-auto max-w-full backdrop-blur-lg">
-            {sportFilters.map(f => {
-              const count = f.value === "all" ? (matches?.length || 0) : (matches?.filter(m => m.sport === f.value).length || 0);
-              const isActive = sport === f.value;
-              return (
-                <motion.button
-                  key={f.value}
-                  onClick={() => setSport(f.value)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={cn(
-                    "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-all whitespace-nowrap relative",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {f.emoji} {f.label}
-                  {count > 0 && isActive && (
-                    <span className="ml-0.5 text-[8px] opacity-70">({count})</span>
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-          <div className="flex gap-0.5 rounded-xl border border-[rgba(255,215,0,0.08)] bg-[rgba(255,255,255,0.02)] p-0.5 backdrop-blur-lg">
-            {confidenceFilters.map(f => (
-              <motion.button
-                key={f.value}
-                onClick={() => setConfidence(f.value)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={cn(
-                  "rounded-md px-1.5 sm:px-2 py-1 text-[10px] sm:text-[11px] font-medium transition-colors",
-                  confidence === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {f.label}
-              </motion.button>
+        {days.length > 0 && !q && (
+          <div className="no-scrollbar mt-3 flex gap-1.5 overflow-x-auto">
+            {days.map((d) => (
+              <button key={d} onClick={() => setDay(d)}
+                className={cn("shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors capitalize",
+                  d === activeDay ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground")}>
+                {dayLabel(d)}
+              </button>
             ))}
           </div>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button
-              variant={valueBetsOnly ? "default" : "outline"}
-              size="sm"
-              onClick={() => setValueBetsOnly(!valueBetsOnly)}
-              className="gap-1 text-[10px] sm:text-[11px] h-7"
-            >
-              <TrendingUp className="h-3 w-3" /> Value
-            </Button>
-          </motion.div>
-        </motion.div>
+        )}
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="mt-6 space-y-3">
-            <RotatingLoader />
-            <div className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0.3, 0.7, 0.3] }}
-                  transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.15 }}
-                >
-                  <Skeleton className="h-32 rounded-xl" />
-                </motion.div>
+        {!q && (
+          <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-1">
+            {FILTERS.map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => setFilter(id)}
+                className={cn("flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  filter === id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+                <Icon className="h-3 w-3" /> {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4">
+          {isLoading ? (
+            <SkeletonList />
+          ) : visible.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+              <CalendarX2 className="mx-auto h-8 w-8 text-muted-foreground" />
+              <p className="mt-3 font-semibold">Aucun match disponible</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aucun match réel n'a pu être chargé pour l'instant. Nous n'affichons jamais de matchs inventés.
+              </p>
+            </div>
+          ) : list.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">Aucun match pour ce filtre.</p>
+          ) : (
+            <div className="space-y-5">
+              {byLeague.map(([league, ms], gi) => (
+                <motion.section key={league} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(gi * 0.03, 0.3) }}>
+                  <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{league}</h2>
+                  <div className="space-y-2">{ms.map((m) => <MatchRow key={m.id} m={m} />)}</div>
+                </motion.section>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && !isLoading && (
-          <motion.div
-            className="mt-8 glass-card p-6 text-center"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-          >
-            <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ duration: 0.5 }}>
-              <AlertCircle className="mx-auto h-8 w-8 text-destructive mb-2" />
-            </motion.div>
-            <p className="text-xs sm:text-sm font-medium">Données temporairement indisponibles</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>Réessayer</Button>
-          </motion.div>
-        )}
-
-        {/* Top 3 free */}
-        {!isLoading && !error && freeMatches.length > 0 && !isPremium && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mt-5 sm:mt-6"
-          >
-            <motion.h2
-              className="font-display text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-1.5"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.15 }}
-            >
-              <motion.span animate={{ rotate: [0, 360] }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }}>
-                <Sparkles className="h-4 w-4 text-amber-400" />
-              </motion.span>
-              Top 3 Gratuits — Meilleur AI Score
-            </motion.h2>
-            <motion.div
-              className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3"
-              variants={staggerContainer}
-              initial="hidden"
-              animate="show"
-            >
-              {freeMatches.slice(0, 3).map((match, i) => (
-                <motion.div key={match.id} variants={staggerItem}>
-                  <MatchCard match={match} index={i} />
-                </motion.div>
-              ))}
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* 🔥 Trending */}
-        {!isLoading && !error && trendingMatches.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mt-5 sm:mt-6"
-          >
-            <motion.h2
-              className="font-display text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-1.5"
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.25 }}
-            >
-              <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                <Flame className="h-4 w-4 text-destructive" />
-              </motion.span>
-              Trending — Matchs les plus suivis
-            </motion.h2>
-            <motion.div
-              className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4"
-              variants={staggerContainer}
-              initial="hidden"
-              animate="show"
-            >
-              {trendingMatches.map((match, i) => {
-                const isLocked = !isPremium && !isAdmin && !match.is_free && !(match as any).is_top_pick;
-                return (
-                  <motion.div key={match.id} variants={staggerItem}>
-                    <MatchCard match={match} locked={isLocked} index={i} />
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* Grouped matches */}
-        <AnimatePresence mode="wait">
-          {!isLoading && !error && Object.entries(grouped).map(([date, dateMatches], gi) => (
-            <motion.div
-              key={date}
-              className="mt-5 sm:mt-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + gi * 0.05 }}
-            >
-              <motion.h3
-                className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 sm:mb-3 capitalize"
-                initial={{ x: -15, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.15 + gi * 0.05 }}
-              >
-                {date}
-              </motion.h3>
-              <motion.div
-                className="grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                variants={staggerContainer}
-                initial="hidden"
-                animate="show"
-              >
-                {dateMatches.map((match, i) => {
-                  const isLocked = !isPremium && !isAdmin && !match.is_free && !(match as any).is_top_pick;
-                  return (
-                    <motion.div key={match.id} variants={staggerItem}>
-                      <MatchCard match={match} locked={isLocked} index={i} />
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {/* Load more trigger */}
-        {!isLoading && !error && hasMore && (
-          <div ref={loadMoreRef} className="mt-4 text-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setVisibleCount(prev => prev + 30)}
-              className="gap-2 text-xs border-border/40 hover:border-primary/30"
-            >
-              Charger plus de matchs ({filtered.length - visibleCount} restants)
-            </Button>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!isLoading && !error && filtered.length === 0 && (
-          <motion.div
-            className="mt-10 sm:mt-12 text-center glass-card p-6 sm:p-8 max-w-sm mx-auto"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring" }}
-          >
-            <motion.div
-              className="text-3xl mb-3"
-              animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              ⏳
-            </motion.div>
-            <p className="text-xs sm:text-sm font-semibold">Analyse en cours…</p>
-            <p className="mt-1 text-[10px] sm:text-xs text-muted-foreground">
-              Notre IA scanne les prochains matchs du jour.
-            </p>
-            <motion.p
-              className="mt-3 text-[9px] sm:text-[10px] text-muted-foreground"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              🟢 Mise à jour automatique toutes les 5 minutes
-            </motion.p>
-          </motion.div>
-        )}
-
-        {/* v2.0: Filtered matches transparency */}
-        {!isLoading && !error && (
-          <FilteredMatchesSection allMatches={matches} displayedCount={filtered.length} />
-        )}
-
-        <motion.p
-          className="mt-6 text-[9px] text-muted-foreground/50 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          ⚠️ Les prédictions IA sont probabilistes, jamais garanties.
-        </motion.p>
-      </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
